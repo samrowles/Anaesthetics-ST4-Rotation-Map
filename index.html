@@ -7,7 +7,10 @@
   <meta name="description" content="Interactive map of UK ST4 Anaesthetics training rotations with dual-commute living analysis for doctors and partners.">
   <meta name="theme-color" content="#0284c7">
 
+  <!-- Favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🩺</text></svg>">
+
+  <!-- OpenGraph Metadata -->
   <meta property="og:title" content="ST4 Anaesthetics Rotation &amp; Commute Explorer">
   <meta property="og:description" content="Explore UK ST4 Anaesthetics rotations, commute radii, hospital bases, and living hubs.">
   <meta property="og:type" content="website">
@@ -192,6 +195,7 @@
 
     #map { flex-grow: 1; height: 100%; width: 100%; }
 
+    /* Map Markers */
     .numbered-pin { 
       background: #0284c7; 
       color: #ffffff; 
@@ -350,9 +354,9 @@
   <div id="controls">
     <!-- Top View Switcher -->
     <div class="view-toggle">
-      <button class="view-btn active" id="btnModeAll" onclick="setViewMode('all')">🌐 All UK Overview Map</button>
-      <button class="view-btn" id="btnModeList" onclick="setViewMode('list')">📋 Rotations List (<span id="listCountBadge">76</span>)</button>
-      <button class="view-btn" id="btnModeDetails" onclick="setViewMode('details')">🔍 Details &amp; Route</button>
+      <button class="view-btn active" id="btnModeAll" onclick="setViewMode('all')">🌐 Overview</button>
+      <button class="view-btn" id="btnModeList" onclick="setViewMode('list')">📋 List (<span id="listCountBadge">76</span>)</button>
+      <button class="view-btn" id="btnModeDetails" onclick="setViewMode('details')">🔍 Details</button>
     </div>
 
     <!-- Filter 1: Region Dropdown (Top) -->
@@ -496,7 +500,6 @@
           <button class="btn-top btn-export" onclick="setViewMode('list')" style="font-size:0.78rem; padding:6px 12px;">📋 Browse Rotations List &rarr;</button>
         </div>
       </div>
-      <div id="overviewCardsPreview"></div>
     </div>
   </div>
 </div>
@@ -663,7 +666,6 @@ const HOSPITALS = {
   "Royal Victoria Infirmary, Newcastle": { coords: [54.9782, -1.6232], region: "North East" }
 };
 
-// Region Colors for Overview Pins
 const REGION_COLORS = {
   "East of England": "#ea580c",
   "East Midlands": "#16a34a",
@@ -681,7 +683,7 @@ const REGION_COLORS = {
   "North East": "#6366f1"
 };
 
-// 2. MASTER ROTATIONS DATA (All 76 active rotations)
+// 2. MASTER ROTATIONS DATA (76 valid non-zero rotations)
 const ROTATIONS_DATA = [
   // ==================== WESSEX ====================
   {
@@ -1727,7 +1729,7 @@ function calcDistanceMiles(c1, c2) {
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 }
 
-// 4. MAP SETUP
+// 4. MAP SETUP (100% Free OpenStreetMap - Zero API Keys Needed)
 const map = L.map('map', { zoomControl: true }).setView([53.2, -1.8], 6);
 
 const osmStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1875,6 +1877,7 @@ function renderRotationCardsFeed(list) {
 }
 
 function openDetailsForRotation(id) {
+  prefSelect.value = id;
   selectRotation(id, false);
   setViewMode('details');
 }
@@ -2202,7 +2205,7 @@ function selectRotation(id, shouldCloseMobile = false) {
   }
 }
 
-// 7. ALL UK PLACEMENTS VIEW (National Overview Map with Dive-In Popups)
+// 7. ALL UK PLACEMENTS VIEW (National Overview Map with Regional Zoom Sync)
 function renderAllPlacements() {
   activeRouteGroup.clearLayers();
   backgroundHospitalsGroup.clearLayers();
@@ -2214,6 +2217,13 @@ function renderAllPlacements() {
   const allPoints = [];
   Object.keys(HOSPITALS).forEach(hName => {
     const h = HOSPITALS[hName];
+
+    // If a region filter is active, only show hospitals in that region
+    if (activeRegionFilter !== "ALL" && h.region !== activeRegionFilter) {
+      const linkedInRegion = ROTATIONS_DATA.filter(r => r.region === activeRegionFilter && r.stages.some(s => s.hosp === hName));
+      if (!linkedInRegion.length) return;
+    }
+
     allPoints.push(h.coords);
 
     const linkedRotations = ROTATIONS_DATA.filter(r => r.stages.some(s => s.hosp === hName));
@@ -2246,7 +2256,13 @@ function renderAllPlacements() {
     backgroundHospitalsGroup.addLayer(m);
   });
 
-  map.setView([52.8, -1.8], 6);
+  if (allPoints.length > 0) {
+    if (activeRegionFilter === "ALL") {
+      map.setView([52.8, -1.8], 6);
+    } else {
+      map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50], maxZoom: 10 });
+    }
+  }
 
   if (window.innerWidth <= 768) {
     toggleMobileSidebar(false);
@@ -2255,6 +2271,7 @@ function renderAllPlacements() {
 
 function diveInFromPopup(id) {
   map.closePopup();
+  prefSelect.value = id;
   selectRotation(id, false);
   setViewMode('details');
   showToast("Loaded rotation details & route");
@@ -2277,6 +2294,9 @@ function setQuickFilter(filterType) {
 function filterRegion(reg) {
   activeRegionFilter = reg;
   applyFiltersAndSearch();
+  if (currentViewMode === 'all') {
+    renderAllPlacements();
+  }
 }
 
 function handleSearch(term) {
@@ -2320,7 +2340,7 @@ function applyFiltersAndSearch() {
   if (currentSortMode === 'SPREAD_ASC') {
     list.sort((a, b) => getRotationMaxDistance(a) - getRotationMaxDistance(b));
   } else if (currentSortMode === 'PLACES_DESC') {
-    list.sort((a, b) => parseInt(b.places) - parseInt(a.places));
+    list.sort((a, b) => (parseInt(b.places, 10) || 0) - (parseInt(a.places, 10) || 0));
   } else if (currentSortMode === 'RATING_DESC') {
     list.sort((a, b) => getUserData(b.id).rating - getUserData(a.id).rating);
   }
@@ -2338,7 +2358,6 @@ function applyFiltersAndSearch() {
     }
   } else {
     activeRouteGroup.clearLayers();
-    backgroundHospitalsGroup.clearLayers();
     document.getElementById('inspectorCard').style.display = 'none';
   }
 }
@@ -2547,7 +2566,7 @@ window.onload = () => {
     selectRotation(hashId, false);
     setViewMode('details');
   } else {
-    // Defaults directly to the National Overview Map on load
+    // Defaults to the National Overview Map on initial load
     setViewMode('all');
   }
 
