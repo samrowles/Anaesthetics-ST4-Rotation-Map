@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -65,6 +64,11 @@
     select, input, textarea { width: 100%; padding: 8px 10px; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; transition: border-color 0.15s; }
     select:focus, input:focus, textarea:focus { border-color: var(--primary); }
 
+    /* View Switcher */
+    .view-toggle { display: flex; background: var(--slate-100); border-radius: 6px; padding: 2px; }
+    .view-btn { flex: 1; padding: 6px; font-size: 0.75rem; font-weight: 700; text-align: center; border: none; background: transparent; cursor: pointer; border-radius: 4px; color: var(--slate-600); }
+    .view-btn.active { background: #fff; color: var(--slate-900); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
     /* Dual Commute Switcher (Driver vs Transit) */
     .mode-toggle-group { display: flex; flex-direction: column; gap: 5px; }
     .mode-label { font-size: 0.7rem; font-weight: 800; color: var(--slate-600); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -77,10 +81,6 @@
     .nav-stepper { display: flex; gap: 4px; }
     .btn-step { background: var(--slate-100); border: 1px solid var(--slate-200); color: var(--slate-700); padding: 7px 11px; border-radius: 6px; font-size: 0.8rem; font-weight: 800; cursor: pointer; white-space: nowrap; }
     .btn-step:hover { background: var(--slate-200); }
-
-    .view-toggle { display: flex; background: var(--slate-100); border-radius: 6px; padding: 2px; }
-    .view-btn { flex: 1; padding: 6px; font-size: 0.75rem; font-weight: 700; text-align: center; border: none; background: transparent; cursor: pointer; border-radius: 4px; color: var(--slate-600); }
-    .view-btn.active { background: #fff; color: var(--slate-900); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
     .filter-pills { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px; }
     .filter-pill-btn { border: 1px solid var(--slate-200); background: var(--slate-50); padding: 4px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; color: var(--slate-600); cursor: pointer; white-space: nowrap; }
@@ -152,14 +152,69 @@
     /* Map Layout */
     #map { flex-grow: 1; height: 100%; width: 100%; }
 
-    /* Custom Pins */
-    .numbered-pin { background: #0284c7; color: white; font-weight: 800; font-size: 11px; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 3px 6px rgba(0,0,0,0.3); }
-    .home-pin-driver { background: #16a34a; color: #fff; font-size: 14px; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 2.5px solid white; box-shadow: 0 3px 8px rgba(0,0,0,0.4); }
-    .home-pin-transit { background: #7c3aed; color: #fff; font-size: 14px; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 2.5px solid white; box-shadow: 0 3px 8px rgba(0,0,0,0.4); }
-    
-    /* Background & All-Base Pins */
-    .all-site-pin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-    .bg-site-pin { width: 9px; height: 9px; border-radius: 50%; background: #94a3b8; border: 1.5px solid #ffffff; opacity: 0.65; }
+    /* Custom Pins with Explicit Dimension Overrides */
+    .numbered-pin { 
+      background: #0284c7; 
+      color: #ffffff; 
+      font-weight: 800; 
+      font-size: 12px; 
+      border-radius: 50%; 
+      width: 28px !important; 
+      height: 28px !important; 
+      display: flex !important; 
+      align-items: center !important; 
+      justify-content: center !important; 
+      border: 2px solid #ffffff; 
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35); 
+      cursor: pointer; 
+    }
+    .home-pin-driver { 
+      background: #16a34a; 
+      color: #ffffff; 
+      font-size: 15px; 
+      border-radius: 50%; 
+      width: 34px !important; 
+      height: 34px !important; 
+      display: flex !important; 
+      align-items: center !important; 
+      justify-content: center !important; 
+      border: 2.5px solid #ffffff; 
+      box-shadow: 0 3px 10px rgba(0,0,0,0.4); 
+      cursor: pointer; 
+    }
+    .home-pin-transit { 
+      background: #7c3aed; 
+      color: #ffffff; 
+      font-size: 15px; 
+      border-radius: 50%; 
+      width: 34px !important; 
+      height: 34px !important; 
+      display: flex !important; 
+      align-items: center !important; 
+      justify-content: center !important; 
+      border: 2.5px solid #ffffff; 
+      box-shadow: 0 3px 10px rgba(0,0,0,0.4); 
+      cursor: pointer; 
+    }
+    .all-site-pin { 
+      width: 16px !important; 
+      height: 16px !important; 
+      border-radius: 50%; 
+      background: #0284c7; 
+      border: 2px solid #ffffff; 
+      box-shadow: 0 2px 6px rgba(0,0,0,0.35); 
+      cursor: pointer; 
+    }
+    .bg-site-pin { 
+      width: 10px !important; 
+      height: 10px !important; 
+      border-radius: 50%; 
+      background: #64748b; 
+      border: 1.5px solid #ffffff; 
+      opacity: 0.65; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2); 
+      cursor: pointer; 
+    }
 
     /* Mobile Sheet & Controls */
     .btn-mobile-nav { display: none; }
@@ -306,8 +361,9 @@
 
         <!-- Dynamic Living Hub Card -->
         <div class="hub-box driver-theme" id="hubBox">
-          <div class="hub-title" id="hubTitleText">
-            <span>🏡 Suggested Base: <span id="hubTownName">Town</span></span>
+          <div class="hub-title">
+            <span id="hubTitlePrefix">🏡 Suggested Base (🚗 Driver):</span>
+            <span id="hubTownName" style="margin-left: 4px; font-weight:800;">Town</span>
             <a id="hubDirectionsLink" href="#" target="_blank" class="hub-directions-link">Google Maps ↗</a>
           </div>
           <div class="hub-content" id="hubDescription">Hub travel details...</div>
@@ -521,7 +577,7 @@ const HOSPITALS = {
   "Royal Victoria Infirmary, Newcastle": { coords: [54.9782, -1.6232], region: "North East" }
 };
 
-// 2. COMPLETE ROTATIONS DATA (Every single post from the CSV)
+// 2. COMPLETE ROTATIONS DATA
 const ROTATIONS_DATA = [
   // ==================== EAST OF ENGLAND ====================
   {
@@ -1055,7 +1111,10 @@ const baseLayers = {
 };
 L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
 
-let currentLayers = [];
+// Robust Leaflet LayerGroups to prevent orphan layers or clearing failures
+const activeRouteGroup = L.layerGroup().addTo(map);
+const backgroundHospitalsGroup = L.layerGroup().addTo(map);
+
 let currentSelectedId = null;
 let currentCommuteMode = 'driver'; // 'driver' or 'transit'
 let currentViewMode = 'rotation'; // 'rotation' or 'all'
@@ -1064,10 +1123,8 @@ let activeRegionFilter = 'ALL';
 let currentSearchTerm = '';
 let currentFilteredList = [...ROTATIONS_DATA];
 
-// Shortlist custom order stored in localStorage
 let shortlistOrder = JSON.parse(localStorage.getItem('anaesth_shortlist_order') || '[]');
 
-// Toast notification helper
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -1137,7 +1194,7 @@ function setRating(val) {
   document.getElementById('ratingText').textContent = `(${val} / 5 Stars)`;
 }
 
-// View Mode Switcher (Rotation Mode vs All UK Placements)
+// View Mode Switcher
 function setViewMode(mode) {
   currentViewMode = mode;
   document.getElementById('btnModeRotation').classList.toggle('active', mode === 'rotation');
@@ -1176,7 +1233,7 @@ function stepRotation(direction) {
   selectRotation(nextId, false);
 }
 
-// Focus on a specific hospital base on the map
+// Focus directly on a hospital base on the map
 function focusHospitalBase(hospName) {
   const h = HOSPITALS[hospName];
   if (h) {
@@ -1193,7 +1250,8 @@ function selectRotation(id, shouldCloseMobile = true) {
   if (!id) {
     document.getElementById('inspectorCard').style.display = 'none';
     document.getElementById('welcomeMessage').style.display = 'block';
-    clearLayers();
+    activeRouteGroup.clearLayers();
+    backgroundHospitalsGroup.clearLayers();
     return;
   }
 
@@ -1209,29 +1267,34 @@ function selectRotation(id, shouldCloseMobile = true) {
   const rot = ROTATIONS_DATA.find(r => r.id === id);
   if (!rot) return;
 
-  clearLayers();
+  // Clear previous layers
+  activeRouteGroup.clearLayers();
+  backgroundHospitalsGroup.clearLayers();
 
   // Populate Header
   document.getElementById('cardCode').textContent = rot.code;
   document.getElementById('cardPlaces').textContent = `Places: ${rot.places}`;
   document.getElementById('cardTitle').textContent = rot.title;
 
-  // Populate Dynamic Living Hub (Driver vs Transit)
+  // Populate Dynamic Living Hub (Fixed so DOM elements are never deleted)
   const activeHub = rot.hubs[currentCommuteMode];
   const hubBox = document.getElementById('hubBox');
-  const hubTitleText = document.getElementById('hubTitleText');
   const alertBox = document.getElementById('hubAlertBox');
 
   if (currentCommuteMode === 'driver') {
     hubBox.className = "hub-box driver-theme";
-    hubTitleText.innerHTML = `<span>🏡 Suggested Base (🚗 Driver): <span id="hubTownName">${activeHub.name}</span></span>`;
+    document.getElementById('hubTitlePrefix').textContent = "🏡 Suggested Base (🚗 Driver):";
   } else {
     hubBox.className = "hub-box transit-theme";
-    hubTitleText.innerHTML = `<span>🏡 Suggested Base (🚆 Transit Only): <span id="hubTownName">${activeHub.name}</span></span>`;
+    document.getElementById('hubTitlePrefix').textContent = "🏡 Suggested Base (🚆 Transit Only):";
   }
 
+  document.getElementById('hubTownName').textContent = activeHub.name;
+
   const gmapsLink = document.getElementById('hubDirectionsLink');
-  gmapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeHub.name + ', UK')}`;
+  if (gmapsLink) {
+    gmapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeHub.name + ', UK')}`;
+  }
 
   document.getElementById('hubDescription').textContent = activeHub.desc;
   
@@ -1259,13 +1322,13 @@ function selectRotation(id, shouldCloseMobile = true) {
       <div class="hospital-chip-name">🏥 ${hName}</div>
       <div style="display:flex; gap:4px;">
         <button class="hospital-chip-btn" onclick="focusHospitalBase('${hName}')">📍 Focus</button>
-        <a class="hospital-chip-btn" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hName + ', UK')}" target="_blank">Map ↗</a>
+        <a class="hospital-chip-btn" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hName + ', UK')}" target="_blank">Maps ↗</a>
       </div>
     `;
     hospitalsListContainer.appendChild(chip);
   });
 
-  // Render Timeline
+  // Render Timeline Stepper
   const timeline = document.getElementById('timelineContainer');
   timeline.innerHTML = "";
   const hospitalCoords = [];
@@ -1279,7 +1342,7 @@ function selectRotation(id, shouldCloseMobile = true) {
         <div class="timeline-stage">${stg.stage}</div>
         <div class="timeline-hosp">
           <span>${stg.hosp}</span>
-          <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stg.hosp + ', UK')}" target="_blank" title="Open in Google Maps">Map ↗</a>
+          <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stg.hosp + ', UK')}" target="_blank" style="color:var(--primary); font-size:0.7rem; text-decoration:none;">Map ↗</a>
         </div>
         <div class="timeline-desc">${stg.desc}</div>
       </div>
@@ -1290,7 +1353,7 @@ function selectRotation(id, shouldCloseMobile = true) {
     if (hData) hospitalCoords.push(hData.coords);
   });
 
-  // Calculate Max Pairwise Spread
+  // Calculate Max Pairwise Distance
   let maxDist = 0;
   for (let i = 0; i < hospitalCoords.length; i++) {
     for (let j = i + 1; j < hospitalCoords.length; j++) {
@@ -1302,7 +1365,7 @@ function selectRotation(id, shouldCloseMobile = true) {
   document.getElementById('metricSites').textContent = uniqueHospBases.length;
   document.getElementById('metricDistance').textContent = `${maxDist} mi`;
 
-  // Commute Spread Badge Rating (Traffic Light System)
+  // Traffic Light Commute Spread Badge
   const spreadBadge = document.getElementById('cardSpreadBadge');
   spreadBadge.textContent = `Max: ${maxDist} mi`;
   if (maxDist <= 25) {
@@ -1316,32 +1379,31 @@ function selectRotation(id, shouldCloseMobile = true) {
     spreadBadge.textContent = `🔴 High Spread: ${maxDist} mi`;
   }
 
-  // Update Mobile Mini Card
+  // Mobile Bottom Card Update
   const modeEmoji = currentCommuteMode === 'driver' ? '🚗' : '🚆';
   document.getElementById('miniCardTitle').textContent = `${rot.title} (${rot.code})`;
   document.getElementById('miniCardSpread').textContent = `${maxDist} mi`;
   document.getElementById('miniCardSpread').className = maxDist <= 25 ? 'badge badge-spread-low' : (maxDist <= 45 ? 'badge badge-spread-med' : 'badge badge-spread-high');
   document.getElementById('miniCardHub').innerHTML = `<span>${modeEmoji} <b>${activeHub.name}</b> (${uniqueHospBases.length} Bases)</span> <span style="font-weight:700; color:var(--primary);">Details &rarr;</span>`;
 
-  // Plot Background Markers for ALL other UK hospital bases (Subtle context)
+  // Plot Subtle Background Markers for other UK hospital bases (Regional Context)
   Object.keys(HOSPITALS).forEach(hName => {
     if (!uniqueHospBases.includes(hName)) {
       const h = HOSPITALS[hName];
       const bgIcon = L.divIcon({
         className: 'bg-site-pin',
-        iconSize: [9, 9],
-        iconAnchor: [4.5, 4.5]
+        iconSize: [10, 10],
+        iconAnchor: [5, 5]
       });
       const bgMarker = L.marker(h.coords, { icon: bgIcon })
         .bindPopup(`<b>${hName}</b><br><span style="font-size:0.75rem; color:#64748b;">${h.region}</span>`);
-      bgMarker.addTo(map);
-      currentLayers.push(bgMarker);
+      backgroundHospitalsGroup.addLayer(bgMarker);
     }
   });
 
   const allMapPoints = [];
 
-  // Plot Suggested Living Hub
+  // Plot Living Base (🏡)
   if (activeHub && activeHub.coords) {
     allMapPoints.push(activeHub.coords);
     const pinClass = currentCommuteMode === 'driver' ? 'home-pin-driver' : 'home-pin-transit';
@@ -1350,16 +1412,15 @@ function selectRotation(id, shouldCloseMobile = true) {
     const homeIcon = L.divIcon({
       className: pinClass,
       html: pinIconHtml,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16]
+      iconSize: [34, 34],
+      iconAnchor: [17, 17]
     });
     const homeMarker = L.marker(activeHub.coords, { icon: homeIcon })
       .bindPopup(`<b>🏡 Suggested Base (${currentCommuteMode.toUpperCase()}): ${activeHub.name}</b><br><span style="font-size:0.8rem; color:#475569;">${activeHub.desc}</span>`);
-    homeMarker.addTo(map);
-    currentLayers.push(homeMarker);
+    activeRouteGroup.addLayer(homeMarker);
   }
 
-  // Plot Chronological Hospital Bases (Bold numbered badges 1, 2, 3...)
+  // Plot Hospital Bases (Bold numbered badges 1, 2, 3...)
   const plottedHospitalPoints = [];
   rot.stages.forEach((stg, idx) => {
     const hData = HOSPITALS[stg.hosp];
@@ -1374,20 +1435,19 @@ function selectRotation(id, shouldCloseMobile = true) {
       });
       const m = L.marker(hData.coords, { icon })
         .bindPopup(`<b>Stage ${idx + 1}: ${stg.hosp}</b><br><span style="font-size:0.8rem; color:#64748b;">${stg.stage} - ${stg.desc}</span>`);
-      m.addTo(map);
-      currentLayers.push(m);
+      activeRouteGroup.addLayer(m);
     }
   });
 
-  // Draw Connecting Commute Polyline
+  // Draw Connecting Commute Route Line
   if (plottedHospitalPoints.length > 1) {
     const polyline = L.polyline(plottedHospitalPoints, {
       color: '#0284c7',
       weight: 3.5,
       dashArray: '6, 6',
       opacity: 0.85
-    }).addTo(map);
-    currentLayers.push(polyline);
+    });
+    activeRouteGroup.addLayer(polyline);
   }
 
   if (allMapPoints.length > 0) {
@@ -1401,12 +1461,14 @@ function selectRotation(id, shouldCloseMobile = true) {
 
 // 7. ALL UK PLACEMENTS VIEW (Plots all 60+ hospital bases)
 function renderAllPlacements() {
-  clearLayers();
+  activeRouteGroup.clearLayers();
+  backgroundHospitalsGroup.clearLayers();
+
   document.getElementById('inspectorCard').style.display = 'none';
   document.getElementById('welcomeMessage').style.display = 'block';
   document.getElementById('welcomeMessage').innerHTML = `
     <p style="font-weight: 800; font-size: 1rem; color: #0f172a; margin-bottom: 6px;">All UK Hospital Bases Active</p>
-    <p>Plotting all ${Object.keys(HOSPITALS).length} NHS hospital trusts across England and Wales. Click any marker to view linked rotations.</p>
+    <p>Displaying all ${Object.keys(HOSPITALS).length} NHS hospital trusts across the country. Click any pin to see which rotations use it.</p>
   `;
 
   document.getElementById('miniCardTitle').textContent = `All UK Placement Sites (${Object.keys(HOSPITALS).length} Bases)`;
@@ -1418,14 +1480,12 @@ function renderAllPlacements() {
     const h = HOSPITALS[hName];
     allPoints.push(h.coords);
 
-    // Find all rotations using this hospital
     const linkedRotations = ROTATIONS_DATA.filter(r => r.stages.some(s => s.hosp === hName));
     const linkedHtml = linkedRotations.length ? 
       `<div style="margin-top:6px; font-size:0.75rem; max-height:120px; overflow-y:auto;"><b>Used in ${linkedRotations.length} rotations:</b><ul style="padding-left:14px; margin-top:2px;">${linkedRotations.map(r => `<li>${r.code}</li>`).join('')}</ul></div>` : '';
 
     const icon = L.divIcon({
       className: 'all-site-pin',
-      html: `<div style="background-color: #0284c7; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white;"></div>`,
       iconSize: [16, 16],
       iconAnchor: [8, 8]
     });
@@ -1435,8 +1495,7 @@ function renderAllPlacements() {
       <span style="font-size:0.75rem; font-weight:700; color:#0284c7;">${h.region}</span>
       ${linkedHtml}
     `);
-    m.addTo(map);
-    currentLayers.push(m);
+    backgroundHospitalsGroup.addLayer(m);
   });
 
   map.fitBounds(L.latLngBounds(allPoints), { padding: [40, 40] });
@@ -1444,11 +1503,6 @@ function renderAllPlacements() {
   if (window.innerWidth <= 768) {
     toggleMobileSidebar(false);
   }
-}
-
-function clearLayers() {
-  currentLayers.forEach(l => map.removeLayer(l));
-  currentLayers = [];
 }
 
 // 8. FILTER & SEARCH ENGINE
@@ -1512,7 +1566,8 @@ function applyFiltersAndSearch() {
       prefSelect.value = list[0].id;
     }
   } else {
-    clearLayers();
+    activeRouteGroup.clearLayers();
+    backgroundHospitalsGroup.clearLayers();
     document.getElementById('inspectorCard').style.display = 'none';
     document.getElementById('welcomeMessage').style.display = 'block';
     document.getElementById('welcomeMessage').innerHTML = `<p style="font-weight:700; color:var(--slate-700);">No matching rotations found</p><p>Try adjusting your search query or filters.</p>`;
@@ -1709,4 +1764,3 @@ window.onload = () => {
 </script>
 </body>
 </html>
-```
