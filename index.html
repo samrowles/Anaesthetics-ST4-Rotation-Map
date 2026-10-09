@@ -7,7 +7,10 @@
   <meta name="description" content="Interactive map of UK ST4 Anaesthetics training rotations with dual-commute living analysis for doctors and partners.">
   <meta name="theme-color" content="#0284c7">
 
+  <!-- Favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🩺</text></svg>">
+
+  <!-- OpenGraph Metadata -->
   <meta property="og:title" content="ST4 Anaesthetics Rotation &amp; Commute Explorer">
   <meta property="og:description" content="Explore UK ST4 Anaesthetics rotations, commute radii, hospital bases, and living hubs.">
   <meta property="og:type" content="website">
@@ -103,7 +106,11 @@
     .badge-spread-med { background: #fef9c3; color: #854d0e; }
     .badge-spread-high { background: #fee2e2; color: #991b1b; }
 
-    .card-title { font-size: 1.05rem; font-weight: 800; color: var(--slate-900); margin-bottom: 8px; line-height: 1.3; }
+    .card-title { font-size: 1.05rem; font-weight: 800; color: var(--slate-900); margin-bottom: 4px; line-height: 1.3; }
+    
+    .card-actions-row { display: flex; gap: 8px; margin-bottom: 10px; }
+    .btn-share-link { background: none; border: 1px solid var(--slate-200); padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; color: var(--slate-600); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+    .btn-share-link:hover { background: var(--slate-50); color: var(--primary); }
 
     .hub-box { border-radius: 8px; padding: 12px; margin: 10px 0 14px 0; transition: all 0.2s; }
     .hub-box.driver-theme { background: #f0fdf4; border: 1.5px solid #bbf7d0; }
@@ -151,6 +158,7 @@
 
     #map { flex-grow: 1; height: 100%; width: 100%; }
 
+    /* Custom Pins with Explicit Dimension Overrides */
     .numbered-pin { 
       background: #0284c7; 
       color: #ffffff; 
@@ -285,21 +293,7 @@
     <!-- Swapped Filter 1: Region Dropdown at the Top -->
     <div class="control-row">
       <select id="regionFilter" onchange="filterRegion(this.value)">
-        <option value="ALL">All Regions (76 Rotations Available)</option>
-        <option value="East of England">East of England (15)</option>
-        <option value="East Midlands">East Midlands (12)</option>
-        <option value="London - North Central East">London - North Central East (9)</option>
-        <option value="London - North West">London - North West (9)</option>
-        <option value="London - South">London - South (3)</option>
-        <option value="Wessex">Wessex (2)</option>
-        <option value="Thames Valley">Thames Valley (2)</option>
-        <option value="South West - Severn">South West - Severn (2)</option>
-        <option value="South West - Peninsula">South West - Peninsula (4)</option>
-        <option value="Wales">Wales (5)</option>
-        <option value="West Midlands">West Midlands (7)</option>
-        <option value="Yorkshire and the Humber">Yorkshire and the Humber (3)</option>
-        <option value="North West">North West (2)</option>
-        <option value="North East">North East (1)</option>
+        <!-- Populated Dynamically in JS with Live Counts -->
       </select>
     </div>
 
@@ -323,8 +317,16 @@
       </div>
     </div>
 
-    <!-- Search Input & Quick Filter Pills -->
-    <input type="text" id="searchInput" placeholder="Search hospital, city, or track code..." oninput="handleSearch(this.value)">
+    <!-- Search Input & Sort Selector -->
+    <div class="control-row">
+      <input type="text" id="searchInput" placeholder="Search hospital, city, or track..." oninput="handleSearch(this.value)" style="flex:1;">
+      <select id="sortSelect" onchange="handleSortChange(this.value)" style="width:170px;" title="Sort Rotations">
+        <option value="DEFAULT">Sort: Oriel Order</option>
+        <option value="SPREAD_ASC">Sort: Lowest Commute First</option>
+        <option value="PLACES_DESC">Sort: Most Places</option>
+        <option value="RATING_DESC">Sort: Highest Rating</option>
+      </select>
+    </div>
 
     <div class="filter-pills">
       <button class="filter-pill-btn active" id="pillAll" onclick="setQuickFilter('ALL')">All Posts</button>
@@ -351,6 +353,12 @@
           <span class="badge" id="cardSpreadBadge">Max: 0 mi</span>
         </div>
         <div class="card-title" id="cardTitle">Track Title</div>
+        
+        <div class="card-actions-row">
+          <button class="btn-share-link" onclick="copyDirectShareLink()" title="Copy direct link to this rotation">
+            🔗 Copy Direct Link
+          </button>
+        </div>
 
         <!-- Dynamic Living Hub Card -->
         <div class="hub-box driver-theme" id="hubBox">
@@ -569,7 +577,7 @@ const HOSPITALS = {
   "Royal Victoria Infirmary, Newcastle": { coords: [54.9782, -1.6232], region: "North East" }
 };
 
-// 2. MASTER ROTATIONS DATA (All 0-place rows removed; identical rows merged)
+// 2. MASTER ROTATIONS DATA (0-place posts removed; identical posts merged)
 const ROTATIONS_DATA = [
   // ==================== WESSEX ====================
   {
@@ -930,7 +938,7 @@ const ROTATIONS_DATA = [
     ]
   },
 
-  // ==================== PENINSULA (ALL 4 ACTIVE TRACKS) ====================
+  // ==================== PENINSULA (ALL 4 DISTINCT ACTIVE TRACKS) ====================
   {
     id: "peninsula-cornwall-1e", code: "Peninsula - Cornwall 1E", region: "South West - Peninsula", title: "Cornwall 1E (Truro & Derriford)", places: "1",
     hubs: {
@@ -1140,7 +1148,7 @@ const ROTATIONS_DATA = [
   {
     id: "eoe-norwich-18", code: "EoE - Norwich 18", region: "East of England", title: "NNUH, Cambridge & James Paget", places: "1",
     hubs: {
-      driver: { name: "Norwich (South / Cringleford)", coords: [52.6102, 1.2502], desc: "A11/A47 bypass. 8m to NNUH, 30m to James Paget (Gt Yarmouth), 55m to Cambridge.", alert: "Quick bypass access." },
+      driver: { name: "Norwich (South / Cringleford)", coords: [52.6102, 1.2502], desc: "A11/A47. 8m to NNUH, 30m to James Paget (Gt Yarmouth), 55m to Cambridge.", alert: "Quick bypass access." },
       transit: { name: "Norwich City Centre", coords: [52.6282, 1.2982], desc: "Direct 25/26 bus to NNUH; 30m train to Gt Yarmouth; 1h 10m train to Cambridge.", alert: "Hospital has dedicated Blue Line bus." }
     },
     stages: [
@@ -1395,6 +1403,64 @@ const ROTATIONS_DATA = [
     ]
   },
 
+  // ==================== WALES ====================
+  {
+    id: "wales-1", code: "Wales - ST4 - Feb - 1", region: "Wales", title: "Wales 1 (Glan Clwyd, Walton Neuro -> South Wales)", places: "1",
+    hubs: {
+      driver: { name: "Chester / St Asaph", coords: [53.1902, -2.8902], desc: "A55 expressway. Commute: 35m to Rhyl (Glan Clwyd), 30m to Walton Neuro (Liverpool). ST6/7 in South Wales.", alert: "A55 provides fast coastal driving in North Wales." },
+      transit: { name: "Chester Central", coords: [53.1962, -2.8792], desc: "Direct mainline trains along North Wales coast (Rhyl 35m) and north to Liverpool/Walton (40m).", alert: "⚠️ Note: Glan Clwyd requires bus connection from Rhyl." }
+    },
+    stages: [
+      { stage: "ST4 (9m)", hosp: "Glan Clwyd Hospital, Rhyl", desc: "North Wales Acute Base" },
+      { stage: "ST4 (3m)", hosp: "The Walton Centre, Liverpool", desc: "Tertiary Neuroanaesthesia" },
+      { stage: "ST5-ST7", hosp: "University Hospital of Wales, Cardiff", desc: "South Wales Regional Centre" }
+    ]
+  },
+  {
+    id: "wales-5", code: "Wales - ST4 - Feb - 5", region: "Wales", title: "Wales 5 (Royal Glamorgan Llantrisant)", places: "1",
+    hubs: {
+      driver: { name: "Cardiff (West) / Pontypridd", coords: [51.5202, -3.2802], desc: "M4 / A4119. Commute: 18m drive to Royal Glamorgan Hospital (Llantrisant).", alert: "Easy driving access across South Wales." },
+      transit: { name: "Cardiff Central", coords: [51.4782, -3.1782], desc: "Direct 122 bus runs from Cardiff city centre directly to Royal Glamorgan Hospital entrance.", alert: "Regular bus routes serve the hospital from Cardiff." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "Royal Glamorgan Hospital, Llantrisant", desc: "South Wales Acute Base" },
+      { stage: "ST5-ST7", hosp: "University Hospital of Wales, Cardiff", desc: "South Wales Teaching Rotations" }
+    ]
+  },
+  {
+    id: "wales-6", code: "Wales - ST4 - Feb - 6", region: "Wales", title: "Wales 6 (Glangwili Carmarthen)", places: "1",
+    hubs: {
+      driver: { name: "Carmarthen / Llanelli", coords: [51.8542, -4.3002], desc: "A48/A40. Commute: 8m drive to Glangwili General Hospital.", alert: "Rural West Wales base." },
+      transit: { name: "Carmarthen Town", coords: [51.8542, -4.3002], desc: "Local buses connect Carmarthen railway station directly to Glangwili Hospital.", alert: "Hospital has regular local town bus connections." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "Glangwili Hospital, Carmarthen", desc: "West Wales Acute Base" },
+      { stage: "ST5-ST7", hosp: "University Hospital of Wales, Cardiff", desc: "South Wales Rotations" }
+    ]
+  },
+  {
+    id: "wales-7", code: "Wales - ST4 - Feb - 7", region: "Wales", title: "Wales 7 (Morriston Swansea - LTFT 70%)", places: "3",
+    hubs: {
+      driver: { name: "Swansea (Mumbles / Sketty)", coords: [51.6202, -3.9502], desc: "M4 Junction 45. Commute: 15m drive to Morriston Hospital.", alert: "Coastal living in South Wales." },
+      transit: { name: "Swansea Central", coords: [51.6202, -3.9402], desc: "Frequent 4/4A buses run directly from Swansea city centre to Morriston Hospital.", alert: "Very frequent dedicated hospital bus service." }
+    },
+    stages: [
+      { stage: "ST4 (12m - LTFT 70%)", hosp: "Morriston Hospital, Swansea", desc: "Regional Burns, Cardiac & Intensive Care" },
+      { stage: "ST5-ST7", hosp: "University Hospital of Wales, Cardiff", desc: "South Wales Rotations" }
+    ]
+  },
+  {
+    id: "wales-8-9", code: "Wales - ST4 - Feb - 8 & 9", region: "Wales", title: "Wales 8 & 9 (UHW Cardiff Base)", places: "2 total",
+    hubs: {
+      driver: { name: "Cardiff (North / Heath)", coords: [51.5072, -3.1802], desc: "A48 Eastern Avenue. Walking/driving distance to University Hospital of Wales.", alert: "Staff parking available on site." },
+      transit: { name: "Cardiff (Heath / Roath)", coords: [51.5072, -3.1802], desc: "Heath High Level and Heath Low Level train stations are adjacent to UHW; frequent city buses.", alert: "Completely walkable from Heath residential area." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "University Hospital of Wales, Cardiff", desc: "Major Trauma & Tertiary Teaching Centre" },
+      { stage: "ST5-ST7", hosp: "University Hospital of Wales, Cardiff", desc: "South Wales Rotations" }
+    ]
+  },
+
   // ==================== WEST MIDLANDS ====================
   {
     id: "wmid-1-warwickshire", code: "West Midlands - ST4 - Feb - 1", region: "West Midlands", title: "Warwickshire Scheme", places: "5",
@@ -1510,7 +1576,7 @@ const ROTATIONS_DATA = [
 
   // ==================== NORTH WEST & NORTH EAST ====================
   {
-    id: "nw-cheshire-mersey-1-1e", code: "North West - Cheshire & Mersey 1 & 1E", region: "North West", title: "Cheshire & Merseyside Scheme", places: "13 total",
+    id: "nw-cheshire-mersey", code: "North West - Cheshire & Mersey 1 & 1E", region: "North West", title: "Cheshire & Merseyside Scheme", places: "13 total",
     hubs: {
       driver: { name: "Liverpool (South / Aigburth) / Chester", coords: [53.3702, -2.9302], desc: "M62/M53/M56. Central driving location across Merseyside and Cheshire.", alert: "Fast road access via Queensway/Kingsway tunnels." },
       transit: { name: "Liverpool City Centre", coords: [53.4092, -2.9642], desc: "Walking distance to Royal Liverpool; Merseyrail network to Walton and Arrowe Park.", alert: "Merseyrail connects all hospital sites." }
@@ -1521,7 +1587,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "nw-gt-manchester-2-2e", code: "North West - Gt Manchester 2 & 2E", region: "North West", title: "Greater Manchester Scheme", places: "16 total",
+    id: "nw-gt-manchester", code: "North West - Gt Manchester 2 & 2E", region: "North West", title: "Greater Manchester Scheme", places: "16 total",
     hubs: {
       driver: { name: "South Manchester (Didsbury / Altrincham)", coords: [53.4102, -2.2302], desc: "M60/M56. Commute: 20m to MRI, 15m to Wythenshawe, 22m to Salford Royal.", alert: "Good parking options in South Manchester." },
       transit: { name: "Manchester City Centre (Oxford Road)", coords: [53.4732, -2.2412], desc: "Oxford Road is walking distance to MRI; Metrolink tram connects to Salford Royal and Wythenshawe.", alert: "Metrolink tram makes non-driving commutes very easy." }
@@ -1584,6 +1650,7 @@ let currentCommuteMode = 'driver';
 let currentViewMode = 'rotation';
 let activeQuickFilter = 'ALL';
 let activeRegionFilter = 'ALL';
+let currentSortMode = 'DEFAULT';
 let currentSearchTerm = '';
 let currentFilteredList = [...ROTATIONS_DATA];
 
@@ -1594,6 +1661,34 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// Calculate pairwise max spread for a rotation
+function getRotationMaxDistance(rot) {
+  const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
+  let maxDist = 0;
+  for (let i = 0; i < coords.length; i++) {
+    for (let j = i + 1; j < coords.length; j++) {
+      const d = calcDistanceMiles(coords[i], coords[j]);
+      if (d > maxDist) maxDist = d;
+    }
+  }
+  return maxDist;
+}
+
+// Dynamically populate Region Dropdown (Dropdown 1) with real counts
+function populateRegionDropdown() {
+  const regSelect = document.getElementById('regionFilter');
+  const regionCounts = {};
+  ROTATIONS_DATA.forEach(r => {
+    regionCounts[r.region] = (regionCounts[r.region] || 0) + 1;
+  });
+
+  let html = `<option value="ALL">All Regions (${ROTATIONS_DATA.length} Rotations)</option>`;
+  Object.keys(regionCounts).sort().forEach(reg => {
+    html += `<option value="${reg}">${reg} (${regionCounts[reg]})</option>`;
+  });
+  regSelect.innerHTML = html;
 }
 
 // Populate Rotation Dropdown (Dropdown 2)
@@ -1654,6 +1749,7 @@ function saveUserPreferences() {
 
 let currentActiveRating = 0;
 function setRating(val) {
+  // Toggle off if clicking the currently active rating
   if (val === currentActiveRating) {
     val = 0;
   }
@@ -1672,7 +1768,7 @@ function setViewMode(mode) {
   if (mode === 'all') {
     renderAllPlacements();
   } else {
-    selectRotation(prefSelect.value || "wessex-west", false);
+    selectRotation(prefSelect.value || ROTATIONS_DATA[0].id, false);
   }
 }
 
@@ -1711,6 +1807,12 @@ function focusHospitalBaseFromBtn(btn) {
     }
     showToast(`Focused: ${hospName}`);
   }
+}
+
+function copyDirectShareLink() {
+  const url = window.location.origin + window.location.pathname + '#' + currentSelectedId;
+  navigator.clipboard.writeText(url);
+  showToast("Direct link copied to clipboard!");
 }
 
 // 6. RENDER ROTATION (Focus Mode)
@@ -1777,7 +1879,7 @@ function selectRotation(id, shouldCloseMobile = false) {
   setRating(userData.rating);
   document.getElementById('partnerNotes').value = userData.notes;
 
-  // Safe dataset-based hospital bases population
+  // Populate Hospital Bases Chips (Safe Dataset Attributes)
   const uniqueHospBases = getRotationHospitalBases(rot);
   const hospitalsListContainer = document.getElementById('hospitalsListContainer');
   hospitalsListContainer.innerHTML = "";
@@ -1813,6 +1915,7 @@ function selectRotation(id, shouldCloseMobile = false) {
     hospitalsListContainer.appendChild(chip);
   });
 
+  // Render Timeline
   const timeline = document.getElementById('timelineContainer');
   timeline.innerHTML = "";
   const hospitalCoords = [];
@@ -1837,28 +1940,23 @@ function selectRotation(id, shouldCloseMobile = false) {
     if (hData) hospitalCoords.push(hData.coords);
   });
 
-  let maxDist = 0;
-  for (let i = 0; i < hospitalCoords.length; i++) {
-    for (let j = i + 1; j < hospitalCoords.length; j++) {
-      const d = calcDistanceMiles(hospitalCoords[i], hospitalCoords[j]);
-      if (d > maxDist) maxDist = d;
-    }
-  }
+  const maxDist = getRotationMaxDistance(rot);
+  // Estimate off-peak drive time bracket (~45mph average across UK roads)
+  const estMins = Math.round(maxDist * 1.35);
 
   document.getElementById('metricSites').textContent = uniqueHospBases.length;
   document.getElementById('metricDistance').textContent = `${maxDist} mi`;
 
   const spreadBadge = document.getElementById('cardSpreadBadge');
-  spreadBadge.textContent = `Max: ${maxDist} mi`;
   if (maxDist <= 25) {
     spreadBadge.className = 'badge badge-spread-low';
-    spreadBadge.textContent = `🟢 Low Spread: ${maxDist} mi`;
+    spreadBadge.textContent = `🟢 Low Spread: ${maxDist} mi (~${Math.max(15, estMins)}m)`;
   } else if (maxDist <= 45) {
     spreadBadge.className = 'badge badge-spread-med';
-    spreadBadge.textContent = `🟡 Moderate Spread: ${maxDist} mi`;
+    spreadBadge.textContent = `🟡 Moderate: ${maxDist} mi (~${estMins}m)`;
   } else {
     spreadBadge.className = 'badge badge-spread-high';
-    spreadBadge.textContent = `🔴 High Spread: ${maxDist} mi`;
+    spreadBadge.textContent = `🔴 High Spread: ${maxDist} mi (~${Math.round(estMins/60)}h+)`;
   }
 
   const modeEmoji = currentCommuteMode === 'driver' ? '🚗' : '🚆';
@@ -1867,7 +1965,7 @@ function selectRotation(id, shouldCloseMobile = false) {
   document.getElementById('miniCardSpread').className = maxDist <= 25 ? 'badge badge-spread-low' : (maxDist <= 45 ? 'badge badge-spread-med' : 'badge badge-spread-high');
   document.getElementById('miniCardHub').innerHTML = `<span>${modeEmoji} <b>${activeHub.name}</b> (${uniqueHospBases.length} Bases)</span> <span style="font-weight:700; color:var(--primary);">Details &rarr;</span>`;
 
-  // Plot subtle background hospital markers
+  // Plot Subtle Background Markers for other UK hospital bases (Regional Context)
   Object.keys(HOSPITALS).forEach(hName => {
     if (!uniqueHospBases.includes(hName)) {
       const h = HOSPITALS[hName];
@@ -1884,7 +1982,7 @@ function selectRotation(id, shouldCloseMobile = false) {
 
   const allMapPoints = [];
 
-  // Plot living base (🏡)
+  // Plot Living Base (🏡)
   if (activeHub && activeHub.coords) {
     allMapPoints.push(activeHub.coords);
     const pinClass = currentCommuteMode === 'driver' ? 'home-pin-driver' : 'home-pin-transit';
@@ -1901,7 +1999,7 @@ function selectRotation(id, shouldCloseMobile = false) {
     activeRouteGroup.addLayer(homeMarker);
   }
 
-  // Plot active hospital pins (1, 2, 3...)
+  // Plot Active Hospital Bases (Numbered badges 1, 2, 3...)
   const plottedHospitalPoints = [];
   rot.stages.forEach((stg, idx) => {
     const hData = HOSPITALS[stg.hosp];
@@ -2015,29 +2113,27 @@ function handleSearch(term) {
   applyFiltersAndSearch();
 }
 
-function applyFiltersAndSearch() {
-  let list = ROTATIONS_DATA;
+function handleSortChange(sortVal) {
+  currentSortMode = sortVal;
+  applyFiltersAndSearch();
+}
 
+function applyFiltersAndSearch() {
+  let list = [...ROTATIONS_DATA];
+
+  // Region Filter
   if (activeRegionFilter !== "ALL") {
     list = list.filter(r => r.region === activeRegionFilter);
   }
 
+  // Quick Filters
   if (activeQuickFilter === 'STARRED') {
     list = list.filter(r => getUserData(r.id).rating > 0 || getUserData(r.id).notes.trim() !== "");
   } else if (activeQuickFilter === 'LOW_SPREAD') {
-    list = list.filter(r => {
-      const coords = r.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
-      let maxDist = 0;
-      for (let i = 0; i < coords.length; i++) {
-        for (let j = i + 1; j < coords.length; j++) {
-          const d = calcDistanceMiles(coords[i], coords[j]);
-          if (d > maxDist) maxDist = d;
-        }
-      }
-      return maxDist <= 30;
-    });
+    list = list.filter(r => getRotationMaxDistance(r) <= 30);
   }
 
+  // Search Filter
   if (currentSearchTerm) {
     list = list.filter(r => 
       r.title.toLowerCase().includes(currentSearchTerm) ||
@@ -2047,6 +2143,15 @@ function applyFiltersAndSearch() {
       getUserData(r.id).notes.toLowerCase().includes(currentSearchTerm) ||
       r.stages.some(s => s.hosp.toLowerCase().includes(currentSearchTerm))
     );
+  }
+
+  // Sort Engine
+  if (currentSortMode === 'SPREAD_ASC') {
+    list.sort((a, b) => getRotationMaxDistance(a) - getRotationMaxDistance(b));
+  } else if (currentSortMode === 'PLACES_DESC') {
+    list.sort((a, b) => parseInt(b.places) - parseInt(a.places));
+  } else if (currentSortMode === 'RATING_DESC') {
+    list.sort((a, b) => getUserData(b.id).rating - getUserData(a.id).rating);
   }
 
   populateDropdown(list);
@@ -2095,14 +2200,16 @@ function renderShortlistModal() {
 
   starred.forEach((r, idx) => {
     const data = getUserData(r.id);
+    const maxDist = getRotationMaxDistance(r);
     const div = document.createElement('div');
     div.className = 'card';
     div.style.marginBottom = '10px';
     div.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <div style="display:flex; align-items:center; gap:8px;">
-          <span style="background:var(--slate-900); color:white; font-size:0.75rem; font-weight:800; border-radius:4px; padding:2px 6px;">#${idx + 1}</span>
+          <span style="background:var(--slate-900); color:white; font-size:0.75rem; font-weight:800; border-radius:4px; padding:2px 6px;">Rank #${idx + 1}</span>
           <strong style="color:var(--primary); font-size:0.85rem;">${r.code}</strong>
+          <span class="badge ${maxDist <= 25 ? 'badge-spread-low' : (maxDist <= 45 ? 'badge-spread-med' : 'badge-spread-high')}" style="font-size:0.65rem;">${maxDist} mi</span>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="color:var(--amber); font-weight:800; font-size:0.9rem;">${'★'.repeat(data.rating)}</span>
@@ -2254,10 +2361,11 @@ window.addEventListener('hashchange', () => {
 
 // Initial load
 window.onload = () => {
+  populateRegionDropdown();
   populateDropdown(ROTATIONS_DATA);
 
   const hashId = window.location.hash.replace('#', '');
-  const initialId = ROTATIONS_DATA.some(r => r.id === hashId) ? hashId : "wessex-west";
+  const initialId = ROTATIONS_DATA.some(r => r.id === hashId) ? hashId : ROTATIONS_DATA[0].id;
   
   prefSelect.value = initialId;
   selectRotation(initialId, false);
