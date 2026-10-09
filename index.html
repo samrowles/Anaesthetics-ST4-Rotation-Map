@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ST4 Anaesthetics National Rotation &amp; Commute Explorer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Interactive map of UK ST4 Anaesthetics training rotations with dual-commute living analysis for doctors and partners.">
+  <meta name="theme-color" content="#0284c7">
+
+  <!-- OpenGraph Metadata for WhatsApp / Social Previews -->
+  <meta property="og:title" content="ST4 Anaesthetics Rotation &amp; Commute Explorer">
+  <meta property="og:description" content="Explore UK ST4 Anaesthetics rotations, commute radii, hospital sequences, and living hubs.">
+  <meta property="og:type" content="website">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --amber: #f59e0b;
+      --emerald: #10b981;
+      --purple: #7c3aed;
+      --rose: #e11d48;
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-300: #cbd5e1;
+      --slate-600: #475569;
+      --slate-700: #334155;
+      --slate-800: #1e293b;
+      --slate-900: #0f172a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; height: 100vh; width: 100vw; overflow: hidden; color: var(--slate-900); position: relative; background: #fff; }
+    
+    /* Desktop Sidebar */
+    #sidebar { 
+      width: 520px; 
+      min-width: 440px; 
+      height: 100%; 
+      background: #ffffff; 
+      border-right: 1px solid var(--slate-200); 
+      display: flex; 
+      flex-direction: column; 
+      box-shadow: 4px 0 16px rgba(0,0,0,0.05); 
+      z-index: 1000; 
+      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #sidebar-header { padding: 14px 18px; background: var(--slate-50); border-bottom: 1px solid var(--slate-200); }
+    #sidebar-header h1 { font-size: 1.15rem; font-weight: 800; color: var(--slate-900); display: flex; align-items: center; justify-content: space-between; }
+    #sidebar-header p { font-size: 0.78rem; color: var(--slate-600); margin-top: 2px; }
+
+    /* Top Action Bar */
+    .header-actions { display: flex; gap: 6px; align-items: center; }
+    .btn-top { border: none; padding: 5px 9px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: background 0.15s; }
+    .btn-export { background: #10b981; color: white; }
+    .btn-export:hover { background: #059669; }
+    .btn-sync { background: var(--slate-200); color: var(--slate-700); }
+    .btn-sync:hover { background: var(--slate-300); }
+
+    /* Controls */
+    #controls { padding: 12px 18px; border-bottom: 1px solid var(--slate-200); display: flex; flex-direction: column; gap: 8px; background: #fff; }
+    .control-row { display: flex; gap: 6px; align-items: center; }
+    select, input, textarea { width: 100%; padding: 8px 10px; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; transition: border-color 0.15s; }
+    select:focus, input:focus, textarea:focus { border-color: var(--primary); }
+
+    /* Dual Commute Switcher (Driver vs Transit) */
+    .mode-toggle-group { display: flex; flex-direction: column; gap: 5px; }
+    .mode-label { font-size: 0.7rem; font-weight: 800; color: var(--slate-600); text-transform: uppercase; letter-spacing: 0.04em; }
+    
+    .transport-toggle { display: flex; background: var(--slate-100); border-radius: 6px; padding: 2px; border: 1px solid var(--slate-200); }
+    .transport-btn { flex: 1; padding: 6px 8px; font-size: 0.76rem; font-weight: 700; text-align: center; border: none; background: transparent; cursor: pointer; border-radius: 4px; color: var(--slate-600); transition: all 0.15s; }
+    .transport-btn.active.driver-active { background: #fff; color: #0284c7; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .transport-btn.active.transit-active { background: #fff; color: #7c3aed; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+    .nav-stepper { display: flex; gap: 4px; }
+    .btn-step { background: var(--slate-100); border: 1px solid var(--slate-200); color: var(--slate-700); padding: 7px 11px; border-radius: 6px; font-size: 0.8rem; font-weight: 800; cursor: pointer; white-space: nowrap; }
+    .btn-step:hover { background: var(--slate-200); }
+
+    .filter-pills { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px; }
+    .filter-pill-btn { border: 1px solid var(--slate-200); background: var(--slate-50); padding: 4px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; color: var(--slate-600); cursor: pointer; white-space: nowrap; }
+    .filter-pill-btn.active { background: var(--slate-900); color: white; border-color: var(--slate-900); }
+
+    /* Content Pane */
+    #content-pane { flex-grow: 1; overflow-y: auto; padding: 14px 18px; }
+    .card { background: #fff; border: 1px solid var(--slate-200); border-radius: 10px; padding: 14px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+    
+    .badge-container { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
+    .badge { padding: 3px 8px; border-radius: 999px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; }
+    .badge-code { background: #0284c7; color: white; }
+    .badge-places { background: #fef3c7; color: #92400e; }
+    .badge-spread-low { background: #dcfce7; color: #166534; }
+    .badge-spread-med { background: #fef9c3; color: #854d0e; }
+    .badge-spread-high { background: #fee2e2; color: #991b1b; }
+
+    .card-title { font-size: 1.05rem; font-weight: 800; color: var(--slate-900); margin-bottom: 8px; line-height: 1.3; }
+
+    /* Dynamic Living Hub Box */
+    .hub-box { border-radius: 8px; padding: 12px; margin: 10px 0 14px 0; transition: all 0.2s; }
+    .hub-box.driver-theme { background: #f0fdf4; border: 1.5px solid #bbf7d0; }
+    .hub-box.transit-theme { background: #f5f3ff; border: 1.5px solid #ddd6fe; }
+
+    .hub-title { font-size: 0.85rem; font-weight: 800; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .hub-box.driver-theme .hub-title { color: #166534; }
+    .hub-box.transit-theme .hub-title { color: #5b21b6; }
+    .hub-directions-link { font-size: 0.7rem; font-weight: 700; text-decoration: underline; color: inherit; }
+
+    .hub-content { font-size: 0.8rem; line-height: 1.45; }
+    .hub-box.driver-theme .hub-content { color: #14532d; }
+    .hub-box.transit-theme .hub-content { color: #4c1d95; }
+    .hub-alert { margin-top: 6px; padding: 6px 8px; border-radius: 5px; font-size: 0.74rem; line-height: 1.35; background: #fff; border: 1px solid rgba(0,0,0,0.08); font-weight: 600; }
+
+    /* Metrics Bar */
+    .metrics-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; background: var(--slate-50); border-radius: 8px; margin-bottom: 14px; border: 1px solid var(--slate-200); }
+    .metric-item { text-align: center; }
+    .metric-value { font-size: 1.15rem; font-weight: 800; color: var(--primary-dark); }
+    .metric-label { font-size: 0.68rem; color: var(--slate-600); text-transform: uppercase; font-weight: 700; }
+
+    /* Timeline Stepper */
+    .timeline { position: relative; padding-left: 20px; margin-bottom: 16px; }
+    .timeline::before { content: ""; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 2px; background: #cbd5e1; }
+    .timeline-step { position: relative; margin-bottom: 10px; }
+    .timeline-dot { position: absolute; left: -20px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); color: white; font-size: 9px; font-weight: 800; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    .timeline-content { background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: 6px; padding: 6px 10px; font-size: 0.78rem; }
+    .timeline-stage { font-size: 0.7rem; font-weight: 700; color: var(--primary-dark); text-transform: uppercase; }
+    .timeline-hosp { font-weight: 800; color: var(--slate-900); margin: 1px 0; display: flex; justify-content: space-between; align-items: center; }
+    .timeline-hosp a { font-size: 0.7rem; color: var(--primary); text-decoration: none; font-weight: 600; }
+    .timeline-desc { font-size: 0.74rem; color: var(--slate-600); }
+
+    /* Rating & Notes */
+    .rating-section { background: var(--slate-50); border-top: 1px solid var(--slate-200); padding: 12px; border-radius: 8px; }
+    .star-row { display: flex; gap: 4px; align-items: center; margin-bottom: 6px; }
+    .star { font-size: 1.4rem; cursor: pointer; color: #cbd5e1; transition: color 0.15s; }
+    .star.selected { color: #f59e0b; }
+    .notes-input { width: 100%; height: 60px; font-size: 0.8rem; resize: vertical; margin-top: 4px; }
+    .btn-save { background: var(--primary); color: white; border: none; border-radius: 5px; padding: 6px 12px; font-size: 0.75rem; font-weight: 700; cursor: pointer; margin-top: 6px; }
+    .btn-save:hover { background: var(--primary-dark); }
+
+    /* Map Layout */
+    #map { flex-grow: 1; height: 100%; width: 100%; }
+
+    /* Custom Pins */
+    .numbered-pin { background: #0284c7; color: white; font-weight: 800; font-size: 11px; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 3px 6px rgba(0,0,0,0.3); }
+    .home-pin-driver { background: #16a34a; color: #fff; font-size: 14px; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 2.5px solid white; box-shadow: 0 3px 8px rgba(0,0,0,0.4); }
+    .home-pin-transit { background: #7c3aed; color: #fff; font-size: 14px; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 2.5px solid white; box-shadow: 0 3px 8px rgba(0,0,0,0.4); }
+    .all-site-pin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+
+    /* Mobile Sheet & Controls */
+    .btn-mobile-nav { display: none; }
+    #mobileFabOpen { display: none; }
+    #mobileMiniCard { display: none; }
+    .btn-view-map-card { display: none; width: 100%; background: var(--primary); color: white; border: none; padding: 10px; border-radius: 6px; font-weight: 800; font-size: 0.85rem; cursor: pointer; margin-bottom: 12px; text-align: center; }
+
+    /* Modal for Shortlist / Backup */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(2px); z-index: 5000; align-items: center; justify-content: center; padding: 20px; }
+    .modal-content { background: white; width: 100%; max-width: 620px; max-height: 85vh; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); }
+    .modal-header { padding: 16px 20px; background: var(--slate-50); border-bottom: 1px solid var(--slate-200); display: flex; justify-content: space-between; align-items: center; }
+    .modal-header h2 { font-size: 1.1rem; font-weight: 800; }
+    .modal-body { padding: 18px 20px; overflow-y: auto; flex-grow: 1; }
+
+    /* Toast Notification */
+    #toast { position: fixed; bottom: 20px; right: 20px; background: var(--slate-900); color: white; padding: 10px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); z-index: 9999; transform: translateY(100px); opacity: 0; transition: all 0.25s ease; }
+    #toast.show { transform: translateY(0); opacity: 1; }
+
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+      select, input, textarea { font-size: 16px !important; }
+      #sidebar { position: fixed; top: 0; left: 0; width: 100vw; min-width: 100vw; height: 100vh; z-index: 3000; border-right: none; }
+      #sidebar.mobile-closed { transform: translateY(105%); pointer-events: none; }
+      .btn-mobile-nav { display: inline-flex; align-items: center; background: var(--primary); color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+      .btn-view-map-card { display: block; }
+      #mobileFabOpen { display: flex; position: fixed; top: 14px; left: 14px; z-index: 1500; background: #ffffff; color: var(--slate-900); border: 1px solid var(--slate-200); padding: 8px 14px; border-radius: 999px; font-size: 0.82rem; font-weight: 800; box-shadow: 0 4px 14px rgba(0,0,0,0.18); cursor: pointer; align-items: center; gap: 6px; }
+      #mobileMiniCard { display: flex; flex-direction: column; position: fixed; bottom: 14px; left: 14px; right: 14px; background: #ffffff; border: 1px solid var(--slate-200); border-radius: 12px; padding: 10px 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.22); z-index: 1500; cursor: pointer; }
+      .leaflet-top { top: 60px !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Toast Notification -->
+<div id="toast">Saved</div>
+
+<!-- Mobile Floating Trigger -->
+<button id="mobileFabOpen" onclick="toggleMobileSidebar(true)">
+  ☰ Rotations &amp; Filters
+</button>
+
+<!-- Mobile Mini Summary Sheet Bar -->
+<div id="mobileMiniCard" onclick="toggleMobileSidebar(true)">
+  <div style="width:32px; height:4px; background:#cbd5e1; border-radius:999px; margin:0 auto 6px auto;"></div>
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <strong id="miniCardTitle" style="font-size:0.85rem; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70%;">Select Rotation</strong>
+    <span id="miniCardSpread" class="badge badge-spread-med" style="font-size:0.7rem;">0 mi</span>
+  </div>
+  <div style="font-size:0.75rem; color:#64748b; margin-top:2px; display:flex; justify-content:space-between;" id="miniCardHub">
+    <span>🏡 Tap for timeline, hub &amp; notes</span>
+    <span style="font-weight:700; color:var(--primary);">Details &rarr;</span>
+  </div>
+</div>
+
+<!-- Main Left Panel -->
+<div id="sidebar">
+  <div id="sidebar-header">
+    <h1>
+      ST4 Explorer
+      <div class="header-actions">
+        <button class="btn-top btn-sync" onclick="openShortlistModal()" title="View and reorder your starred shortlist">⭐ Shortlist</button>
+        <button class="btn-top btn-export" onclick="exportPreferencesCSV()" title="Export CSV for Oriel">Export</button>
+        <button class="btn-top btn-sync" onclick="openSyncModal()" title="Backup or transfer ratings">Sync</button>
+        <button class="btn-mobile-nav" onclick="toggleMobileSidebar(false)">🗺️ Map</button>
+      </div>
+    </h1>
+    <p>National Oriel Rotations with Commute &amp; Living Analysis</p>
+  </div>
+
+  <div id="controls">
+    <!-- Commute Mode Switcher -->
+    <div class="mode-toggle-group">
+      <div class="mode-label">Commuting Preference:</div>
+      <div class="transport-toggle">
+        <button class="transport-btn active driver-active" id="btnModeDriver" onclick="setCommuteMode('driver')">🚗 Driver / Mixed</button>
+        <button class="transport-btn" id="btnModeTransit" onclick="setCommuteMode('transit')">🚆 Public Transport Only</button>
+      </div>
+    </div>
+
+    <!-- Quick Stepper Navigation (Previous & Next) -->
+    <div class="control-row">
+      <select id="prefSelect" onchange="selectRotation(this.value)">
+        <option value="">-- Select Rotation --</option>
+      </select>
+      <div class="nav-stepper">
+        <button class="btn-step" onclick="stepRotation(-1)" title="Previous Rotation (← key)">&larr;</button>
+        <button class="btn-step" onclick="stepRotation(1)" title="Next Rotation (→ key)">&rarr;</button>
+      </div>
+    </div>
+
+    <!-- Quick Filter Pills -->
+    <div class="filter-pills">
+      <button class="filter-pill-btn active" id="pillAll" onclick="setQuickFilter('ALL')">All Posts</button>
+      <button class="filter-pill-btn" id="pillStarred" onclick="setQuickFilter('STARRED')">⭐ Starred Only</button>
+      <button class="filter-pill-btn" id="pillLowSpread" onclick="setQuickFilter('LOW_SPREAD')">🟢 Low Spread (&lt;30mi)</button>
+    </div>
+
+    <div class="control-row">
+      <select id="regionFilter" onchange="filterRegion(this.value)">
+        <option value="ALL">All Regions (Master List)</option>
+        <option value="East of England">East of England</option>
+        <option value="East Midlands">East Midlands</option>
+        <option value="London - North Central East">London - North Central East</option>
+        <option value="London - North West">London - North West</option>
+        <option value="London - South">London - South</option>
+        <option value="Wessex">Wessex</option>
+        <option value="Thames Valley">Thames Valley</option>
+        <option value="South West - Severn">South West - Severn</option>
+        <option value="South West - Peninsula">South West - Peninsula</option>
+        <option value="Wales">Wales</option>
+        <option value="West Midlands">West Midlands</option>
+        <option value="Yorkshire and the Humber">Yorkshire and the Humber</option>
+        <option value="North West">North West</option>
+        <option value="North East">North East</option>
+      </select>
+      <input type="text" id="searchInput" placeholder="Search hospital/town..." oninput="handleSearch(this.value)" style="flex:1;">
+    </div>
+  </div>
+
+  <div id="content-pane">
+    <div id="welcomeMessage" style="text-align: center; color: var(--slate-600); padding: 40px 15px; font-size: 0.85rem;">
+      <p style="font-weight: 800; margin-bottom: 6px; font-size: 1rem; color: var(--slate-700);">Select a rotation above</p>
+      <p>The map will plot the route, calculate commute radius, and display the recommended living base.</p>
+    </div>
+
+    <div id="inspectorCard" style="display: none;">
+      <div class="card">
+        <button class="btn-view-map-card" onclick="toggleMobileSidebar(false)">
+          🗺️ View Rotation Route on Map &rarr;
+        </button>
+
+        <div class="badge-container">
+          <span class="badge badge-code" id="cardCode">Oriel Code</span>
+          <span class="badge badge-places" id="cardPlaces">Places: -</span>
+          <span class="badge" id="cardSpreadBadge">Max: 0 mi</span>
+        </div>
+        <div class="card-title" id="cardTitle">Track Title</div>
+
+        <!-- Dynamic Living Hub Card -->
+        <div class="hub-box driver-theme" id="hubBox">
+          <div class="hub-title" id="hubTitleText">
+            <span>🏡 Suggested Base: <span id="hubTownName">Town</span></span>
+            <a id="hubDirectionsLink" href="#" target="_blank" class="hub-directions-link">Google Maps ↗</a>
+          </div>
+          <div class="hub-content" id="hubDescription">Hub travel details...</div>
+          <div class="hub-alert" id="hubAlertBox" style="display:none;"></div>
+        </div>
+
+        <div class="metrics-bar">
+          <div class="metric-item">
+            <div class="metric-value" id="metricSites">0</div>
+            <div class="metric-label">Hospital Bases</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-value" id="metricDistance">0 mi</div>
+            <div class="metric-label">Max Spread</div>
+          </div>
+        </div>
+
+        <div style="font-weight: 800; font-size: 0.76rem; margin-bottom: 8px; color: var(--slate-700);">ROTATION TIMELINE:</div>
+        <div class="timeline" id="timelineContainer"></div>
+
+        <!-- Rating & Shared Notes Section -->
+        <div class="rating-section">
+          <div style="font-weight: 800; font-size: 0.76rem; color: var(--slate-700); margin-bottom: 4px;">YOUR RATING &amp; NOTES:</div>
+          <div class="star-row" id="starContainer">
+            <span class="star" onclick="setRating(1)">★</span>
+            <span class="star" onclick="setRating(2)">★</span>
+            <span class="star" onclick="setRating(3)">★</span>
+            <span class="star" onclick="setRating(4)">★</span>
+            <span class="star" onclick="setRating(5)">★</span>
+            <span style="font-size: 0.75rem; color: var(--slate-600); margin-left: 6px;" id="ratingText">(Unrated)</span>
+          </div>
+          <textarea class="notes-input" id="partnerNotes" placeholder="Personal notes (e.g., commute manageable, excellent cardiac block)..."></textarea>
+          <button class="btn-save" onclick="saveUserPreferences()">Save Notes &amp; Score</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<!-- Modal 1: Starred Shortlist & Reordering View -->
+<div class="modal-overlay" id="shortlistModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>⭐ My Shortlist &amp; Final Ranking</h2>
+      <button class="btn-step" onclick="closeModal('shortlistModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <span style="font-size:0.8rem; color:var(--slate-600);">Reorder jobs using ▲ ▼ to set your final Oriel ranking:</span>
+        <button class="btn-top btn-export" onclick="exportShortlistCSV()">Download Shortlist CSV</button>
+      </div>
+      <div id="shortlistModalBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 2: Data Sync / Transfer (JSON) -->
+<div class="modal-overlay" id="syncModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Backup &amp; Sync Preferences</h2>
+      <button class="btn-step" onclick="closeModal('syncModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.8rem; color:var(--slate-600); margin-bottom:10px;">
+        Copy this code to transfer your scores and notes to your partner, or paste their code below to load their preferences.
+      </p>
+      <textarea id="syncJsonArea" style="height:140px; font-family:monospace; font-size:0.75rem;"></textarea>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button class="btn-save" style="margin-top:0;" onclick="copySyncData()">📋 Copy Code</button>
+        <button class="btn-save" style="margin-top:0; background:var(--emerald);" onclick="importSyncData()">📥 Import Code</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 1. MASTER HOSPITAL COORDINATES
+const HOSPITALS = {
+  // Cambridge Biomedical Campus
+  "Addenbrooke's Hospital, Cambridge": { coords: [52.1751, 0.1408], region: "East of England" },
+  "Royal Papworth Hospital, Cambridge": { coords: [52.1738, 0.1388], region: "East of England" },
+  
+  // East of England
+  "Watford General Hospital": { coords: [51.6471, -0.4035], region: "East of England" },
+  "Lister Hospital, Stevenage": { coords: [51.9162, -0.2154], region: "East of England" },
+  "Broomfield Hospital, Chelmsford": { coords: [51.7762, 0.4682], region: "East of England" },
+  "Basildon Cardiothoracic Centre": { coords: [51.5562, 0.4491], region: "East of England" },
+  "Southend Hospital": { coords: [51.5544, 0.6861], region: "East of England" },
+  "Colchester Hospital": { coords: [51.9142, 0.9011], region: "East of England" },
+  "Princess Alexandra Hospital, Harlow": { coords: [51.7725, 0.0894], region: "East of England" },
+  "Bedford Hospital": { coords: [52.1292, -0.4683], region: "East of England" },
+  "Luton & Dunstable Hospital": { coords: [51.8972, -0.4721], region: "East of England" },
+  "Norfolk & Norwich University Hospital": { coords: [52.6181, 1.2212], region: "East of England" },
+  "Ipswich Hospital": { coords: [52.0543, 1.2001], region: "East of England" },
+  "West Suffolk Hospital, Bury St Edmunds": { coords: [52.2321, 0.7042], region: "East of England" },
+  "James Paget Hospital, Great Yarmouth": { coords: [52.5492, 1.7161], region: "East of England" },
+  "Queen Elizabeth Hospital, Kings Lynn": { coords: [52.7531, 0.4431], region: "East of England" },
+
+  // London
+  "Royal Free Hospital": { coords: [51.5532, -0.1652], region: "London - North Central East" },
+  "St Bartholomew's Hospital (Barts Cardiac)": { coords: [51.5173, -0.1002], region: "London - North Central East" },
+  "Queen Square (NHNN)": { coords: [51.5221, -0.1224], region: "London - North Central East" },
+  "University College Hospital (UCH)": { coords: [51.5252, -0.1362], region: "London - North Central East" },
+  "Moorfields Eye Hospital": { coords: [51.5273, -0.0881], region: "London - North Central East" },
+  "Royal London Hospital": { coords: [51.5192, -0.0593], region: "London - North Central East" },
+  "Barnet Hospital (BCF)": { coords: [51.6521, -0.2223], region: "London - North Central East" },
+  "RNOH Stanmore": { coords: [51.6262, -0.3204], region: "London - North Central East" },
+  "Queen's Hospital, Romford": { coords: [51.5691, 0.1792], region: "London - North Central East" },
+  
+  "Chelsea & Westminster Hospital": { coords: [51.4842, -0.1824], region: "London - North West" },
+  "Charing Cross Hospital": { coords: [51.4883, -0.2192], region: "London - North West" },
+  "Northwick Park Hospital": { coords: [51.5772, -0.3202], region: "London - North West" },
+  "Hammersmith Hospital": { coords: [51.5171, -0.2372], region: "London - North West" },
+  "St Mary's Hospital, Paddington": { coords: [51.5172, -0.1742], region: "London - North West" },
+  "Royal Brompton Hospital": { coords: [51.4902, -0.1693], region: "London - North West" },
+  "West Middlesex University Hospital": { coords: [51.4782, -0.3271], region: "London - North West" },
+  "Hillingdon Hospital": { coords: [51.5232, -0.4601], region: "London - North West" },
+
+  "St George's Hospital, Tooting": { coords: [51.4272, -0.1752], region: "London - South" },
+  "King's College Hospital": { coords: [51.4682, -0.0931], region: "London - South" },
+  "Guy's & St Thomas' Hospital": { coords: [51.4982, -0.1192], region: "London - South" },
+
+  // Thames Valley
+  "John Radcliffe Hospital, Oxford": { coords: [51.7652, -1.2191], region: "Thames Valley" },
+  "Royal Berkshire Hospital, Reading": { coords: [51.4472, -0.9602], region: "Thames Valley" },
+
+  // Wessex
+  "Southampton General Hospital": { coords: [50.9341, -1.4322], region: "Wessex" },
+  "Queen Alexandra Hospital, Portsmouth": { coords: [50.8492, -1.0712], region: "Wessex" },
+  "Basingstoke & North Hampshire Hospital": { coords: [51.2721, -1.1092], region: "Wessex" },
+  "Royal Hampshire County Hospital, Winchester": { coords: [51.0641, -1.3321], region: "Wessex" },
+  "Poole Hospital": { coords: [50.7252, -1.9772], region: "Wessex" },
+  "Royal Bournemouth Hospital": { coords: [50.7422, -1.8261], region: "Wessex" },
+  "Dorset County Hospital, Dorchester": { coords: [50.7132, -2.4462], region: "Wessex" },
+  "Salisbury District Hospital": { coords: [51.0471, -1.7962], region: "Wessex" },
+
+  // Severn & Peninsula
+  "Bristol Royal Infirmary (UHBW)": { coords: [51.4582, -2.5971], region: "South West - Severn" },
+  "Southmead Hospital (NBT)": { coords: [51.4972, -2.5931], region: "South West - Severn" },
+  "Gloucestershire Royal Hospital": { coords: [51.8682, -2.2341], region: "South West - Severn" },
+  "Great Western Hospital, Swindon": { coords: [51.5332, -1.7331], region: "South West - Severn" },
+  "Royal United Hospital, Bath": { coords: [51.3912, -2.3892], region: "South West - Severn" },
+  "Royal Cornwall Hospital, Truro": { coords: [50.2712, -5.0931], region: "South West - Peninsula" },
+  "Derriford Hospital, Plymouth": { coords: [50.4162, -4.1162], region: "South West - Peninsula" },
+  "Royal Devon & Exeter Hospital": { coords: [50.7152, -3.5131], region: "South West - Peninsula" },
+  "North Devon District Hospital": { coords: [51.0921, -4.0532], region: "South West - Peninsula" },
+  "Torbay Hospital": { coords: [50.4852, -3.5571], region: "South West - Peninsula" },
+  "Musgrove Park Hospital, Taunton": { coords: [51.0142, -3.1202], region: "South West - Peninsula" },
+
+  // East Midlands
+  "Queen's Medical Centre (QMC), Nottingham": { coords: [52.9431, -1.1862], region: "East Midlands" },
+  "Nottingham City Hospital": { coords: [52.9862, -1.1612], region: "East Midlands" },
+  "Royal Derby Hospital": { coords: [52.9102, -1.5121], region: "East Midlands" },
+  "Chesterfield Royal Hospital": { coords: [53.2272, -1.3912], region: "East Midlands" },
+  "Lincoln County Hospital": { coords: [53.2321, -0.5182], region: "East Midlands" },
+  "Boston Pilgrim Hospital": { coords: [52.9892, -0.0071], region: "East Midlands" },
+  "Kings Mill Hospital, Mansfield": { coords: [53.1362, -1.2181], region: "East Midlands" },
+  "Leicester Royal Infirmary": { coords: [52.6282, -1.1342], region: "East Midlands" },
+  "Glenfield Hospital, Leicester": { coords: [52.6542, -1.1802], region: "East Midlands" },
+  "Northampton General Hospital": { coords: [52.2352, -0.8871], region: "East Midlands" },
+  "Kettering General Hospital": { coords: [52.3992, -0.7381], region: "East Midlands" },
+
+  // Wales
+  "Glan Clwyd Hospital, Rhyl": { coords: [53.2682, -3.5161], region: "Wales" },
+  "The Walton Centre, Liverpool": { coords: [53.4752, -2.9421], region: "Wales" },
+  "Ysbyty Gwynedd, Bangor": { coords: [53.2081, -4.1562], region: "Wales" },
+  "Wrexham Maelor Hospital": { coords: [53.0452, -3.0071], region: "Wales" },
+  "Glangwili Hospital, Carmarthen": { coords: [51.8642, -4.2882], region: "Wales" },
+  "Royal Glamorgan Hospital, Llantrisant": { coords: [51.5452, -3.3981], region: "Wales" },
+  "Morriston Hospital, Swansea": { coords: [51.6702, -3.9262], region: "Wales" },
+  "University Hospital of Wales, Cardiff": { coords: [51.5072, -3.1902], region: "Wales" },
+
+  // West Midlands
+  "Royal Stoke University Hospital": { coords: [53.0052, -2.2152], region: "West Midlands" },
+  "New Cross Hospital, Wolverhampton": { coords: [52.5972, -2.0972], region: "West Midlands" },
+  "Walsall Manor Hospital": { coords: [52.5852, -1.9962], region: "West Midlands" },
+  "Midlands Met University Hospital": { coords: [52.4972, -1.9672], region: "West Midlands" },
+  "Royal Shrewsbury Hospital": { coords: [52.7062, -2.7842], region: "West Midlands" },
+  "Queen Elizabeth Hospital Birmingham": { coords: [52.4512, -1.9402], region: "West Midlands" },
+  "UHCW Coventry": { coords: [52.4172, -1.4362], region: "West Midlands" },
+  "Warwick Hospital": { coords: [52.2852, -1.5972], region: "West Midlands" },
+
+  // Yorkshire and the Humber
+  "Hull Royal Infirmary": { coords: [53.7442, -0.3582], region: "Yorkshire and the Humber" },
+  "York Hospital": { coords: [53.9702, -1.0832], region: "Yorkshire and the Humber" },
+  "Scarborough Hospital": { coords: [54.2792, -0.4282], region: "Yorkshire and the Humber" },
+  "Scunthorpe General Hospital": { coords: [53.5902, -0.6692], region: "Yorkshire and the Humber" },
+  "Northern General Hospital, Sheffield": { coords: [53.4152, -1.4582], region: "Yorkshire and the Humber" },
+  "Doncaster Royal Infirmary": { coords: [53.5282, -1.1062], region: "Yorkshire and the Humber" },
+  "Rotherham Hospital": { coords: [53.4182, -1.3482], region: "Yorkshire and the Humber" },
+  "Barnsley Hospital": { coords: [53.5582, -1.5042], region: "Yorkshire and the Humber" },
+  "Leeds General Infirmary": { coords: [53.8012, -1.5532], region: "Yorkshire and the Humber" },
+  "Bradford Royal Infirmary": { coords: [53.8042, -1.7962], region: "Yorkshire and the Humber" },
+  "Pinderfields Hospital, Wakefield": { coords: [53.6932, -1.4842], region: "Yorkshire and the Humber" },
+
+  // North West & North East
+  "Royal Liverpool University Hospital": { coords: [53.4092, -2.9642], region: "North West" },
+  "Manchester Royal Infirmary": { coords: [53.4622, -2.2272], region: "North West" },
+  "Royal Victoria Infirmary, Newcastle": { coords: [54.9782, -1.6232], region: "North East" }
+};
+
+// 2. COMPLETE ROTATIONS DATA (Dual Driver vs Public Transport Hubs)
+const ROTATIONS_DATA = [
+  // ==================== EAST OF ENGLAND ====================
+  {
+    id: "eoe-watford12", code: "EoE - Watford 12 & 13", region: "East of England", title: "Hertfordshire & Cambridge Track", places: "3 total",
+    hubs: {
+      driver: { name: "St Albans / Welwyn Garden City", coords: [51.7522, -0.3392], desc: "A414/A1(M)/M25 junction. Commute by car: 20m to Watford General, 22m to Lister, 55m to Cambridge (ST5), 45m to Broomfield (A414).", alert: "A414 corridor avoids M25 morning jams." },
+      transit: { name: "Stevenage (Station Area)", coords: [51.9032, -0.2012], desc: "East Coast Main Line: 10m bus to Lister Hospital, 25m fast train to Cambridge (Addenbrooke's). Watford reachable via Thameslink/rail.", alert: "⚠️ Note: Broomfield (ST7) requires train to Chelmsford then hospital shuttle bus (C1/C2)." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "Watford General Hospital", desc: "General & Obstetric Anaesthesia" },
+      { stage: "ST4/ST5", hosp: "Lister Hospital, Stevenage", desc: "General Acute DGH" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Tertiary Neuroanaesthesia" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiothoracic Anaesthesia" },
+      { stage: "ST6 (12m)", hosp: "Watford General Hospital", desc: "Higher General Anaesthesia" },
+      { stage: "ST7 (12m)", hosp: "Broomfield Hospital, Chelmsford", desc: "Burns & Plastics Specialist Centre" }
+    ]
+  },
+  {
+    id: "eoe-chelmsford7", code: "EoE - Chelmsford 7 & 9", region: "East of England", title: "Essex & Cambridge Track", places: "2 total",
+    hubs: {
+      driver: { name: "Chelmsford (South) / Shenfield", coords: [51.7352, 0.4682], desc: "A12/A130. Commute: 10m to Broomfield, 25m to Basildon CTC, 35m to Southend, 55m to Cambridge.", alert: "Quick access to the A130 bypass makes reaching Basildon and Southend straightforward." },
+      transit: { name: "Chelmsford Central", coords: [51.7362, 0.4692], desc: "Direct C1/C2 buses to Broomfield front entrance (15m). Direct trains to Shenfield, Southend Victoria, and London.", alert: "⚠️ Note: Cambridge (ST5) requires cross-country connection; plan ahead for ST5." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "Broomfield Hospital, Chelmsford", desc: "Regional Burns & General" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuroanaesthesia Module" },
+      { stage: "ST5", hosp: "Basildon Cardiothoracic Centre", desc: "Cardiothoracic Anaesthesia" },
+      { stage: "ST6 (12m)", hosp: "Southend Hospital", desc: "Acute DGH Anaesthesia" },
+      { stage: "ST7 (12m)", hosp: "Lister Hospital, Stevenage", desc: "Advanced General Anaesthesia" }
+    ]
+  },
+  {
+    id: "eoe-colchester10", code: "EoE - Colchester 8 & 10", region: "East of England", title: "North Essex & Cambridge Track", places: "2 total",
+    hubs: {
+      driver: { name: "Bishop's Stortford / Great Dunmow", coords: [51.8712, 0.1602], desc: "A120 & M11. Commute: 25m to Harlow, 30m to Cambridge, 35m to Broomfield, 45m to Colchester, 35m to Lister.", alert: "A120 dual carriageway provides swift cross-county links." },
+      transit: { name: "Stratford / Tottenham Hale", coords: [51.5412, -0.0032], desc: "Greater Anglia rail hub: 30m to Harlow Town, 45m to Cambridge, 45m to Colchester.", alert: "Living in North-East London interchange allows reverse rail commutes." }
+    },
+    stages: [
+      { stage: "ST4", hosp: "Colchester Hospital", desc: "Acute General Surgery" },
+      { stage: "ST4/ST5", hosp: "Broomfield Hospital, Chelmsford", desc: "Burns, Plastics, ICU" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuroanaesthesia Module" },
+      { stage: "ST5", hosp: "Basildon Cardiothoracic Centre", desc: "Cardiothoracic Module" },
+      { stage: "ST6 (12m)", hosp: "Princess Alexandra Hospital, Harlow", desc: "General DGH" },
+      { stage: "ST7 (12m)", hosp: "Lister Hospital, Stevenage", desc: "Senior Placement" }
+    ]
+  },
+  {
+    id: "eoe-bedford1", code: "EoE - Bedford 1", region: "East of England", title: "Bedford, Cambridge & Norwich", places: "1",
+    hubs: {
+      driver: { name: "St Neots / Royston", coords: [52.2272, -0.2682], desc: "A421/A1/A505 corridor. Commute: 22m to Bedford, 30m to Cambridge (Addenbrooke's/Papworth).", alert: "A421 provides smooth daily driving to Bedford." },
+      transit: { name: "Cambridge (South / Central)", coords: [52.1952, 0.1312], desc: "Direct bus/cycle to Addenbrooke's; X5 coach line to Bedford; direct 1h 10m train to Norwich.", alert: "Cambridge is an exceptional cycle and public transport hub." }
+    },
+    stages: [
+      { stage: "ST4", hosp: "Bedford Hospital", desc: "General DGH" },
+      { stage: "ST4/ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuro & Major Surgery" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Heart & Lung Centre" },
+      { stage: "ST6 (12m)", hosp: "Bedford Hospital", desc: "Higher General" },
+      { stage: "ST7 (12m)", hosp: "Norfolk & Norwich University Hospital", desc: "Tertiary Teaching Hospital" }
+    ]
+  },
+  {
+    id: "eoe-cambridge2", code: "EoE - Cambridge 2", region: "East of England", title: "Cambridge, Luton & Lister", places: "1",
+    hubs: {
+      driver: { name: "Royston / Hitchin", coords: [52.0522, -0.0222], desc: "A505/A1(M) midpoint. Commute: 25m to Cambridge, 18m to Lister, 30m to Luton.", alert: "Avoids heavy M25 traffic." },
+      transit: { name: "Stevenage (Station Hub)", coords: [51.9032, -0.2012], desc: "East Coast Main Line: 25m to Cambridge, short bus/walk to Lister, direct connection to Luton.", alert: "Direct fast trains run early morning to late night." }
+    },
+    stages: [
+      { stage: "ST4", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuro & Major Trauma" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiothoracics Module" },
+      { stage: "ST6 (12m)", hosp: "Luton & Dunstable Hospital", desc: "Obstetrics & General" },
+      { stage: "ST7 (12m)", hosp: "Lister Hospital, Stevenage", desc: "Senior Placement" }
+    ]
+  },
+  {
+    id: "eoe-ipswich11", code: "EoE - Ipswich 5, 6 & 11", region: "East of England", title: "East Anglia Central Track", places: "3 total",
+    hubs: {
+      driver: { name: "Bury St Edmunds / Stowmarket", coords: [52.2472, 0.7182], desc: "A14 trunk road. Commute: 35m to Ipswich, 38m to Cambridge, 45m to Norwich, 38m to Colchester.", alert: "Central base in East Anglia." },
+      transit: { name: "Ipswich Central or Stowmarket", coords: [52.0582, 1.1502], desc: "Direct junction station connecting Cambridge (50m), Norwich (35m), and Colchester (18m).", alert: "⚠️ Note: Broomfield (ST7) requires rail to Chelmsford + C1 bus." }
+    },
+    stages: [
+      { stage: "ST4", hosp: "Ipswich Hospital", desc: "Acute General" },
+      { stage: "ST4/ST5", hosp: "Norfolk & Norwich University Hospital", desc: "Tertiary Hospital" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiothoracics Module" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuro Module" },
+      { stage: "ST6", hosp: "Colchester Hospital", desc: "General DGH" },
+      { stage: "ST7 (12m)", hosp: "Broomfield Hospital, Chelmsford", desc: "Burns & Plastics Specialist Base" }
+    ]
+  },
+  {
+    id: "eoe-luton14", code: "EoE - Luton 14 & 15", region: "East of England", title: "Bedfordshire & Cambridge Track", places: "2 total",
+    hubs: {
+      driver: { name: "Hitchin / Welwyn", coords: [51.9472, -0.2822], desc: "A505/A1(M) corridor. Commute: 10m to Lister, 20m to Luton, 35m to Cambridge via A505, 30m to Watford.", alert: "Hitchin provides fast road links to all sites." },
+      transit: { name: "Stevenage / Luton Town", coords: [51.9032, -0.2012], desc: "Thameslink and East Coast Mainline provide early connections between Stevenage, Cambridge, and Luton.", alert: "Guided Busway connects Luton Station directly to the hospital." }
+    },
+    stages: [
+      { stage: "ST4", hosp: "Luton & Dunstable Hospital", desc: "High Risk Obstetrics & General" },
+      { stage: "ST4/ST5", hosp: "Lister Hospital, Stevenage", desc: "Acute General" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuroanaesthesia" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiothoracics" },
+      { stage: "ST6 (12m)", hosp: "Watford General Hospital", desc: "General Placements" },
+      { stage: "ST7 (12m)", hosp: "Broomfield Hospital, Chelmsford", desc: "Specialist Centre" }
+    ]
+  },
+  {
+    id: "eoe-norwich-all", code: "EoE - Norwich 3, 4, 17, 18 & 19", region: "East of England", title: "Norfolk & Regional Network", places: "6 total",
+    hubs: {
+      driver: { name: "Norwich (South / Cringleford) or Thetford", coords: [52.6102, 1.2502], desc: "A11 corridor. Easy driving to NNUH (Norwich), Addenbrooke's, Kings Lynn, and Great Yarmouth.", alert: "NNUH sits right off the A11/A47 southern bypass." },
+      transit: { name: "Norwich City Centre", coords: [52.6282, 1.2982], desc: "Frequent 25/26 Blue Line buses directly to hospital (10m). Direct trains to Gt Yarmouth (30m) and Cambridge (1h 10m).", alert: "⚠️ Note: Kings Lynn is 1h+ on Excel D coach from Norwich." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "Norfolk & Norwich University Hospital", desc: "Tertiary Base" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiac Module" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuro Module" },
+      { stage: "ST6", hosp: "West Suffolk Hospital, Bury St Edmunds", desc: "General Placement" },
+      { stage: "ST7", hosp: "James Paget Hospital, Great Yarmouth", desc: "Senior Placement" }
+    ]
+  },
+
+  // ==================== EAST MIDLANDS ====================
+  {
+    id: "emids-n1", code: "East Midlands - North 1 & 2", region: "East Midlands", title: "EM North: Boston, Derby, Nottingham & Lincoln", places: "2 total",
+    hubs: {
+      driver: { name: "Newark-on-Trent / Nottingham East", coords: [53.0782, -0.8122], desc: "A46/A1/A52 corridor. Central pivot: 35m drive to Lincoln, 30m to Nottingham, 50m to Boston Pilgrim, 45m to Derby.", alert: "Car strongly recommended due to rural Lincolnshire hospitals." },
+      transit: { name: "Nottingham City Centre", coords: [52.9502, -1.1502], desc: "NET Tram to QMC front door; Medilink bus to City Hospital; 22m train to Derby.", alert: "⚠️ Critical Shift Warning: Boston Pilgrim has poor Sunday early public transport; hospital accommodation taken during Boston block." }
+    },
+    stages: [
+      { stage: "Feb-27", hosp: "Boston Pilgrim Hospital", desc: "General Anaesthesia" },
+      { stage: "Aug-27", hosp: "Royal Derby Hospital", desc: "Acute Surgery" },
+      { stage: "Feb-28", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Major Trauma Centre" },
+      { stage: "Aug-28", hosp: "Nottingham City Hospital", desc: "Thoracics & Elective" },
+      { stage: "Feb-29", hosp: "Lincoln County Hospital", desc: "General Placement" },
+      { stage: "Aug-29", hosp: "Royal Derby Hospital", desc: "Specialist Placement" }
+    ]
+  },
+  {
+    id: "emids-n3", code: "East Midlands - North 3, 4 & 5", region: "East Midlands", title: "EM North: Lincoln, Chesterfield, QMC & City", places: "3 total",
+    hubs: {
+      driver: { name: "Mansfield / Nottingham North", coords: [53.1452, -1.1982], desc: "M1 Junction 28. Commute: 25m to Chesterfield Royal, 25m to Nottingham, 10m to Kings Mill, 45m to Lincoln.", alert: "M1 corridor makes accessing acute sites straightforward." },
+      transit: { name: "Nottingham (Central / Beeston)", coords: [52.9272, -1.2142], desc: "Tram directly into QMC; direct bus to City Hospital; train north to Chesterfield (30m).", alert: "Nottingham tram network stops directly inside QMC." }
+    },
+    stages: [
+      { stage: "Stage 1", hosp: "Lincoln County Hospital", desc: "Acute General" },
+      { stage: "Stage 2", hosp: "Chesterfield Royal Hospital", desc: "DGH Anaesthesia" },
+      { stage: "Stage 3", hosp: "Nottingham City Hospital", desc: "Elective Surgery" },
+      { stage: "Stage 4", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Major Trauma Centre" }
+    ]
+  },
+  {
+    id: "emids-s-all", code: "East Midlands - South (S1-S8, 1E)", region: "East Midlands", title: "EM South: Leicester, Glenfield, QMC & Northants", places: "8 total",
+    hubs: {
+      driver: { name: "Market Harborough / South Leicester", coords: [52.4782, -0.9222], desc: "A6/M1 corridor. Commute: 22m to Leicester (LRI/Glenfield), 30m to Kettering, 35m to Northampton, 40m to QMC.", alert: "Sits right in the sweet spot between Leicester and Northants." },
+      transit: { name: "Leicester Central", coords: [52.6312, -1.1252], desc: "The 'Hospital Hopper' bus connects station directly to LRI and Glenfield Hospital. Midland Mainline connects Kettering and Nottingham.", alert: "Hospital Hopper runs frequently for hospital staff." }
+    },
+    stages: [
+      { stage: "Stage 1", hosp: "Leicester Royal Infirmary", desc: "Teaching Hospital Base" },
+      { stage: "Stage 2", hosp: "Glenfield Hospital, Leicester", desc: "Cardiothoracics Module" },
+      { stage: "Stage 3", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Neuro / Trauma Module" },
+      { stage: "Stage 4", hosp: "Northampton General Hospital", desc: "Acute Surgery" },
+      { stage: "Stage 5", hosp: "Kettering General Hospital", desc: "General Placements" }
+    ]
+  },
+
+  // ==================== LONDON (NCEL) ====================
+  {
+    id: "ncel-l20", code: "NCEL - L20", region: "London - North Central East", title: "Central London Tertiary Track", places: "1",
+    hubs: {
+      driver: { name: "Finsbury Park / Highbury", coords: [51.5642, -0.1062], desc: "Driving not recommended to UCH/Barts due to lack of staff parking and congestion charges.", alert: "Public transport is the standard choice for central London." },
+      transit: { name: "Finsbury Park / Highbury & Islington", coords: [51.5462, -0.1032], desc: "Victoria & Piccadilly lines + Thameslink. Commute: 10m to UCH, 15m to Royal Free, 15m to Barts & Queen Square.", alert: "24-hour Tube connectivity across central teaching hospitals." }
+    },
+    stages: [
+      { stage: "ST4 (6m)", hosp: "Royal Free Hospital", desc: "General & Vascular Anaesthesia" },
+      { stage: "ST4 (3m)", hosp: "Royal Free Hospital", desc: "Intensive Care Medicine" },
+      { stage: "ST5 (3m)", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracic Anaesthesia" },
+      { stage: "ST5 (3m)", hosp: "Queen Square (NHNN)", desc: "Neuroanaesthesia" },
+      { stage: "ST5 (3m)", hosp: "University College Hospital (UCH)", desc: "Head & Neck, General" },
+      { stage: "ST5 (3m)", hosp: "Moorfields Eye Hospital", desc: "Ophthalmic Anaesthesia" }
+    ]
+  },
+  {
+    id: "ncel-l18", code: "NCEL - L18", region: "London - North Central East", title: "Outer North & Central Track", places: "1",
+    hubs: {
+      driver: { name: "Mill Hill / Golders Green", coords: [51.6162, -0.2242], desc: "A41/A1 corridor. Good car access to Barnet (BCF) and RNOH Stanmore.", alert: "Free or accessible hospital parking at Barnet and Stanmore." },
+      transit: { name: "West Hampstead / Finchley Road", coords: [51.5472, -0.1912], desc: "Jubilee Line to Stanmore (RNOH); Thameslink to central London; Northern line / bus to Barnet (BCF).", alert: "Jubilee line provides 25m transit out to Stanmore." }
+    },
+    stages: [
+      { stage: "ST4 (3m)", hosp: "Barnet Hospital (BCF)", desc: "General DGH Anaesthetics" },
+      { stage: "ST4 (3m)", hosp: "University College Hospital (UCH)", desc: "ICU Module" },
+      { stage: "ST4 (6m)", hosp: "RNOH Stanmore", desc: "Specialist Orthopaedic Anaesthesia" },
+      { stage: "ST5 (6m)", hosp: "Chelsea & Westminster Hospital", desc: "Burns, Paeds & General" },
+      { stage: "ST5 (3m)", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracic Module" },
+      { stage: "ST5 (3m)", hosp: "Queen Square (NHNN)", desc: "Neuroanaesthesia Module" }
+    ]
+  },
+  {
+    id: "ncel-l15", code: "NCEL - L15, L21 & L22", region: "London - North Central East", title: "Romford & Central London Track", places: "3 total",
+    hubs: {
+      driver: { name: "South Woodford / Redbridge", coords: [51.5912, 0.0272], desc: "A406 / A12 intersection. 22m drive east to Queen's Hospital (Romford); good link to Royal Free.", alert: "A12 provides fast vehicular access to Romford." },
+      transit: { name: "Stratford / Whitechapel", coords: [51.5412, -0.0032], desc: "Elizabeth line takes you to Romford in 18 minutes; Central Line into Barts/City; Overground to Hampstead.", alert: "Elizabeth line has significantly improved the Romford commute." }
+    },
+    stages: [
+      { stage: "Stage 1", hosp: "Royal Free Hospital", desc: "Hepatobiliary & General" },
+      { stage: "Stage 2", hosp: "Queen's Hospital, Romford", desc: "General & Neuro Anaesthetics" },
+      { stage: "Stage 3", hosp: "University College Hospital (UCH)", desc: "Thoracic Anaesthesia & ICU" },
+      { stage: "Stage 4", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracics Module" },
+      { stage: "Stage 5", hosp: "Royal London Hospital", desc: "Trauma & ICU" }
+    ]
+  },
+  {
+    id: "ncel-l12", code: "NCEL - L12, L13, L14, L16, L17, L19", region: "London - North Central East", title: "North Central Mixed Rotations", places: "6 total",
+    hubs: {
+      driver: { name: "East Finchley / Muswell Hill", coords: [51.5872, -0.1652], desc: "A1/North Circular. Good for driving north to Barnet while staying close to central sites.", alert: "Parking permits difficult at UCH/Barts; plan transit for central blocks." },
+      transit: { name: "Camden / Highbury / Kentish Town", coords: [51.5432, -0.1422], desc: "Northern line direct to Barnet; Piccadilly/Victoria lines to central teaching hospitals.", alert: "Central pivot point with 24h Northern Line services." }
+    },
+    stages: [
+      { stage: "Stage 1", hosp: "Barnet Hospital (BCF)", desc: "General Placement" },
+      { stage: "Stage 2", hosp: "Chelsea & Westminster Hospital", desc: "Paeds & Burns" },
+      { stage: "Stage 3", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracics" },
+      { stage: "Stage 4", hosp: "Queen Square (NHNN)", desc: "Neuroanaesthesia" },
+      { stage: "Stage 5", hosp: "University College Hospital (UCH)", desc: "ICU & General" }
+    ]
+  },
+
+  // ==================== LONDON (NWL) ====================
+  {
+    id: "nwl-l10", code: "NWL - L10, L5, L7", region: "London - North West", title: "West London Teaching Track", places: "3 total",
+    hubs: {
+      driver: { name: "Acton / Ealing", coords: [51.5132, -0.3042], desc: "A40 / North Circular. 20m drive to Northwick Park; 15m to Hammersmith; 20m to Chelsea.", alert: "Driving allows easy cross-suburban transit to Northwick Park." },
+      transit: { name: "Ealing Broadway / Hammersmith", coords: [51.5142, -0.3022], desc: "Piccadilly/District lines to Charing Cross & Chelsea; Central line to Hammersmith; Metropolitan to Northwick Park.", alert: "Superb West London public transport connectivity." }
+    },
+    stages: [
+      { stage: "Stage 1", hosp: "Chelsea & Westminster Hospital", desc: "ICM & Anaesthesia" },
+      { stage: "Stage 2", hosp: "Charing Cross Hospital", desc: "Neuro, Head & Neck, Vascular" },
+      { stage: "Stage 3", hosp: "Northwick Park Hospital", desc: "Obstetrics & General DGH" },
+      { stage: "Stage 4", hosp: "Hammersmith Hospital", desc: "Renal & Cardiothoracics" }
+    ]
+  },
+  {
+    id: "nwl-l8", code: "NWL - L8, L3, L6", region: "London - North West", title: "Charing Cross, Brompton & West Mid", places: "3 total",
+    hubs: {
+      driver: { name: "Chiswick / Brentford", coords: [51.4922, -0.2552], desc: "A4/M4. 12m drive to West Middlesex; 15m to Charing Cross; 25m to Hillingdon.", alert: "A4 dual carriageway allows fast off-peak driving to West Mid." },
+      transit: { name: "Hammersmith / Earl's Court", coords: [51.4922, -0.2242], desc: "Walk or 5m bus to Charing Cross; District line to Chelsea & Westminster; Piccadilly to Royal Brompton.", alert: "Walkable hub for Charing Cross and West London sites." }
+    },
+    stages: [
+      { stage: "Stage 1", hosp: "Charing Cross Hospital", desc: "Major Elective & Trauma" },
+      { stage: "Stage 2", hosp: "Royal Brompton Hospital", desc: "Tertiary Cardiothoracics" },
+      { stage: "Stage 3", hosp: "Chelsea & Westminster Hospital", desc: "General & Paeds / ICM" },
+      { stage: "Stage 4", hosp: "West Middlesex University Hospital", desc: "DGH Anaesthesia" },
+      { stage: "Stage 5", hosp: "Hillingdon Hospital", desc: "General Acute" }
+    ]
+  },
+  {
+    id: "nwl-l4", code: "NWL - L4, L9, L11", region: "London - North West", title: "Northwick Park, Queen Square & St Mary's", places: "3 total",
+    hubs: {
+      driver: { name: "Wembley / Harrow", coords: [51.5602, -0.3102], desc: "A404 / North Circular. Easy driving to Northwick Park; road link to Paddington.", alert: "Good parking availability in outer North West London." },
+      transit: { name: "Marylebone / Paddington / Baker Street", coords: [51.5202, -0.1632], desc: "Metropolitan Line directly to Northwick Park (18m) and Queen Square (Russell Sq); Bakerloo to St Mary's (5m).", alert: "Metropolitan Line fast trains make Northwick Park commute rapid." }
+    },
+    stages: [
+      { stage: "Stage 1", hosp: "Northwick Park Hospital", desc: "Obstetrics & Acute Base" },
+      { stage: "Stage 2", hosp: "Queen Square (NHNN)", desc: "Tertiary Neuroanaesthesia" },
+      { stage: "Stage 3", hosp: "St Mary's Hospital, Paddington", desc: "Major Trauma Centre" },
+      { stage: "Stage 4", hosp: "Royal Brompton Hospital", desc: "Cardiac Module" }
+    ]
+  },
+
+  // ==================== LONDON (SOUTH) ====================
+  {
+    id: "south-l1", code: "South London - L1", region: "London - South", title: "South West London (St George's Base)", places: "1",
+    hubs: {
+      driver: { name: "Wimbledon / Earlsfield", coords: [51.4322, -0.1982], desc: "A24/A3. Quick 12m drive to St George's Hospital (Tooting) with staff parking.", alert: "Convenient for commuting south into Surrey on later years." },
+      transit: { name: "Balham / Tooting Bec", coords: [51.4432, -0.1522], desc: "Northern line: Tooting Broadway station is directly under St George's Hospital entrance (5m ride).", alert: "24-hour Night Tube on weekends." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "St George's Hospital, Tooting", desc: "Major Trauma Centre, Neuro & Paeds" }
+    ]
+  },
+  {
+    id: "south-l23", code: "South London - L23", region: "London - South", title: "South East London (King's College Base)", places: "1",
+    hubs: {
+      driver: { name: "Dulwich / Crystal Palace", coords: [51.4452, -0.0882], desc: "A205 South Circular. 15m drive to Denmark Hill.", alert: "Residential area with on-street parking options." },
+      transit: { name: "Herne Hill / Camberwell", coords: [51.4552, -0.0982], desc: "Short walk or 5m bus to King's; Denmark Hill station has direct Thameslink and Overground.", alert: "Cycling distance to the hospital is effortless." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "King's College Hospital", desc: "Major Trauma, Liver & Paeds Base" }
+    ]
+  },
+  {
+    id: "south-l2", code: "South London - L2", region: "London - South", title: "South East London (Guy's & St Thomas' Base)", places: "3",
+    hubs: {
+      driver: { name: "Greenwich / Blackheath", coords: [51.4782, -0.0082], desc: "A2 corridor. Driving not recommended to London Bridge/Waterloo due to congestion charges.", alert: "Public transport strongly recommended." },
+      transit: { name: "London Bridge / Waterloo / Kennington", coords: [51.4952, -0.1102], desc: "Guy's is at London Bridge station; St Thomas' is directly opposite Waterloo. Walking between both is 15 mins.", alert: "Exceptional public transport right at your doorstep." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "Guy's & St Thomas' Hospital", desc: "Cardiothoracics, Vascular, Major Paeds" }
+    ]
+  },
+
+  // ==================== WESSEX ====================
+  {
+    id: "wessex-east", code: "Wessex - East 4, 5 & 6", region: "Wessex", title: "Wessex East Rotational Network", places: "7 total",
+    hubs: {
+      driver: { name: "Winchester", coords: [51.0632, -1.3080], desc: "M3/M27/A34 junction. Driving: 18m to Southampton General, 28m to Portsmouth (QA), 22m to Basingstoke.", alert: "Widely regarded as the premier driving base for Wessex East." },
+      transit: { name: "Eastleigh / Southampton Central", coords: [50.9682, -1.3532], desc: "Eastleigh connects directly by train to Basingstoke (22m), Winchester (12m), and Portsmouth (40m); Unilink bus to Southampton General.", alert: "Southampton General Hospital requires Unilink bus from station." }
+    },
+    stages: [
+      { stage: "Base Network", hosp: "Southampton General Hospital", desc: "Regional Major Trauma & Cardiac Centre" },
+      { stage: "Base Network", hosp: "Queen Alexandra Hospital, Portsmouth", desc: "Major Acute & Vascular Centre" },
+      { stage: "Base Network", hosp: "Basingstoke & North Hampshire Hospital", desc: "Pseudomyxoma & General Surgery" },
+      { stage: "Base Network", hosp: "Royal Hampshire County Hospital, Winchester", desc: "Elective Orthopaedics & General" }
+    ]
+  },
+  {
+    id: "wessex-west", code: "Wessex - West 1, 2 & 3", region: "Wessex", title: "Wessex West Rotational Network", places: "7 total",
+    hubs: {
+      driver: { name: "Wimborne Minster / Ringwood", coords: [50.8000, -1.9860], desc: "A31/A338. Commute: 20m to Poole & Bournemouth, 32m to Southampton General, 40m to Salisbury and Dorchester.", alert: "Dual carriageway access across Dorset and Hampshire." },
+      transit: { name: "Bournemouth Central / Poole", coords: [50.7262, -1.8662], desc: "Frequent m1/m2 buses connect Poole and Bournemouth 24/7; direct trains to Southampton (30m) and Dorchester (40m).", alert: "⚠️ Note: Salisbury requires train plus connecting hospital bus." }
+    },
+    stages: [
+      { stage: "Base Network", hosp: "Southampton General Hospital", desc: "Regional MTC & Specialist Surgery" },
+      { stage: "Base Network", hosp: "Poole Hospital", desc: "Acute District General Placements" },
+      { stage: "Base Network", hosp: "Royal Bournemouth Hospital", desc: "Major Elective Centre" },
+      { stage: "Base Network", hosp: "Salisbury District Hospital", desc: "Regional Burns & Plastics" },
+      { stage: "Base Network", hosp: "Dorset County Hospital, Dorchester", desc: "DGH Anaesthesia" }
+    ]
+  },
+
+  // ==================== THAMES VALLEY ====================
+  {
+    id: "tv-oxford", code: "Thames Valley - OUH 1", region: "Thames Valley", title: "Oxford University Hospitals", places: "10",
+    hubs: {
+      driver: { name: "Headington / Kidlington", coords: [51.7582, -1.2182], desc: "A40/A34 access. Headington allows quick driving into John Radcliffe campus.", alert: "Living east of Oxford centre is essential for driving to JR." },
+      transit: { name: "Headington (Oxford)", coords: [51.7562, -1.2142], desc: "Walking or 5m cycle to John Radcliffe Hospital; Oxford Tube coach stops directly in Headington for London.", alert: "Car-free living is very easy in Headington." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "John Radcliffe Hospital, Oxford", desc: "MTC, Neuro, Paeds, Cardiac" }
+    ]
+  },
+  {
+    id: "tv-reading", code: "Thames Valley - RBH 2", region: "Thames Valley", title: "Royal Berkshire Reading", places: "1",
+    hubs: {
+      driver: { name: "Caversham / Winnersh", coords: [51.4622, -0.9720], desc: "M4 corridor. Commute: 10m drive to Royal Berkshire Hospital; easy links across Berkshire.", alert: "Straightforward access to M4." },
+      transit: { name: "Reading Central", coords: [51.4582, -0.9720], desc: "15-minute walk or short bus (9/21) to hospital entrance; Elizabeth line into London in 45m.", alert: "Major railway hub." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "Royal Berkshire Hospital, Reading", desc: "Acute General & ICU" }
+    ]
+  },
+
+  // ==================== SOUTH WEST (SEVERN & PENINSULA) ====================
+  {
+    id: "severn-all", code: "Severn - Glos, Bristol, Bath, Swindon", region: "South West - Severn", title: "Severn Rotational Network", places: "4 total",
+    hubs: {
+      driver: { name: "North Bristol (Bradley Stoke / Thornbury)", coords: [51.5362, -2.5482], desc: "M5 Junction 16. Driving: 15m to Southmead, 22m to Bristol BRI, 30m up M5 to Gloucester, 35m to Bath and Swindon.", alert: "Motorway access avoids Bristol Clean Air Zone." },
+      transit: { name: "Bristol (Temple Meads / Central)", coords: [51.4492, -2.5812], desc: "Direct trains to Gloucester (38m), Bath (12m), and Swindon (25m); direct MetroBus (M1/M2) to Southmead Hospital and BRI.", alert: "MetroBus routes run directly to Southmead entrance." }
+    },
+    stages: [
+      { stage: "Stage 1", hosp: "Gloucestershire Royal Hospital", desc: "Acute General Anaesthesia" },
+      { stage: "Stage 2", hosp: "Bristol Royal Infirmary (UHBW)", desc: "Cardiac, Paeds & Major Surgery" },
+      { stage: "Stage 3", hosp: "Southmead Hospital (NBT)", desc: "Neuro & Major Trauma Centre" },
+      { stage: "Stage 4", hosp: "Great Western Hospital, Swindon", desc: "General Placement" },
+      { stage: "Stage 5", hosp: "Royal United Hospital, Bath", desc: "DGH Base" }
+    ]
+  },
+  {
+    id: "peninsula-all", code: "Peninsula - Cornwall, Exeter, Torbay, Taunton", region: "South West - Peninsula", title: "Peninsula Rotational Network", places: "8 total",
+    hubs: {
+      driver: { name: "Exeter / Newton Abbot / Saltash", coords: [50.7102, -3.5202], desc: "A38/A30/M5 spine connecting Truro, Plymouth (Derriford), Exeter, and Taunton.", alert: "Car strongly recommended for Peninsula rotations." },
+      transit: { name: "Plymouth Central", coords: [50.3782, -4.1422], desc: "Direct frequent buses (1, 34, 42) every 10m to Derriford Hospital; mainline rail connects Cornwall (Truro) and Exeter.", alert: "Derriford Hospital has good bus links from Plymouth Station." }
+    },
+    stages: [
+      { stage: "Base Network", hosp: "Derriford Hospital, Plymouth", desc: "Regional Trauma & Neuro Base" },
+      { stage: "Base Network", hosp: "Royal Devon & Exeter Hospital", desc: "Acute General" },
+      { stage: "Base Network", hosp: "Royal Cornwall Hospital, Truro", desc: "Cornwall Acute Base" },
+      { stage: "Base Network", hosp: "Torbay Hospital", desc: "South Devon Acute" },
+      { stage: "Base Network", hosp: "Musgrove Park Hospital, Taunton", desc: "Somerset Acute" }
+    ]
+  },
+
+  // ==================== WALES ====================
+  {
+    id: "wales-north", code: "Wales - North (1, 2, 3, 4)", region: "Wales", title: "North Wales & Walton Neuro Track", places: "1 total",
+    hubs: {
+      driver: { name: "Chester / Conwy", coords: [53.1902, -2.8902], desc: "A55 expressway. Commute: 35m to Rhyl (Glan Clwyd), 30m to Walton Neuro (Liverpool).", alert: "Fast dual carriageway driving along coast." },
+      transit: { name: "Chester Central", coords: [53.1962, -2.8792], desc: "Direct mainline trains along North Wales coast (Rhyl 35m, Bangor 1h) and north to Liverpool/Walton (40m).", alert: "⚠️ Note: Glan Clwyd requires bus connection from Rhyl." }
+    },
+    stages: [
+      { stage: "Stage 1", hosp: "Glan Clwyd Hospital, Rhyl", desc: "North Wales Acute Base" },
+      { stage: "Stage 2", hosp: "The Walton Centre, Liverpool", desc: "Tertiary Neuroanaesthesia (3m)" },
+      { stage: "Stage 3", hosp: "Wrexham Maelor Hospital", desc: "Acute General" },
+      { stage: "Stage 4", hosp: "University Hospital of Wales, Cardiff", desc: "South Wales Senior Rotations" }
+    ]
+  },
+  {
+    id: "wales-south", code: "Wales - South (5, 6, 7, 8, 9)", region: "Wales", title: "South Wales Network (Cardiff, Swansea, Carmarthen)", places: "7 total",
+    hubs: {
+      driver: { name: "Cardiff (North) / Bridgend", coords: [51.5202, -3.2102], desc: "M4 corridor connecting Cardiff (UHW), Royal Glamorgan (Llantrisant), and Morriston (Swansea).", alert: "M4 links all major hospitals." },
+      transit: { name: "Cardiff (Heath / Central)", coords: [51.5072, -3.1802], desc: "Heath station is adjacent to University Hospital of Wales (UHW); direct mainline trains to Swansea (50m).", alert: "UHW is very accessible on foot from Heath." }
+    },
+    stages: [
+      { stage: "Base Network", hosp: "University Hospital of Wales, Cardiff", desc: "Major Teaching & Trauma Centre" },
+      { stage: "Base Network", hosp: "Morriston Hospital, Swansea", desc: "Burns, Cardiac & Regional Base" },
+      { stage: "Base Network", hosp: "Royal Glamorgan Hospital, Llantrisant", desc: "Acute General" },
+      { stage: "Base Network", hosp: "Glangwili Hospital, Carmarthen", desc: "West Wales Base" }
+    ]
+  },
+
+  // ==================== WEST MIDLANDS ====================
+  {
+    id: "wmid-stoke", code: "West Midlands - Stoke School (3, 4, 5, 6, 7)", region: "West Midlands", title: "Stoke, Black Country & Shropshire", places: "12 total",
+    hubs: {
+      driver: { name: "Stafford / Wolverhampton North", coords: [52.8062, -2.1162], desc: "M6 corridor. Commute: 22m to Stoke (UHNM), 20m to Wolverhampton and Walsall, 30m to Shrewsbury.", alert: "Stafford sits right at the geographical center." },
+      transit: { name: "Wolverhampton Central", coords: [52.5862, -2.1222], desc: "Direct trains to Stoke (25m), Birmingham New Street (18m), Walsall, and Shrewsbury (35m); Metro tram to MMUH.", alert: "Frequent West Coast Main Line services." }
+    },
+    stages: [
+      { stage: "Base Network", hosp: "Royal Stoke University Hospital", desc: "Major Trauma & Tertiary Base" },
+      { stage: "Base Network", hosp: "New Cross Hospital, Wolverhampton", desc: "Heart & Lung Centre" },
+      { stage: "Base Network", hosp: "Walsall Manor Hospital", desc: "Acute General" },
+      { stage: "Base Network", hosp: "Midlands Met University Hospital", desc: "Acute Teaching Centre" },
+      { stage: "Base Network", hosp: "Royal Shrewsbury Hospital", desc: "Shropshire Acute Base" }
+    ]
+  },
+  {
+    id: "wmid-bham-warwick", code: "West Midlands - Birmingham & Warwick (1, 2)", region: "West Midlands", title: "Birmingham & Warwickshire Schemes", places: "14 total",
+    hubs: {
+      driver: { name: "Solihull / Leamington Spa / Harborne", coords: [52.4122, -1.7782], desc: "M42/A45 corridor. Fast driving into Queen Elizabeth Hospital Birmingham and Coventry/Warwick.", alert: "Direct access to both central Birmingham and Warwickshire." },
+      transit: { name: "Birmingham City Centre / Edgbaston", coords: [52.4772, -1.8982], desc: "CrossCity rail line stops at University station inside QE hospital entrance (7m from New St); direct trains to Coventry (20m).", alert: "University station is on the hospital grounds." }
+    },
+    stages: [
+      { stage: "Base Network", hosp: "Queen Elizabeth Hospital Birmingham", desc: "Major Trauma & Tertiary Base" },
+      { stage: "Base Network", hosp: "UHCW Coventry", desc: "Major Teaching Hospital" },
+      { stage: "Base Network", hosp: "Warwick Hospital", desc: "General Placement" }
+    ]
+  },
+
+  // ==================== YORKSHIRE & THE HUMBER ====================
+  {
+    id: "york-north-east", code: "Yorkshire - North / East 1", region: "Yorkshire and the Humber", title: "Hull, York, Scarborough & Scunthorpe", places: "6",
+    hubs: {
+      driver: { name: "Beverley / York East", coords: [53.8422, -0.4282], desc: "A1079/A64 corridor linking York Hospital, Hull Royal Infirmary, and Scarborough.", alert: "Car recommended due to rural East Yorkshire distances." },
+      transit: { name: "York City Centre", coords: [53.9582, -1.0902], desc: "York Hospital is walking distance (15m) from centre; direct trains to Hull (1h) and Scarborough (50m).", alert: "York is a major national rail interchange." }
+    },
+    stages: [
+      { stage: "Base Network", hosp: "Hull Royal Infirmary", desc: "Major Trauma Centre" },
+      { stage: "Base Network", hosp: "York Hospital", desc: "Acute General" },
+      { stage: "Base Network", hosp: "Scarborough Hospital", desc: "Coast Placement" },
+      { stage: "Base Network", hosp: "Scunthorpe General Hospital", desc: "General DGH" }
+    ]
+  },
+  {
+    id: "york-south", code: "Yorkshire - South 2 & 3E", region: "Yorkshire and the Humber", title: "South Yorkshire: Sheffield, Doncaster & Barnsley", places: "8 total",
+    hubs: {
+      driver: { name: "Sheffield (West) / Rotherham", coords: [53.3812, -1.4682], desc: "M1 corridor connecting Northern General (Sheffield), Doncaster Royal, Rotherham, and Barnsley.", alert: "M1 enables 20-30m driving to all acute sites." },
+      transit: { name: "Sheffield City Centre", coords: [53.3782, -1.4622], desc: "Supertram and buses link station directly to Northern General Hospital; trains to Doncaster (22m) and Barnsley (20m).", alert: "Extensive tram and bus lines for hospital staff." }
+    },
+    stages: [
+      { stage: "Base Network", hosp: "Northern General Hospital, Sheffield", desc: "Major Trauma Centre" },
+      { stage: "Base Network", hosp: "Doncaster Royal Infirmary", desc: "Acute General" },
+      { stage: "Base Network", hosp: "Rotherham Hospital", desc: "General Placement" },
+      { stage: "Base Network", hosp: "Barnsley Hospital", desc: "DGH Base" }
+    ]
+  },
+  {
+    id: "york-west", code: "Yorkshire - West 3 & 4E", region: "Yorkshire and the Humber", title: "West Yorkshire: Leeds, Bradford & Wakefield", places: "9 total",
+    hubs: {
+      driver: { name: "Leeds (North / Horsforth)", coords: [53.8342, -1.6422], desc: "Ring road access. Commute: 15m to Leeds General Infirmary, 22m to Bradford Royal, 25m to Pinderfields.", alert: "Avoids inner-city congestion." },
+      transit: { name: "Leeds City Centre", coords: [53.7952, -1.5482], desc: "12m walk or free city bus to Leeds General Infirmary; frequent 20m trains to Bradford and Wakefield.", alert: "High frequency West Yorkshire rail network." }
+    },
+    stages: [
+      { stage: "Base Network", hosp: "Leeds General Infirmary", desc: "Major Trauma & Cardiac Centre" },
+      { stage: "Base Network", hosp: "Bradford Royal Infirmary", desc: "Acute General" },
+      { stage: "Base Network", hosp: "Pinderfields Hospital, Wakefield", desc: "Burns & Plastics" }
+    ]
+  },
+
+  // ==================== NORTH WEST & NORTH EAST ====================
+  {
+    id: "nw-cheshire-mcr", code: "North West - Cheshire & Manchester (1, 2)", region: "North West", title: "Cheshire, Merseyside & Greater Manchester", places: "29 total",
+    hubs: {
+      driver: { name: "Warrington / South Manchester (Altrincham)", coords: [53.3892, -2.5972], desc: "M56/M62 midpoint linking Liverpool (Royal Liverpool) and Manchester (MRI, Salford, Wythenshawe).", alert: "Strategic motorway junction." },
+      transit: { name: "Manchester (Oxford Road) / Central", coords: [53.4732, -2.2412], desc: "Oxford Road is walking distance to MRI; Metrolink connects to Salford Royal and Wythenshawe.", alert: "Metrolink tram makes non-driving commutes feasible." }
+    },
+    stages: [
+      { stage: "Base Network", hosp: "Manchester Royal Infirmary", desc: "Major Acute Centre" },
+      { stage: "Base Network", hosp: "Royal Liverpool University Hospital", desc: "Teaching Base" },
+      { stage: "Base Network", hosp: "The Walton Centre, Liverpool", desc: "Tertiary Neuro" }
+    ]
+  },
+  {
+    id: "ne-all", code: "North East - 1", region: "North East", title: "North East & North Cumbria Scheme", places: "4",
+    hubs: {
+      driver: { name: "Newcastle upon Tyne / Durham", coords: [54.9782, -1.6172], desc: "A1(M) spine connecting Newcastle (RVI, Freeman), Sunderland, and James Cook (Middlesbrough).", alert: "Straightforward highway links north and south." },
+      transit: { name: "Newcastle City Centre (Haymarket)", coords: [54.9782, -1.6142], desc: "Walk (8m) to Royal Victoria Infirmary (RVI); Tyne & Wear Metro connects directly to Freeman Hospital and Sunderland.", alert: "Tyne & Wear Metro offers rapid transit to hospitals." }
+    },
+    stages: [
+      { stage: "Base Network", hosp: "Royal Victoria Infirmary, Newcastle", desc: "Major Trauma & Neuro" }
+    ]
+  }
+];
+
+// 3. HAVERSINE DISTANCE FORMULA (Miles)
+function calcDistanceMiles(c1, c2) {
+  const R = 3958.8;
+  const dLat = (c2[0] - c1[0]) * Math.PI / 180;
+  const dLon = (c2[1] - c1[1]) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(c1[0] * Math.PI / 180) * Math.cos(c2[0] * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+}
+
+// 4. MAP SETUP (100% Free OpenStreetMap Base Layers - Zero API Keys Needed)
+const map = L.map('map', { zoomControl: true }).setView([52.5, -1.5], 7);
+
+const osmStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
+
+const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, Tiles courtesy of <a href="https://www.hotosm.org/">HOT</a>'
+});
+
+const baseLayers = {
+  "Standard OSM": osmStandard,
+  "Soft Pastel (HOT)": osmHot
+};
+L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
+
+let currentLayers = [];
+let currentSelectedId = null;
+let currentCommuteMode = 'driver'; // 'driver' or 'transit'
+let activeQuickFilter = 'ALL';
+let activeRegionFilter = 'ALL';
+let currentSearchTerm = '';
+let currentFilteredList = [...ROTATIONS_DATA];
+
+// Shortlist custom order stored in localStorage
+let shortlistOrder = JSON.parse(localStorage.getItem('anaesth_shortlist_order') || '[]');
+
+// Toast notification helper
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// Populate Dropdown
+const prefSelect = document.getElementById('prefSelect');
+function populateDropdown(list) {
+  currentFilteredList = list;
+  prefSelect.innerHTML = '<option value="">-- Select Rotation (' + list.length + ' available) --</option>';
+  
+  const groups = {};
+  list.forEach(r => {
+    if (!groups[r.region]) groups[r.region] = [];
+    groups[r.region].push(r);
+  });
+
+  Object.keys(groups).sort().forEach(reg => {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = reg;
+    groups[reg].forEach(r => {
+      const saved = getUserData(r.id);
+      const starStr = saved.rating > 0 ? ` [${saved.rating}★]` : "";
+      const opt = document.createElement('option');
+      opt.value = r.id;
+      opt.textContent = `${r.title} (${r.code})${starStr}`;
+      optgroup.appendChild(opt);
+    });
+    prefSelect.appendChild(optgroup);
+  });
+}
+
+// 5. LOCAL STORAGE FOR RATINGS & PRIVATE NOTES
+function getUserData(id) {
+  const raw = localStorage.getItem(`anaesth_pref_${id}`);
+  return raw ? JSON.parse(raw) : { rating: 0, notes: "" };
+}
+
+function saveUserPreferences() {
+  if (!currentSelectedId) return;
+  const notes = document.getElementById('partnerNotes').value;
+  const currentRating = currentActiveRating;
+  localStorage.setItem(`anaesth_pref_${currentSelectedId}`, JSON.stringify({ rating: currentRating, notes }));
+
+  // Automatically add to shortlist order if starred
+  if (currentRating > 0 && !shortlistOrder.includes(currentSelectedId)) {
+    shortlistOrder.push(currentSelectedId);
+    localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
+  } else if (currentRating === 0 && !notes) {
+    shortlistOrder = shortlistOrder.filter(x => x !== currentSelectedId);
+    localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
+  }
+
+  applyFiltersAndSearch();
+  prefSelect.value = currentSelectedId;
+  showToast("Saved to browser");
+}
+
+let currentActiveRating = 0;
+function setRating(val) {
+  currentActiveRating = val;
+  const stars = document.querySelectorAll('#starContainer .star');
+  stars.forEach((s, idx) => {
+    s.classList.toggle('selected', idx < val);
+  });
+  document.getElementById('ratingText').textContent = `(${val} / 5 Stars)`;
+}
+
+// Commute Mode Switcher (Driver vs Transit)
+function setCommuteMode(mode) {
+  currentCommuteMode = mode;
+  document.getElementById('btnModeDriver').classList.toggle('active', mode === 'driver');
+  document.getElementById('btnModeTransit').classList.toggle('active', mode === 'transit');
+
+  if (currentSelectedId) {
+    selectRotation(currentSelectedId, false);
+  }
+}
+
+// Quick Steppers (Next & Previous)
+function stepRotation(direction) {
+  if (!currentFilteredList.length) return;
+  let currentIndex = currentFilteredList.findIndex(r => r.id === currentSelectedId);
+  if (currentIndex === -1) {
+    currentIndex = 0;
+  } else {
+    currentIndex += direction;
+    if (currentIndex < 0) currentIndex = currentFilteredList.length - 1;
+    if (currentIndex >= currentFilteredList.length) currentIndex = 0;
+  }
+  const nextId = currentFilteredList[currentIndex].id;
+  prefSelect.value = nextId;
+  selectRotation(nextId, false);
+}
+
+// 6. RENDER ROTATION (Focus Mode)
+function selectRotation(id, shouldCloseMobile = true) {
+  if (!id) {
+    document.getElementById('inspectorCard').style.display = 'none';
+    document.getElementById('welcomeMessage').style.display = 'block';
+    clearLayers();
+    return;
+  }
+
+  currentSelectedId = id;
+  window.location.hash = id; // URL deep-linking
+
+  document.getElementById('welcomeMessage').style.display = 'none';
+  document.getElementById('inspectorCard').style.display = 'block';
+
+  const rot = ROTATIONS_DATA.find(r => r.id === id);
+  if (!rot) return;
+
+  clearLayers();
+
+  // Populate Header
+  document.getElementById('cardCode').textContent = rot.code;
+  document.getElementById('cardPlaces').textContent = `Places: ${rot.places}`;
+  document.getElementById('cardTitle').textContent = rot.title;
+
+  // Populate Dynamic Living Hub (Driver vs Transit)
+  const activeHub = rot.hubs[currentCommuteMode];
+  const hubBox = document.getElementById('hubBox');
+  const hubTitleText = document.getElementById('hubTitleText');
+  const alertBox = document.getElementById('hubAlertBox');
+
+  if (currentCommuteMode === 'driver') {
+    hubBox.className = "hub-box driver-theme";
+    hubTitleText.innerHTML = `<span>🏡 Suggested Base (🚗 Driver): <span id="hubTownName">${activeHub.name}</span></span>`;
+  } else {
+    hubBox.className = "hub-box transit-theme";
+    hubTitleText.innerHTML = `<span>🏡 Suggested Base (🚆 Transit Only): <span id="hubTownName">${activeHub.name}</span></span>`;
+  }
+
+  const gmapsLink = document.getElementById('hubDirectionsLink');
+  gmapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeHub.name + ', UK')}`;
+
+  document.getElementById('hubDescription').textContent = activeHub.desc;
+  
+  if (activeHub.alert) {
+    alertBox.style.display = 'block';
+    alertBox.textContent = activeHub.alert;
+  } else {
+    alertBox.style.display = 'none';
+  }
+
+  // Load Saved Rating & Notes
+  const userData = getUserData(id);
+  setRating(userData.rating);
+  document.getElementById('partnerNotes').value = userData.notes;
+
+  // Render Timeline with 1-Click Directions
+  const timeline = document.getElementById('timelineContainer');
+  timeline.innerHTML = "";
+  const uniqueHospNames = [...new Set(rot.stages.map(s => s.hosp))];
+  const hospitalCoords = [];
+
+  rot.stages.forEach((stg, idx) => {
+    const step = document.createElement('div');
+    step.className = "timeline-step";
+    step.innerHTML = `
+      <div class="timeline-dot">${idx + 1}</div>
+      <div class="timeline-content">
+        <div class="timeline-stage">${stg.stage}</div>
+        <div class="timeline-hosp">
+          <span>${stg.hosp}</span>
+          <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stg.hosp + ', UK')}" target="_blank" title="Open in Google Maps">Map ↗</a>
+        </div>
+        <div class="timeline-desc">${stg.desc}</div>
+      </div>
+    `;
+    timeline.appendChild(step);
+
+    const hData = HOSPITALS[stg.hosp];
+    if (hData) hospitalCoords.push(hData.coords);
+  });
+
+  // Calculate Max Pairwise Spread
+  let maxDist = 0;
+  for (let i = 0; i < hospitalCoords.length; i++) {
+    for (let j = i + 1; j < hospitalCoords.length; j++) {
+      const d = calcDistanceMiles(hospitalCoords[i], hospitalCoords[j]);
+      if (d > maxDist) maxDist = d;
+    }
+  }
+
+  document.getElementById('metricSites').textContent = uniqueHospNames.length;
+  document.getElementById('metricDistance').textContent = `${maxDist} mi`;
+
+  // Commute Spread Badge Rating (Traffic Light System)
+  const spreadBadge = document.getElementById('cardSpreadBadge');
+  spreadBadge.textContent = `Max: ${maxDist} mi`;
+  if (maxDist <= 25) {
+    spreadBadge.className = 'badge badge-spread-low';
+    spreadBadge.textContent = `🟢 Low Spread: ${maxDist} mi`;
+  } else if (maxDist <= 45) {
+    spreadBadge.className = 'badge badge-spread-med';
+    spreadBadge.textContent = `🟡 Moderate Spread: ${maxDist} mi`;
+  } else {
+    spreadBadge.className = 'badge badge-spread-high';
+    spreadBadge.textContent = `🔴 High Spread: ${maxDist} mi`;
+  }
+
+  // Update Mobile Mini Card
+  const modeEmoji = currentCommuteMode === 'driver' ? '🚗' : '🚆';
+  document.getElementById('miniCardTitle').textContent = `${rot.title} (${rot.code})`;
+  document.getElementById('miniCardSpread').textContent = `${maxDist} mi`;
+  document.getElementById('miniCardSpread').className = maxDist <= 25 ? 'badge badge-spread-low' : (maxDist <= 45 ? 'badge badge-spread-med' : 'badge badge-spread-high');
+  document.getElementById('miniCardHub').innerHTML = `<span>${modeEmoji} <b>${activeHub.name}</b></span> <span style="font-weight:700; color:var(--primary);">Details &rarr;</span>`;
+
+  const allMapPoints = [];
+
+  // Plot Suggested Living Hub
+  if (activeHub && activeHub.coords) {
+    allMapPoints.push(activeHub.coords);
+    const pinClass = currentCommuteMode === 'driver' ? 'home-pin-driver' : 'home-pin-transit';
+    const pinIconHtml = currentCommuteMode === 'driver' ? '🚗' : '🚆';
+
+    const homeIcon = L.divIcon({
+      className: pinClass,
+      html: pinIconHtml,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
+    const homeMarker = L.marker(activeHub.coords, { icon: homeIcon })
+      .bindPopup(`<b>🏡 Suggested Base (${currentCommuteMode.toUpperCase()}): ${activeHub.name}</b><br><span style="font-size:0.8rem; color:#475569;">${activeHub.desc}</span>`);
+    homeMarker.addTo(map);
+    currentLayers.push(homeMarker);
+  }
+
+  // Plot Chronological Hospital Pins (1, 2, 3...)
+  const plottedHospitalPoints = [];
+  rot.stages.forEach((stg, idx) => {
+    const hData = HOSPITALS[stg.hosp];
+    if (hData) {
+      allMapPoints.push(hData.coords);
+      plottedHospitalPoints.push(hData.coords);
+      const icon = L.divIcon({
+        className: 'numbered-pin',
+        html: `${idx + 1}`,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13]
+      });
+      const m = L.marker(hData.coords, { icon })
+        .bindPopup(`<b>Stage ${idx + 1}: ${stg.hosp}</b><br><span style="font-size:0.8rem; color:#64748b;">${stg.stage} - ${stg.desc}</span>`);
+      m.addTo(map);
+      currentLayers.push(m);
+    }
+  });
+
+  // Draw Connecting Route Line
+  if (plottedHospitalPoints.length > 1) {
+    const polyline = L.polyline(plottedHospitalPoints, {
+      color: '#0284c7',
+      weight: 3.5,
+      dashArray: '6, 6',
+      opacity: 0.85
+    }).addTo(map);
+    currentLayers.push(polyline);
+  }
+
+  if (allMapPoints.length > 0) {
+    map.fitBounds(L.latLngBounds(allMapPoints), { padding: [60, 60], maxZoom: 12 });
+  }
+
+  if (shouldCloseMobile && window.innerWidth <= 768) {
+    toggleMobileSidebar(false);
+  }
+}
+
+// 7. FILTER & SEARCH ENGINE
+function setQuickFilter(filterType) {
+  activeQuickFilter = filterType;
+  document.getElementById('pillAll').classList.toggle('active', filterType === 'ALL');
+  document.getElementById('pillStarred').classList.toggle('active', filterType === 'STARRED');
+  document.getElementById('pillLowSpread').classList.toggle('active', filterType === 'LOW_SPREAD');
+  applyFiltersAndSearch();
+}
+
+function filterRegion(reg) {
+  activeRegionFilter = reg;
+  applyFiltersAndSearch();
+}
+
+function handleSearch(term) {
+  currentSearchTerm = term.toLowerCase().trim();
+  applyFiltersAndSearch();
+}
+
+function applyFiltersAndSearch() {
+  let list = ROTATIONS_DATA;
+
+  if (activeRegionFilter !== "ALL") {
+    list = list.filter(r => r.region === activeRegionFilter);
+  }
+
+  if (activeQuickFilter === 'STARRED') {
+    list = list.filter(r => getUserData(r.id).rating > 0 || getUserData(r.id).notes.trim() !== "");
+  } else if (activeQuickFilter === 'LOW_SPREAD') {
+    list = list.filter(r => {
+      const coords = r.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
+      let maxDist = 0;
+      for (let i = 0; i < coords.length; i++) {
+        for (let j = i + 1; j < coords.length; j++) {
+          const d = calcDistanceMiles(coords[i], coords[j]);
+          if (d > maxDist) maxDist = d;
+        }
+      }
+      return maxDist <= 30;
+    });
+  }
+
+  if (currentSearchTerm) {
+    list = list.filter(r => 
+      r.title.toLowerCase().includes(currentSearchTerm) ||
+      r.code.toLowerCase().includes(currentSearchTerm) ||
+      r.hubs.driver.name.toLowerCase().includes(currentSearchTerm) ||
+      r.hubs.transit.name.toLowerCase().includes(currentSearchTerm) ||
+      getUserData(r.id).notes.toLowerCase().includes(currentSearchTerm) ||
+      r.stages.some(s => s.hosp.toLowerCase().includes(currentSearchTerm))
+    );
+  }
+
+  populateDropdown(list);
+
+  if (list.length > 0) {
+    if (!list.some(r => r.id === currentSelectedId)) {
+      selectRotation(list[0].id, false);
+      prefSelect.value = list[0].id;
+    }
+  } else {
+    clearLayers();
+    document.getElementById('inspectorCard').style.display = 'none';
+    document.getElementById('welcomeMessage').style.display = 'block';
+    document.getElementById('welcomeMessage').innerHTML = `<p style="font-weight:700; color:var(--slate-700);">No matching rotations found</p><p>Try adjusting your search query or filters.</p>`;
+  }
+}
+
+function clearLayers() {
+  currentLayers.forEach(l => map.removeLayer(l));
+  currentLayers = [];
+}
+
+// 8. MODALS & SHORTLIST REVIEW WITH REORDERING
+function openShortlistModal() {
+  renderShortlistModal();
+  document.getElementById('shortlistModal').style.display = 'flex';
+}
+
+function renderShortlistModal() {
+  const body = document.getElementById('shortlistModalBody');
+  body.innerHTML = "";
+
+  // Get all starred/noted rotations
+  let starred = ROTATIONS_DATA.filter(r => getUserData(r.id).rating > 0 || getUserData(r.id).notes.trim() !== "");
+  
+  if (!starred.length) {
+    body.innerHTML = `<div style="text-align:center; padding:30px; color:var(--slate-600);"><p>No rotations rated yet!</p><p style="font-size:0.8rem; margin-top:4px;">Give stars or add notes to any rotation to build your shortlist.</p></div>`;
+    return;
+  }
+
+  // Sort based on shortlistOrder array
+  starred.sort((a,b) => {
+    let idxA = shortlistOrder.indexOf(a.id);
+    let idxB = shortlistOrder.indexOf(b.id);
+    if (idxA === -1) idxA = 999;
+    if (idxB === -1) idxB = 999;
+    return idxA - idxB;
+  });
+
+  // Keep shortlistOrder updated
+  shortlistOrder = starred.map(r => r.id);
+  localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
+
+  starred.forEach((r, idx) => {
+    const data = getUserData(r.id);
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.style.marginBottom = '10px';
+    div.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="background:var(--slate-900); color:white; font-size:0.75rem; font-weight:800; border-radius:4px; padding:2px 6px;">#${idx + 1}</span>
+          <strong style="color:var(--primary); font-size:0.85rem;">${r.code}</strong>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="color:var(--amber); font-weight:800; font-size:0.9rem;">${'★'.repeat(data.rating)}</span>
+          <div style="display:flex; gap:2px;">
+            <button class="btn-step" style="padding:2px 6px; font-size:0.7rem;" onclick="moveShortlistItem(${idx}, -1)">▲</button>
+            <button class="btn-step" style="padding:2px 6px; font-size:0.7rem;" onclick="moveShortlistItem(${idx}, 1)">▼</button>
+          </div>
+        </div>
+      </div>
+      <div style="font-weight:700; font-size:0.95rem; margin:4px 0;">${r.title}</div>
+      <div style="font-size:0.78rem; color:var(--slate-600);">🏡 Driving: <b>${r.hubs.driver.name}</b> | Transit: <b>${r.hubs.transit.name}</b></div>
+      ${data.notes ? `<div style="margin-top:6px; font-size:0.75rem; background:#f8fafc; padding:6px; border-radius:4px; font-style:italic;">"${data.notes}"</div>` : ''}
+      <button class="btn-step" style="margin-top:8px; font-size:0.72rem; padding:4px 8px;" onclick="closeModal('shortlistModal'); prefSelect.value='${r.id}'; selectRotation('${r.id}');">View On Map &rarr;</button>
+    `;
+    body.appendChild(div);
+  });
+}
+
+function moveShortlistItem(index, dir) {
+  const newIndex = index + dir;
+  if (newIndex < 0 || newIndex >= shortlistOrder.length) return;
+  const temp = shortlistOrder[index];
+  shortlistOrder[index] = shortlistOrder[newIndex];
+  shortlistOrder[newIndex] = temp;
+  localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
+  renderShortlistModal();
+}
+
+function openSyncModal() {
+  const modal = document.getElementById('syncModal');
+  const area = document.getElementById('syncJsonArea');
+  
+  const syncObj = {
+    ratings: {},
+    shortlistOrder: shortlistOrder
+  };
+  ROTATIONS_DATA.forEach(r => {
+    const d = getUserData(r.id);
+    if (d.rating > 0 || d.notes) syncObj.ratings[r.id] = d;
+  });
+  area.value = JSON.stringify(syncObj, null, 2);
+  modal.style.display = 'flex';
+}
+
+function closeModal(id) {
+  document.getElementById(id).style.display = 'none';
+}
+
+function copySyncData() {
+  const area = document.getElementById('syncJsonArea');
+  navigator.clipboard.writeText(area.value);
+  showToast("Code copied to clipboard!");
+}
+
+function importSyncData() {
+  try {
+    const area = document.getElementById('syncJsonArea');
+    const parsed = JSON.parse(area.value);
+    if (parsed.ratings) {
+      Object.keys(parsed.ratings).forEach(k => {
+        localStorage.setItem(`anaesth_pref_${k}`, JSON.stringify(parsed.ratings[k]));
+      });
+    }
+    if (parsed.shortlistOrder) {
+      shortlistOrder = parsed.shortlistOrder;
+      localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
+    }
+    showToast("Preferences imported successfully!");
+    closeModal('syncModal');
+    applyFiltersAndSearch();
+  } catch(e) {
+    showToast("Invalid code format");
+  }
+}
+
+// 9. EXPORT CSV (Full Master List & Shortlist Only)
+function exportPreferencesCSV() {
+  let csv = "OrielCode,TrackTitle,Region,PlacesAvailable,DriverLivingHub,TransitLivingHub,RatingStars,PersonalNotes\n";
+  ROTATIONS_DATA.forEach(r => {
+    const data = getUserData(r.id);
+    const cleanNotes = `"${(data.notes || "").replace(/"/g, '""')}"`;
+    csv += `"${r.code}","${r.title}","${r.region}","${r.places}","${r.hubs.driver.name}","${r.hubs.transit.name}",${data.rating},${cleanNotes}\n`;
+  });
+  downloadBlob(csv, "ST4_Anaesthetics_All_Rotations.csv");
+}
+
+function exportShortlistCSV() {
+  let csv = "AssignedRank,OrielCode,TrackTitle,Region,PlacesAvailable,DriverLivingHub,TransitLivingHub,RatingStars,PersonalNotes\n";
+  shortlistOrder.forEach((id, idx) => {
+    const r = ROTATIONS_DATA.find(x => x.id === id);
+    if (r) {
+      const data = getUserData(r.id);
+      const cleanNotes = `"${(data.notes || "").replace(/"/g, '""')}"`;
+      csv += `${idx + 1},"${r.code}","${r.title}","${r.region}","${r.places}","${r.hubs.driver.name}","${r.hubs.transit.name}",${data.rating},${cleanNotes}\n`;
+    }
+  });
+  downloadBlob(csv, "ST4_Anaesthetics_MyShortlist_Ranked.csv");
+}
+
+function downloadBlob(content, filename) {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// 10. MOBILE SIDEBAR DRAWER TOGGLE
+function toggleMobileSidebar(open) {
+  const sidebar = document.getElementById('sidebar');
+  if (open) sidebar.classList.remove('mobile-closed');
+  else sidebar.classList.add('mobile-closed');
+  setTimeout(() => { map.invalidateSize(); }, 320);
+}
+
+// 11. KEYBOARD SHORTCUTS (Arrow Left/Right to Step, Esc to Close)
+document.addEventListener('keydown', (e) => {
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+  if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    stepRotation(1);
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    stepRotation(-1);
+  } else if (e.key === 'Escape') {
+    closeModal('shortlistModal');
+    closeModal('syncModal');
+    if (window.innerWidth <= 768) toggleMobileSidebar(false);
+  }
+});
+
+// Initial load & URL Hash Deep-Linking
+window.onload = () => {
+  populateDropdown(ROTATIONS_DATA);
+
+  // Check URL Hash (e.g., #eoe-watford12)
+  const hashId = window.location.hash.replace('#', '');
+  const initialId = ROTATIONS_DATA.some(r => r.id === hashId) ? hashId : "eoe-watford12";
+  
+  prefSelect.value = initialId;
+  selectRotation(initialId, false);
+
+  if (window.innerWidth <= 768) {
+    toggleMobileSidebar(false);
+  }
+};
+</script>
+</body>
+</html>
