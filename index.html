@@ -285,21 +285,21 @@
     <!-- Swapped Filter 1: Region Dropdown at the Top -->
     <div class="control-row">
       <select id="regionFilter" onchange="filterRegion(this.value)">
-        <option value="ALL">All Regions (103 Rotations)</option>
-        <option value="East of England">East of England</option>
-        <option value="East Midlands">East Midlands</option>
-        <option value="London - North Central East">London - North Central East</option>
-        <option value="London - North West">London - North West</option>
-        <option value="London - South">London - South</option>
-        <option value="Wessex">Wessex</option>
-        <option value="Thames Valley">Thames Valley</option>
-        <option value="South West - Severn">South West - Severn</option>
-        <option value="South West - Peninsula">South West - Peninsula</option>
-        <option value="Wales">Wales</option>
-        <option value="West Midlands">West Midlands</option>
-        <option value="Yorkshire and the Humber">Yorkshire and the Humber</option>
-        <option value="North West">North West</option>
-        <option value="North East">North East</option>
+        <option value="ALL">All Regions (76 Rotations Available)</option>
+        <option value="East of England">East of England (15)</option>
+        <option value="East Midlands">East Midlands (12)</option>
+        <option value="London - North Central East">London - North Central East (9)</option>
+        <option value="London - North West">London - North West (9)</option>
+        <option value="London - South">London - South (3)</option>
+        <option value="Wessex">Wessex (2)</option>
+        <option value="Thames Valley">Thames Valley (2)</option>
+        <option value="South West - Severn">South West - Severn (2)</option>
+        <option value="South West - Peninsula">South West - Peninsula (4)</option>
+        <option value="Wales">Wales (5)</option>
+        <option value="West Midlands">West Midlands (7)</option>
+        <option value="Yorkshire and the Humber">Yorkshire and the Humber (3)</option>
+        <option value="North West">North West (2)</option>
+        <option value="North East">North East (1)</option>
       </select>
     </div>
 
@@ -513,11 +513,9 @@ const HOSPITALS = {
   "Southmead Hospital (NBT)": { coords: [51.4972, -2.5931], region: "South West - Severn" },
   "Gloucestershire Royal Hospital": { coords: [51.8682, -2.2341], region: "South West - Severn" },
   "Great Western Hospital, Swindon": { coords: [51.5332, -1.7331], region: "South West - Severn" },
-  "Royal United Hospital, Bath": { coords: [51.3912, -2.3892], region: "South West - Severn" },
   "Royal Cornwall Hospital, Truro": { coords: [50.2712, -5.0931], region: "South West - Peninsula" },
   "Derriford Hospital, Plymouth": { coords: [50.4162, -4.1162], region: "South West - Peninsula" },
   "Royal Devon & Exeter Hospital": { coords: [50.7152, -3.5131], region: "South West - Peninsula" },
-  "North Devon District Hospital": { coords: [51.0921, -4.0532], region: "South West - Peninsula" },
   "Torbay Hospital": { coords: [50.4852, -3.5571], region: "South West - Peninsula" },
   "Musgrove Park Hospital, Taunton": { coords: [51.0142, -3.1202], region: "South West - Peninsula" },
 
@@ -537,8 +535,6 @@ const HOSPITALS = {
   // Wales
   "Glan Clwyd Hospital, Rhyl": { coords: [53.2682, -3.5161], region: "Wales" },
   "The Walton Centre, Liverpool": { coords: [53.4752, -2.9421], region: "Wales" },
-  "Ysbyty Gwynedd, Bangor": { coords: [53.2081, -4.1562], region: "Wales" },
-  "Wrexham Maelor Hospital": { coords: [53.0452, -3.0071], region: "Wales" },
   "Glangwili Hospital, Carmarthen": { coords: [51.8642, -4.2882], region: "Wales" },
   "Royal Glamorgan Hospital, Llantrisant": { coords: [51.5452, -3.3981], region: "Wales" },
   "Morriston Hospital, Swansea": { coords: [51.6702, -3.9262], region: "Wales" },
@@ -573,11 +569,11 @@ const HOSPITALS = {
   "Royal Victoria Infirmary, Newcastle": { coords: [54.9782, -1.6232], region: "North East" }
 };
 
-// 2. COMPLETE ROTATIONS DATA (All 103 items parsed from the CSV)
+// 2. MASTER ROTATIONS DATA (All 0-place rows removed; identical rows merged)
 const ROTATIONS_DATA = [
-  // --- WESSEX ---
+  // ==================== WESSEX ====================
   {
-    id: "wessex-feb-2", code: "Wessex - ST4 - Feb - 2", region: "Wessex", title: "Wessex West (Post 2)", places: "3",
+    id: "wessex-west", code: "Wessex - West (Posts 1, 2 & 3)", region: "Wessex", title: "Wessex West Rotational Scheme", places: "7 total",
     hubs: {
       driver: { name: "Wimborne Minster / Ringwood", coords: [50.8000, -1.9860], desc: "A31/A338. Commute: 20m to Poole/Bournemouth, 32m to Southampton, 40m to Salisbury/Dorchester.", alert: "Central base across Dorset and Hampshire." },
       transit: { name: "Bournemouth Central / Poole", coords: [50.7262, -1.8662], desc: "Frequent m1/m2 buses connect Poole and Bournemouth 24/7; direct trains to Southampton (30m) and Dorchester (40m).", alert: "⚠️ Note: Salisbury requires connecting hospital bus from station." }
@@ -591,61 +587,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "wessex-feb-1", code: "Wessex - ST4 - Feb - 1", region: "Wessex", title: "Wessex West (Post 1)", places: "3",
-    hubs: {
-      driver: { name: "Wimborne Minster / Ringwood", coords: [50.8000, -1.9860], desc: "A31/A338. Commute: 20m to Poole/Bournemouth, 32m to Southampton, 40m to Salisbury/Dorchester.", alert: "Central base across Dorset and Hampshire." },
-      transit: { name: "Bournemouth Central / Poole", coords: [50.7262, -1.8662], desc: "Frequent m1/m2 buses connect Poole and Bournemouth 24/7; direct trains to Southampton (30m) and Dorchester (40m).", alert: "⚠️ Note: Salisbury requires connecting hospital bus from station." }
-    },
-    stages: [
-      { stage: "West Base Network", hosp: "Southampton General Hospital", desc: "Regional MTC & Specialist Surgery" },
-      { stage: "West Base Network", hosp: "Poole Hospital", desc: "Acute District General Placements" },
-      { stage: "West Base Network", hosp: "Royal Bournemouth Hospital", desc: "Major Elective Centre" },
-      { stage: "West Base Network", hosp: "Salisbury District Hospital", desc: "Regional Burns & Plastics" },
-      { stage: "West Base Network", hosp: "Dorset County Hospital, Dorchester", desc: "DGH Anaesthesia" }
-    ]
-  },
-  {
-    id: "wessex-feb-3", code: "Wessex - ST4 - Feb - 3", region: "Wessex", title: "Wessex West (Post 3)", places: "1",
-    hubs: {
-      driver: { name: "Wimborne Minster / Ringwood", coords: [50.8000, -1.9860], desc: "A31/A338. Commute: 20m to Poole/Bournemouth, 32m to Southampton, 40m to Salisbury/Dorchester.", alert: "Central base across Dorset and Hampshire." },
-      transit: { name: "Bournemouth Central / Poole", coords: [50.7262, -1.8662], desc: "Frequent m1/m2 buses connect Poole and Bournemouth 24/7; direct trains to Southampton (30m) and Dorchester (40m).", alert: "⚠️ Note: Salisbury requires connecting hospital bus from station." }
-    },
-    stages: [
-      { stage: "West Base Network", hosp: "Southampton General Hospital", desc: "Regional MTC & Specialist Surgery" },
-      { stage: "West Base Network", hosp: "Poole Hospital", desc: "Acute District General Placements" },
-      { stage: "West Base Network", hosp: "Royal Bournemouth Hospital", desc: "Major Elective Centre" },
-      { stage: "West Base Network", hosp: "Salisbury District Hospital", desc: "Regional Burns & Plastics" },
-      { stage: "West Base Network", hosp: "Dorset County Hospital, Dorchester", desc: "DGH Anaesthesia" }
-    ]
-  },
-  {
-    id: "wessex-feb-5", code: "Wessex - ST4 - Feb - 5", region: "Wessex", title: "Wessex East (Post 5)", places: "3",
-    hubs: {
-      driver: { name: "Winchester", coords: [51.0632, -1.3080], desc: "M3/M27/A34 junction. Driving: 18m to Southampton General, 28m to Portsmouth (QA), 22m to Basingstoke.", alert: "Premier driving base for Wessex East." },
-      transit: { name: "Eastleigh / Southampton Central", coords: [50.9682, -1.3532], desc: "Eastleigh connects directly by train to Basingstoke (22m), Winchester (12m), and Portsmouth (40m); Unilink bus to Southampton General.", alert: "Southampton General requires bus connection from station." }
-    },
-    stages: [
-      { stage: "East Base Network", hosp: "Southampton General Hospital", desc: "Regional Major Trauma & Cardiac Centre" },
-      { stage: "East Base Network", hosp: "Queen Alexandra Hospital, Portsmouth", desc: "Major Acute & Vascular Centre" },
-      { stage: "East Base Network", hosp: "Basingstoke & North Hampshire Hospital", desc: "Pseudomyxoma & General Surgery" },
-      { stage: "East Base Network", hosp: "Royal Hampshire County Hospital, Winchester", desc: "Elective Orthopaedics & General" }
-    ]
-  },
-  {
-    id: "wessex-feb-6", code: "Wessex - ST4 - Feb - 6", region: "Wessex", title: "Wessex East (Post 6)", places: "1",
-    hubs: {
-      driver: { name: "Winchester", coords: [51.0632, -1.3080], desc: "M3/M27/A34 junction. Driving: 18m to Southampton General, 28m to Portsmouth (QA), 22m to Basingstoke.", alert: "Premier driving base for Wessex East." },
-      transit: { name: "Eastleigh / Southampton Central", coords: [50.9682, -1.3532], desc: "Eastleigh connects directly by train to Basingstoke (22m), Winchester (12m), and Portsmouth (40m); Unilink bus to Southampton General.", alert: "Southampton General requires bus connection from station." }
-    },
-    stages: [
-      { stage: "East Base Network", hosp: "Southampton General Hospital", desc: "Regional Major Trauma & Cardiac Centre" },
-      { stage: "East Base Network", hosp: "Queen Alexandra Hospital, Portsmouth", desc: "Major Acute & Vascular Centre" },
-      { stage: "East Base Network", hosp: "Basingstoke & North Hampshire Hospital", desc: "Pseudomyxoma & General Surgery" },
-      { stage: "East Base Network", hosp: "Royal Hampshire County Hospital, Winchester", desc: "Elective Orthopaedics & General" }
-    ]
-  },
-  {
-    id: "wessex-feb-4", code: "Wessex - ST4 - Feb - 4", region: "Wessex", title: "Wessex East (Post 4)", places: "3",
+    id: "wessex-east", code: "Wessex - East (Posts 4, 5 & 6)", region: "Wessex", title: "Wessex East Rotational Scheme", places: "7 total",
     hubs: {
       driver: { name: "Winchester", coords: [51.0632, -1.3080], desc: "M3/M27/A34 junction. Driving: 18m to Southampton General, 28m to Portsmouth (QA), 22m to Basingstoke.", alert: "Premier driving base for Wessex East." },
       transit: { name: "Eastleigh / Southampton Central", coords: [50.9682, -1.3532], desc: "Eastleigh connects directly by train to Basingstoke (22m), Winchester (12m), and Portsmouth (40m); Unilink bus to Southampton General.", alert: "Southampton General requires bus connection from station." }
@@ -658,9 +600,9 @@ const ROTATIONS_DATA = [
     ]
   },
 
-  // --- LONDON NCEL ---
+  // ==================== LONDON - NCEL ====================
   {
-    id: "ncel-l20", code: "NCEL - L20", region: "London - North Central East", title: "NCEL - L20 (Central Tertiary)", places: "1",
+    id: "ncel-l20", code: "NCEL - L20", region: "London - North Central East", title: "Central London Tertiary Track", places: "1",
     hubs: {
       driver: { name: "Finsbury Park / Highbury", coords: [51.5642, -0.1062], desc: "Driving not recommended to UCH/Barts due to lack of staff parking.", alert: "Public transport is standard for central London." },
       transit: { name: "Finsbury Park / Highbury & Islington", coords: [51.5462, -0.1032], desc: "Victoria & Piccadilly lines + Thameslink. 10m to UCH, 15m to Royal Free, 15m to Barts & Queen Square.", alert: "24-hour Tube connectivity across central teaching hospitals." }
@@ -675,7 +617,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "ncel-l17", code: "NCEL - L17", region: "London - North Central East", title: "NCEL - L17 (Queen Sq, UCH, Chelsea, Barts)", places: "1",
+    id: "ncel-l17", code: "NCEL - L17", region: "London - North Central East", title: "Queen Square, UCH, Chelsea & Barts", places: "1",
     hubs: {
       driver: { name: "Camden / Highbury", coords: [51.5432, -0.1422], desc: "Central location connecting UCH, Queen Square, Barts, and Chelsea.", alert: "Public transit recommended." },
       transit: { name: "Finsbury Park / Kings Cross", coords: [51.5302, -0.1242], desc: "Piccadilly/Victoria lines to Queen Sq and UCH; Piccadilly line to Chelsea & Westminster; direct to Barts.", alert: "Very central rotation with great Tube links." }
@@ -689,7 +631,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "ncel-l18", code: "NCEL - L18", region: "London - North Central East", title: "NCEL - L18 (BCF, Stanmore, Chelsea, Barts)", places: "1",
+    id: "ncel-l18", code: "NCEL - L18", region: "London - North Central East", title: "BCF, Stanmore, Chelsea, Barts & Queen Sq", places: "1",
     hubs: {
       driver: { name: "Mill Hill / Golders Green", coords: [51.6162, -0.2242], desc: "A41/A1 corridor. Good car access to Barnet (BCF) and RNOH Stanmore.", alert: "Staff parking at Barnet and Stanmore." },
       transit: { name: "West Hampstead / Finchley Road", coords: [51.5472, -0.1912], desc: "Jubilee Line to Stanmore (RNOH); Thameslink to central London; Northern line / bus to Barnet (BCF).", alert: "Jubilee line provides 25m transit out to Stanmore." }
@@ -704,7 +646,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "ncel-l19", code: "NCEL - L19", region: "London - North Central East", title: "NCEL - L19 (Royal Free, Barts, Queen Sq, UCH, Chelsea)", places: "1",
+    id: "ncel-l19", code: "NCEL - L19", region: "London - North Central East", title: "Royal Free, Barts, Queen Sq, UCH & Chelsea", places: "1",
     hubs: {
       driver: { name: "Highbury / Islington", coords: [51.5462, -0.1032], desc: "Central location linking Royal Free, UCH, Barts, and Chelsea.", alert: "Public transport recommended." },
       transit: { name: "Highbury & Islington / Finsbury Park", coords: [51.5462, -0.1032], desc: "Victoria line, Overground, and Piccadilly lines connect all sites effortlessly.", alert: "24-hour Tube connectivity across all teaching sites." }
@@ -718,229 +660,199 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "ncel-l12", code: "NCEL - L12", region: "London - North Central East", title: "NCEL - L12 (BCF, Chelsea, London Gen, Barts, Queen Sq)", places: "1",
+    id: "ncel-l12-13-14", code: "NCEL - L12, L13 & L14", region: "London - North Central East", title: "BCF, Chelsea, Barts, Queen Sq & UCH", places: "3 total",
     hubs: {
       driver: { name: "East Finchley", coords: [51.5872, -0.1652], desc: "A1/North Circular. Good for driving to Barnet while staying close to central sites.", alert: "Car useful for Barnet blocks." },
       transit: { name: "Camden / Highbury", coords: [51.5432, -0.1422], desc: "Northern line to Barnet; Piccadilly/Victoria lines to central teaching hospitals; Overground to West London.", alert: "Central pivot point with 24h Northern Line." }
     },
     stages: [
-      { stage: "Stage 1", hosp: "Barnet Hospital (BCF)", desc: "General (6m)" },
-      { stage: "Stage 2", hosp: "Chelsea & Westminster Hospital", desc: "Paeds & General (6m)" },
-      { stage: "Stage 3", hosp: "Whittington Hospital (London General)", desc: "General DGH (3m)" },
-      { stage: "Stage 4", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracics (3m)" },
-      { stage: "Stage 5", hosp: "Queen Square (NHNN)", desc: "Neuroanaesthesia (3m)" },
-      { stage: "Stage 6", hosp: "University College Hospital (UCH)", desc: "ICU Module (3m)" }
+      { stage: "Stage 1 (6m)", hosp: "Barnet Hospital (BCF)", desc: "General Placement" },
+      { stage: "Stage 2 (6m)", hosp: "Chelsea & Westminster Hospital", desc: "Paeds & General" },
+      { stage: "Stage 3 (3m)", hosp: "Whittington Hospital (London General)", desc: "General DGH" },
+      { stage: "Stage 4 (3m)", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracics" },
+      { stage: "Stage 5 (3m)", hosp: "Queen Square (NHNN)", desc: "Neuroanaesthesia" },
+      { stage: "Stage 6 (3m)", hosp: "University College Hospital (UCH)", desc: "ICU Module" }
     ]
   },
   {
-    id: "ncel-l16", code: "NCEL - L16", region: "London - North Central East", title: "NCEL - L16 (UCH ITU, Queen Sq, Barts, Royal Free)", places: "1",
+    id: "ncel-l16", code: "NCEL - L16", region: "London - North Central East", title: "UCH ITU, Queen Sq, Barts & Royal Free", places: "1",
     hubs: {
       driver: { name: "Hampstead / Highgate", coords: [51.5562, -0.1782], desc: "Close to Royal Free for the 9-month block.", alert: "Parking restricted in central London." },
       transit: { name: "Kentish Town / Camden", coords: [51.5432, -0.1422], desc: "Northern line directly to Royal Free (Belsize Park/Hampstead) and central hospitals (UCH, Barts, Queen Square).", alert: "Very short commutes across all sites." }
     },
     stages: [
-      { stage: "Stage 1", hosp: "University College Hospital (UCH)", desc: "ITU Module (3m)" },
-      { stage: "Stage 2", hosp: "Queen Square (NHNN)", desc: "Neuroanaesthesia (3m)" },
-      { stage: "Stage 3", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracics (3m)" },
-      { stage: "Stage 4", hosp: "Whittington Hospital (London General)", desc: "General DGH (3m)" },
-      { stage: "Stage 5", hosp: "Royal Free Hospital", desc: "General Anaesthesia (9m)" }
+      { stage: "Stage 1 (3m)", hosp: "University College Hospital (UCH)", desc: "ITU Module" },
+      { stage: "Stage 2 (3m)", hosp: "Queen Square (NHNN)", desc: "Neuroanaesthesia" },
+      { stage: "Stage 3 (3m)", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracics" },
+      { stage: "Stage 4 (3m)", hosp: "Whittington Hospital (London General)", desc: "General DGH" },
+      { stage: "Stage 5 (9m)", hosp: "Royal Free Hospital", desc: "General Anaesthesia" }
     ]
   },
   {
-    id: "ncel-l14", code: "NCEL - L14", region: "London - North Central East", title: "NCEL - L14 (BCF, Chelsea, London Gen, Barts, Queen Sq)", places: "1",
-    hubs: {
-      driver: { name: "East Finchley", coords: [51.5872, -0.1652], desc: "A1/North Circular. Good for driving to Barnet while staying close to central sites.", alert: "Car useful for Barnet blocks." },
-      transit: { name: "Camden / Highbury", coords: [51.5432, -0.1422], desc: "Northern line to Barnet; Piccadilly/Victoria lines to central teaching hospitals; Overground to West London.", alert: "Central pivot point with 24h Northern Line." }
-    },
-    stages: [
-      { stage: "Stage 1", hosp: "Barnet Hospital (BCF)", desc: "General (6m)" },
-      { stage: "Stage 2", hosp: "Chelsea & Westminster Hospital", desc: "Paeds & General (6m)" },
-      { stage: "Stage 3", hosp: "Whittington Hospital (London General)", desc: "General DGH (3m)" },
-      { stage: "Stage 4", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracics (3m)" },
-      { stage: "Stage 5", hosp: "Queen Square (NHNN)", desc: "Neuroanaesthesia (3m)" },
-      { stage: "Stage 6", hosp: "University College Hospital (UCH)", desc: "ICU Module (3m)" }
-    ]
-  },
-  {
-    id: "ncel-l13", code: "NCEL - L13", region: "London - North Central East", title: "NCEL - L13 (BCF, Chelsea, London Gen, Barts, Queen Sq)", places: "1",
-    hubs: {
-      driver: { name: "East Finchley", coords: [51.5872, -0.1652], desc: "A1/North Circular. Good for driving to Barnet while staying close to central sites.", alert: "Car useful for Barnet blocks." },
-      transit: { name: "Camden / Highbury", coords: [51.5432, -0.1422], desc: "Northern line to Barnet; Piccadilly/Victoria lines to central teaching hospitals; Overground to West London.", alert: "Central pivot point with 24h Northern Line." }
-    },
-    stages: [
-      { stage: "Stage 1", hosp: "Barnet Hospital (BCF)", desc: "General (6m)" },
-      { stage: "Stage 2", hosp: "Chelsea & Westminster Hospital", desc: "Paeds & General (6m)" },
-      { stage: "Stage 3", hosp: "Whittington Hospital (London General)", desc: "General DGH (3m)" },
-      { stage: "Stage 4", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracics (3m)" },
-      { stage: "Stage 5", hosp: "Queen Square (NHNN)", desc: "Neuroanaesthesia (3m)" },
-      { stage: "Stage 6", hosp: "University College Hospital (UCH)", desc: "ICU Module (3m)" }
-    ]
-  },
-  {
-    id: "ncel-l15", code: "NCEL - L15", region: "London - North Central East", title: "NCEL - L15 (Royal Free, Romford, UCH, Barts)", places: "1",
+    id: "ncel-l15", code: "NCEL - L15", region: "London - North Central East", title: "Royal Free, Romford, UCH & Barts", places: "1",
     hubs: {
       driver: { name: "South Woodford / Redbridge", coords: [51.5912, 0.0272], desc: "A406 / A12 intersection. 22m drive east to Queen's Hospital (Romford); good link to Royal Free.", alert: "A12 provides fast vehicular access to Romford." },
       transit: { name: "Stratford / Whitechapel", coords: [51.5412, -0.0032], desc: "Elizabeth line takes you to Romford in 18 minutes; Central Line into Barts/City; Overground to Hampstead.", alert: "Elizabeth line has significantly improved the Romford commute." }
     },
     stages: [
-      { stage: "Stage 1", hosp: "Royal Free Hospital", desc: "General Anaesthesia (6m)" },
-      { stage: "Stage 2", hosp: "Queen's Hospital, Romford", desc: "General (3m) & Neuro (3m)" },
-      { stage: "Stage 3", hosp: "University College Hospital (UCH)", desc: "Thoracic Anaesthesia (3m) & ICU (3m)" },
-      { stage: "Stage 4", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracics Module (3m)" }
+      { stage: "Stage 1 (6m)", hosp: "Royal Free Hospital", desc: "General Anaesthesia" },
+      { stage: "Stage 2 (6m)", hosp: "Queen's Hospital, Romford", desc: "General & Neuro" },
+      { stage: "Stage 3 (6m)", hosp: "University College Hospital (UCH)", desc: "Thoracic & ICU" },
+      { stage: "Stage 4 (3m)", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracics Module" }
     ]
   },
   {
-    id: "ncel-l21", code: "NCEL - L21", region: "London - North Central East", title: "NCEL - L21 (Romford, Royal London, Royal Free, Barts)", places: "1",
+    id: "ncel-l21", code: "NCEL - L21", region: "London - North Central East", title: "Romford, Royal London, Royal Free & Barts", places: "1",
     hubs: {
       driver: { name: "Stratford / Leyton", coords: [51.5502, -0.0102], desc: "A12 access to Romford; A11 into City and East London.", alert: "Good east London road connectivity." },
       transit: { name: "Stratford / Whitechapel", coords: [51.5412, -0.0032], desc: "Elizabeth line direct to Romford (18m), Whitechapel (Royal London), and Farringdon (Barts).", alert: "Elizabeth line makes this rotation seamless." }
     },
     stages: [
-      { stage: "Stage 1", hosp: "Queen's Hospital, Romford", desc: "General (3m) & Neuro (3m)" },
-      { stage: "Stage 2", hosp: "Whittington Hospital (London General)", desc: "General DGH (3m)" },
-      { stage: "Stage 3", hosp: "Royal London Hospital", desc: "ITU Module (3m)" },
-      { stage: "Stage 4", hosp: "Royal Free Hospital", desc: "General (3m) & ITU (3m)" },
-      { stage: "Stage 5", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracics (3m)" }
+      { stage: "Stage 1 (6m)", hosp: "Queen's Hospital, Romford", desc: "General & Neuro" },
+      { stage: "Stage 2 (3m)", hosp: "Whittington Hospital (London General)", desc: "General DGH" },
+      { stage: "Stage 3 (3m)", hosp: "Royal London Hospital", desc: "ITU Module" },
+      { stage: "Stage 4 (6m)", hosp: "Royal Free Hospital", desc: "General & ITU" },
+      { stage: "Stage 5 (3m)", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracics" }
     ]
   },
   {
-    id: "ncel-l22", code: "NCEL - L22", region: "London - North Central East", title: "NCEL - L22 (UCH, Romford, Royal London, Barts, Chelsea)", places: "1",
+    id: "ncel-l22", code: "NCEL - L22", region: "London - North Central East", title: "UCH, Romford, Royal London, Barts & Chelsea", places: "1",
     hubs: {
       driver: { name: "City of London / East End border", coords: [51.5202, -0.0602], desc: "Central location linking UCH, Romford, Royal London, and Chelsea.", alert: "Public transit recommended." },
       transit: { name: "Whitechapel / Stratford", coords: [51.5192, -0.0593], desc: "Elizabeth line to Romford (18m) and Farringdon/Tottenham Court Rd (UCH/Barts); District line to Chelsea.", alert: "Whitechapel is directly on the Elizabeth line and District line." }
     },
     stages: [
-      { stage: "Stage 1", hosp: "University College Hospital (UCH)", desc: "General (6m)" },
-      { stage: "Stage 2", hosp: "Queen's Hospital, Romford", desc: "Neuro (3m) & General (3m)" },
-      { stage: "Stage 3", hosp: "Royal London Hospital", desc: "ITU Module (3m)" },
-      { stage: "Stage 4", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracics (3m)" },
-      { stage: "Stage 5", hosp: "Chelsea & Westminster Hospital", desc: "General (6m)" }
+      { stage: "Stage 1 (6m)", hosp: "University College Hospital (UCH)", desc: "General" },
+      { stage: "Stage 2 (6m)", hosp: "Queen's Hospital, Romford", desc: "Neuro & General" },
+      { stage: "Stage 3 (3m)", hosp: "Royal London Hospital", desc: "ITU Module" },
+      { stage: "Stage 4 (3m)", hosp: "St Bartholomew's Hospital (Barts Cardiac)", desc: "Cardiothoracics" },
+      { stage: "Stage 5 (6m)", hosp: "Chelsea & Westminster Hospital", desc: "General" }
     ]
   },
 
-  // --- LONDON NWL ---
+  // ==================== LONDON - NWL ====================
   {
-    id: "nwl-l10", code: "NWL - L10", region: "London - North West", title: "NWL - L10 (Chelsea, Charing Cross, Northwick Park, Hammersmith)", places: "1",
+    id: "nwl-l10", code: "NWL - L10", region: "London - North West", title: "Chelsea, Charing Cross, Northwick Park & Hammersmith", places: "1",
     hubs: {
       driver: { name: "Acton / Ealing", coords: [51.5132, -0.3042], desc: "A40 / North Circular. 20m drive to Northwick Park; 15m to Hammersmith; 20m to Chelsea.", alert: "Driving allows easy cross-suburban transit to Northwick Park." },
       transit: { name: "Ealing Broadway / Hammersmith", coords: [51.5142, -0.3022], desc: "Piccadilly/District lines to Charing Cross & Chelsea; Central line to Hammersmith; Metropolitan to Northwick Park.", alert: "Superb West London public transport connectivity." }
     },
     stages: [
-      { stage: "Stage 1", hosp: "Chelsea & Westminster Hospital", desc: "ICM (3m) & Anaesthesia (3m)" },
-      { stage: "Stage 2", hosp: "Charing Cross Hospital", desc: "Neuro, Head & Neck, Vascular (6m)" },
-      { stage: "Stage 3", hosp: "Northwick Park Hospital", desc: "Obstetrics & General DGH (6m)" },
-      { stage: "Stage 4", hosp: "Hammersmith Hospital", desc: "Renal & Cardiothoracics (6m)" }
+      { stage: "Stage 1 (6m)", hosp: "Chelsea & Westminster Hospital", desc: "ICM (3m) & Anaesthesia (3m)" },
+      { stage: "Stage 2 (6m)", hosp: "Charing Cross Hospital", desc: "Neuro, Head & Neck, Vascular" },
+      { stage: "Stage 3 (6m)", hosp: "Northwick Park Hospital", desc: "Obstetrics & General DGH" },
+      { stage: "Stage 4 (6m)", hosp: "Hammersmith Hospital", desc: "Renal & Cardiothoracics" }
     ]
   },
   {
-    id: "nwl-l3", code: "NWL - L3", region: "London - North West", title: "NWL - L3 (St Mary's, Brompton, Charing Cross, Chelsea)", places: "1",
+    id: "nwl-l3", code: "NWL - L3", region: "London - North West", title: "St Mary's, Brompton, Charing Cross & Chelsea", places: "1",
     hubs: {
       driver: { name: "Shepherd's Bush / Hammersmith", coords: [51.5032, -0.2242], desc: "A4/A40 access. Central West London location.", alert: "Close proximity to all west London teaching sites." },
       transit: { name: "Hammersmith / South Kensington", coords: [51.4922, -0.2242], desc: "District/Piccadilly lines connect Charing Cross, Brompton, Chelsea & Westminster, and St Mary's.", alert: "Very short commutes across central West London." }
     },
     stages: [
-      { stage: "Stage 1", hosp: "St Mary's Hospital, Paddington", desc: "General (3m) & ICM (3m)" },
-      { stage: "Stage 2", hosp: "Royal Brompton Hospital", desc: "Cardiothoracics (3m)" },
-      { stage: "Stage 3", hosp: "Charing Cross Hospital", desc: "General & Trauma (9m)" },
-      { stage: "Stage 4", hosp: "Chelsea & Westminster Hospital", desc: "Burns & Paeds (6m)" }
+      { stage: "Stage 1 (6m)", hosp: "St Mary's Hospital, Paddington", desc: "General & ICM" },
+      { stage: "Stage 2 (3m)", hosp: "Royal Brompton Hospital", desc: "Cardiothoracics" },
+      { stage: "Stage 3 (9m)", hosp: "Charing Cross Hospital", desc: "General & Trauma" },
+      { stage: "Stage 4 (6m)", hosp: "Chelsea & Westminster Hospital", desc: "Burns & Paeds" }
     ]
   },
   {
-    id: "nwl-l7", code: "NWL - L7", region: "London - North West", title: "NWL - L7 (Chelsea, Hammersmith, Charing Cross, Northwick Park)", places: "1",
+    id: "nwl-l7", code: "NWL - L7", region: "London - North West", title: "Chelsea, Hammersmith, Charing Cross & Northwick Park", places: "1",
     hubs: {
       driver: { name: "Acton / Ealing", coords: [51.5132, -0.3042], desc: "A40 / North Circular. Easy access to Northwick Park, Hammersmith, and Chelsea.", alert: "Central West London location." },
       transit: { name: "Hammersmith / Acton", coords: [51.4922, -0.2242], desc: "Piccadilly/District lines to Chelsea & Charing Cross; Central line to Hammersmith; Piccadilly to Northwick Park.", alert: "Easy commutes across West London." }
     },
     stages: [
-      { stage: "Stage 1", hosp: "Chelsea & Westminster Hospital", desc: "General (3m) & ICM (3m)" },
-      { stage: "Stage 2", hosp: "Hammersmith Hospital", desc: "Renal & Surgery (6m)" },
-      { stage: "Stage 3", hosp: "Charing Cross Hospital", desc: "Neuro & General (6m)" },
-      { stage: "Stage 4", hosp: "Northwick Park Hospital", desc: "Obstetrics & DGH (6m)" }
+      { stage: "Stage 1 (6m)", hosp: "Chelsea & Westminster Hospital", desc: "General & ICM" },
+      { stage: "Stage 2 (6m)", hosp: "Hammersmith Hospital", desc: "Renal & Surgery" },
+      { stage: "Stage 3 (6m)", hosp: "Charing Cross Hospital", desc: "Neuro & General" },
+      { stage: "Stage 4 (6m)", hosp: "Northwick Park Hospital", desc: "Obstetrics & DGH" }
     ]
   },
   {
-    id: "nwl-l8", code: "NWL - L8", region: "London - North West", title: "NWL - L8 (Charing Cross, Brompton, Chelsea, West Middlesex)", places: "1",
+    id: "nwl-l8", code: "NWL - L8", region: "London - North West", title: "Charing Cross, Brompton, Chelsea & West Mid", places: "1",
     hubs: {
       driver: { name: "Chiswick / Brentford", coords: [51.4922, -0.2552], desc: "A4/M4. 12m drive to West Middlesex; 15m to Charing Cross.", alert: "A4 allows fast off-peak driving to West Mid." },
       transit: { name: "Hammersmith / Earl's Court", coords: [51.4922, -0.2242], desc: "Walk or 5m bus to Charing Cross; District line to Chelsea & Westminster; Piccadilly to Royal Brompton.", alert: "Walkable hub for Charing Cross and West London sites." }
     },
     stages: [
-      { stage: "Stage 1", hosp: "Charing Cross Hospital", desc: "Major Elective & Trauma (9m)" },
-      { stage: "Stage 2", hosp: "Royal Brompton Hospital", desc: "Tertiary Cardiothoracics (3m)" },
-      { stage: "Stage 3", hosp: "Chelsea & Westminster Hospital", desc: "General (3m) & ICM (3m)" },
-      { stage: "Stage 4", hosp: "West Middlesex University Hospital", desc: "DGH Anaesthesia (6m)" }
+      { stage: "Stage 1 (9m)", hosp: "Charing Cross Hospital", desc: "Major Elective & Trauma" },
+      { stage: "Stage 2 (3m)", hosp: "Royal Brompton Hospital", desc: "Tertiary Cardiothoracics" },
+      { stage: "Stage 3 (6m)", hosp: "Chelsea & Westminster Hospital", desc: "General & ICM" },
+      { stage: "Stage 4 (6m)", hosp: "West Middlesex University Hospital", desc: "DGH Anaesthesia" }
     ]
   },
   {
-    id: "nwl-l9", code: "NWL - L9", region: "London - North West", title: "NWL - L9 (Northwick Park, Queen Square, Hammersmith, St Mary's)", places: "1",
+    id: "nwl-l9", code: "NWL - L9", region: "London - North West", title: "Northwick Park, Queen Square, Hammersmith & St Mary's", places: "1",
     hubs: {
       driver: { name: "Wembley / Harrow", coords: [51.5602, -0.3102], desc: "A404 / North Circular. Easy access to Northwick Park and St Mary's.", alert: "Outer London driving is straightforward." },
       transit: { name: "Baker Street / Marylebone", coords: [51.5202, -0.1632], desc: "Metropolitan Line directly to Northwick Park (18m) and Queen Square; Bakerloo to St Mary's (5m).", alert: "Metropolitan Line fast trains make Northwick Park commute rapid." }
     },
     stages: [
-      { stage: "Stage 1", hosp: "Northwick Park Hospital", desc: "Obstetrics & Acute Base (9m)" },
-      { stage: "Stage 2", hosp: "Queen Square (NHNN)", desc: "Tertiary Neuroanaesthesia (6m)" },
-      { stage: "Stage 3", hosp: "Hammersmith Hospital", desc: "ICM (3m) & Anaesthesia (3m)" },
-      { stage: "Stage 4", hosp: "St Mary's Hospital, Paddington", desc: "Major Trauma Centre (3m)" }
+      { stage: "Stage 1 (9m)", hosp: "Northwick Park Hospital", desc: "Obstetrics & Acute Base" },
+      { stage: "Stage 2 (6m)", hosp: "Queen Square (NHNN)", desc: "Tertiary Neuroanaesthesia" },
+      { stage: "Stage 3 (6m)", hosp: "Hammersmith Hospital", desc: "ICM & Surgery" },
+      { stage: "Stage 4 (3m)", hosp: "St Mary's Hospital, Paddington", desc: "Major Trauma Centre" }
     ]
   },
   {
-    id: "nwl-l6", code: "NWL - L6", region: "London - North West", title: "NWL - L6 (Hammersmith, Charing Cross, Hillingdon, St Mary's)", places: "1",
+    id: "nwl-l6", code: "NWL - L6", region: "London - North West", title: "Hammersmith, Charing Cross, Hillingdon & St Mary's", places: "1",
     hubs: {
       driver: { name: "Ealing / Acton", coords: [51.5132, -0.3042], desc: "A40 corridor. Easy road connection to Hillingdon, Hammersmith, and Paddington.", alert: "A40 provides direct car access out to Hillingdon." },
-      transit: { name: "Ealing Broadway / Shepherd's Bush", coords: [51.5142, -0.3022], desc: "Central line to White City (Hammersmith Hosp); District to Charing Cross; Piccadilly line / Elizabeth line out to Hillingdon.", alert: "Central West London transport hub." }
+      transit: { name: "Ealing Broadway / Shepherd's Bush", coords: [51.5142, -0.3022], desc: "Central line to White City; District to Charing Cross; Piccadilly line / Elizabeth line out to Hillingdon.", alert: "Central West London transport hub." }
     },
     stages: [
-      { stage: "Stage 1", hosp: "Hammersmith Hospital", desc: "Renal & Surgery (6m)" },
-      { stage: "Stage 2", hosp: "Charing Cross Hospital", desc: "ICM (3m) & Anaesthesia (3m)" },
-      { stage: "Stage 3", hosp: "Hillingdon Hospital", desc: "DGH Anaesthesia (6m)" },
-      { stage: "Stage 4", hosp: "St Mary's Hospital, Paddington", desc: "Major Trauma Centre (6m)" }
+      { stage: "Stage 1 (6m)", hosp: "Hammersmith Hospital", desc: "Renal & Surgery" },
+      { stage: "Stage 2 (6m)", hosp: "Charing Cross Hospital", desc: "ICM & Anaesthesia" },
+      { stage: "Stage 3 (6m)", hosp: "Hillingdon Hospital", desc: "DGH Anaesthesia" },
+      { stage: "Stage 4 (6m)", hosp: "St Mary's Hospital, Paddington", desc: "Major Trauma Centre" }
     ]
   },
   {
-    id: "nwl-l5", code: "NWL - L5", region: "London - North West", title: "NWL - L5 (Hammersmith, Northwick Park, Chelsea, Charing Cross)", places: "1",
+    id: "nwl-l5", code: "NWL - L5", region: "London - North West", title: "Hammersmith, Northwick Park, Chelsea & Charing Cross", places: "1",
     hubs: {
       driver: { name: "Acton / Ealing", coords: [51.5132, -0.3042], desc: "A40 / North Circular. Central to Northwick Park, Hammersmith, and Chelsea.", alert: "Good parking options in outer boroughs." },
       transit: { name: "Hammersmith / Ealing", coords: [51.4922, -0.2242], desc: "Piccadilly/District lines to Charing Cross & Chelsea; Metropolitan/Piccadilly to Northwick Park.", alert: "Smooth West London connections." }
     },
     stages: [
-      { stage: "Stage 1", hosp: "Hammersmith Hospital", desc: "Renal & Surgery (6m)" },
-      { stage: "Stage 2", hosp: "Northwick Park Hospital", desc: "Obstetrics & DGH (6m)" },
-      { stage: "Stage 3", hosp: "Chelsea & Westminster Hospital", desc: "ICM (3m) & Anaesthesia (3m)" },
-      { stage: "Stage 4", hosp: "Charing Cross Hospital", desc: "Neuro & General (6m)" }
+      { stage: "Stage 1 (6m)", hosp: "Hammersmith Hospital", desc: "Renal & Surgery" },
+      { stage: "Stage 2 (6m)", hosp: "Northwick Park Hospital", desc: "Obstetrics & DGH" },
+      { stage: "Stage 3 (6m)", hosp: "Chelsea & Westminster Hospital", desc: "ICM & Anaesthesia" },
+      { stage: "Stage 4 (6m)", hosp: "Charing Cross Hospital", desc: "Neuro & General" }
     ]
   },
   {
-    id: "nwl-l11", code: "NWL - L11", region: "London - North West", title: "NWL - L11 (Northwick Park, Queen Square, St Mary's, Brompton)", places: "1",
+    id: "nwl-l11", code: "NWL - L11", region: "London - North West", title: "Northwick Park, Queen Square, St Mary's & Brompton", places: "1",
     hubs: {
       driver: { name: "Harrow / Wembley", coords: [51.5602, -0.3102], desc: "North Circular/A40 access for Northwick Park and central hospital sites.", alert: "Car useful for Northwick Park." },
       transit: { name: "Marylebone / Baker Street", coords: [51.5202, -0.1632], desc: "Metropolitan Line to Northwick Park (18m) and Queen Square; Bakerloo to St Mary's; Piccadilly to Brompton.", alert: "Rapid Metropolitan Line commutes." }
     },
     stages: [
-      { stage: "Stage 1", hosp: "Northwick Park Hospital", desc: "Obstetrics & DGH (6m)" },
-      { stage: "Stage 2", hosp: "Queen Square (NHNN)", desc: "Tertiary Neuroanaesthesia (6m)" },
-      { stage: "Stage 3", hosp: "St Mary's Hospital, Paddington", desc: "ICM (3m) & Anaesthesia (6m)" },
-      { stage: "Stage 4", hosp: "Royal Brompton Hospital", desc: "Cardiothoracics (3m)" }
+      { stage: "Stage 1 (6m)", hosp: "Northwick Park Hospital", desc: "Obstetrics & DGH" },
+      { stage: "Stage 2 (6m)", hosp: "Queen Square (NHNN)", desc: "Tertiary Neuroanaesthesia" },
+      { stage: "Stage 3 (9m)", hosp: "St Mary's Hospital, Paddington", desc: "ICM & Anaesthesia" },
+      { stage: "Stage 4 (3m)", hosp: "Royal Brompton Hospital", desc: "Cardiothoracics" }
     ]
   },
   {
-    id: "nwl-l4", code: "NWL - L4", region: "London - North West", title: "NWL - L4 (Northwick Park, St Mary's, Queen Square, Brompton, Chelsea)", places: "1",
+    id: "nwl-l4", code: "NWL - L4", region: "London - North West", title: "Northwick Park, St Mary's, Queen Sq, Brompton & Chelsea", places: "1",
     hubs: {
       driver: { name: "Wembley / Ealing", coords: [51.5602, -0.3102], desc: "North Circular access to Northwick Park and central West London.", alert: "Good parking availability." },
       transit: { name: "Paddington / Baker Street", coords: [51.5172, -0.1742], desc: "Walk to St Mary's; Metropolitan to Northwick Park & Queen Sq; District/Piccadilly to Brompton & Chelsea.", alert: "Extremely well connected for Central/West London." }
     },
     stages: [
-      { stage: "Stage 1", hosp: "Northwick Park Hospital", desc: "Obstetrics & DGH (6m)" },
-      { stage: "Stage 2", hosp: "St Mary's Hospital, Paddington", desc: "ICM (3m) & Anaesthesia (3m)" },
-      { stage: "Stage 3", hosp: "Queen Square (NHNN)", desc: "Neuroanaesthesia (3m)" },
-      { stage: "Stage 4", hosp: "Royal Brompton Hospital", desc: "Cardiothoracics (3m)" },
-      { stage: "Stage 5", hosp: "Chelsea & Westminster Hospital", desc: "Burns & Paeds (6m)" }
+      { stage: "Stage 1 (6m)", hosp: "Northwick Park Hospital", desc: "Obstetrics & DGH" },
+      { stage: "Stage 2 (6m)", hosp: "St Mary's Hospital, Paddington", desc: "ICM & Anaesthesia" },
+      { stage: "Stage 3 (3m)", hosp: "Queen Square (NHNN)", desc: "Neuroanaesthesia" },
+      { stage: "Stage 4 (3m)", hosp: "Royal Brompton Hospital", desc: "Cardiothoracics" },
+      { stage: "Stage 5 (6m)", hosp: "Chelsea & Westminster Hospital", desc: "Burns & Paeds" }
     ]
   },
 
-  // --- LONDON SOUTH ---
+  // ==================== LONDON - SOUTH ====================
   {
-    id: "south-l1", code: "South London - L1", region: "London - South", title: "South London - L1 (St George's Base)", places: "1",
+    id: "south-l1", code: "South London - L1", region: "London - South", title: "St George's Hospital Base", places: "1",
     hubs: {
       driver: { name: "Wimbledon / Earlsfield", coords: [51.4322, -0.1982], desc: "A24/A3. Quick 12m drive to St George's Hospital (Tooting) with staff parking.", alert: "Convenient for commuting south into Surrey on later years." },
       transit: { name: "Balham / Tooting Bec", coords: [51.4432, -0.1522], desc: "Northern line: Tooting Broadway station is directly under St George's Hospital entrance (5m ride).", alert: "24-hour Night Tube on weekends." }
@@ -950,7 +862,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "south-l23", code: "South London - L23", region: "London - South", title: "South London - L23 (King's College Base)", places: "1",
+    id: "south-l23", code: "South London - L23", region: "London - South", title: "King's College Hospital Base", places: "1",
     hubs: {
       driver: { name: "Dulwich / Crystal Palace", coords: [51.4452, -0.0882], desc: "A205 South Circular. 15m drive to Denmark Hill.", alert: "Residential area with on-street parking options." },
       transit: { name: "Herne Hill / Camberwell", coords: [51.4552, -0.0982], desc: "Short walk or 5m bus to King's; Denmark Hill station has direct Thameslink and Overground.", alert: "Cycling distance to the hospital is effortless." }
@@ -960,7 +872,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "south-l2", code: "South London - L2", region: "London - South", title: "South London - L2 (Guy's & St Thomas' Base)", places: "3",
+    id: "south-l2", code: "South London - L2", region: "London - South", title: "Guy's & St Thomas' Hospital Base", places: "3",
     hubs: {
       driver: { name: "Greenwich / Blackheath", coords: [51.4782, -0.0082], desc: "A2 corridor. Driving not recommended to London Bridge/Waterloo due to congestion charges.", alert: "Public transport strongly recommended." },
       transit: { name: "London Bridge / Waterloo / Kennington", coords: [51.4952, -0.1102], desc: "Guy's is at London Bridge station; St Thomas' is directly opposite Waterloo. Walking between both is 15 mins.", alert: "Exceptional public transport right at your doorstep." }
@@ -970,9 +882,9 @@ const ROTATIONS_DATA = [
     ]
   },
 
-  // --- THAMES VALLEY ---
+  // ==================== THAMES VALLEY ====================
   {
-    id: "tv-oxford", code: "Thames Valley - OUH 1", region: "Thames Valley", title: "Oxford University Hospitals", places: "10",
+    id: "tv-oxford", code: "Thames Valley - OUH 1", region: "Thames Valley", title: "John Radcliffe Hospital, Oxford", places: "10",
     hubs: {
       driver: { name: "Headington / Kidlington", coords: [51.7582, -1.2182], desc: "A40/A34 access. Headington allows quick driving into John Radcliffe campus.", alert: "Living east of Oxford centre is essential for driving to JR." },
       transit: { name: "Headington (Oxford)", coords: [51.7562, -1.2142], desc: "Walking or 5m cycle to John Radcliffe Hospital; Oxford Tube coach stops directly in Headington for London.", alert: "Car-free living is very easy in Headington." }
@@ -982,7 +894,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "tv-reading", code: "Thames Valley - RBH 2", region: "Thames Valley", title: "Royal Berkshire Reading", places: "1",
+    id: "tv-reading", code: "Thames Valley - RBH 2", region: "Thames Valley", title: "Royal Berkshire Hospital, Reading", places: "1",
     hubs: {
       driver: { name: "Caversham / Winnersh", coords: [51.4622, -0.9720], desc: "M4 corridor. Commute: 10m drive to Royal Berkshire Hospital; easy links across Berkshire.", alert: "Straightforward access to M4." },
       transit: { name: "Reading Central", coords: [51.4582, -0.9720], desc: "15-minute walk or short bus (9/21) to hospital entrance; Elizabeth line into London in 45m.", alert: "Major railway hub." }
@@ -992,39 +904,9 @@ const ROTATIONS_DATA = [
     ]
   },
 
-  // --- SEVERN ---
+  // ==================== SEVERN ====================
   {
-    id: "severn-bristol-2", code: "Severn - Bristol 2", region: "South West - Severn", title: "Severn - Bristol (UHBW Base)", places: "0",
-    hubs: {
-      driver: { name: "Redland / Clifton", coords: [51.4652, -2.6102], desc: "Close to central Bristol hospitals with residential parking.", alert: "Bristol clean air zone applies in centre." },
-      transit: { name: "Bristol City Centre / Cotham", coords: [51.4582, -2.5971], desc: "Walking or cycling distance to Bristol Royal Infirmary (UHBW).", alert: "Very central and walkable." }
-    },
-    stages: [
-      { stage: "ST4 Base", hosp: "Bristol Royal Infirmary (UHBW)", desc: "Regional Cardiac, Paeds & Surgery" }
-    ]
-  },
-  {
-    id: "severn-bath-1", code: "Severn - Bath 1", region: "South West - Severn", title: "Severn - Bath (RUH Base)", places: "0",
-    hubs: {
-      driver: { name: "Bath (Combe Down / Weston)", coords: [51.3912, -2.3892], desc: "Weston is walking distance to Royal United Hospital (RUH Bath).", alert: "Bath clean air zone in city centre." },
-      transit: { name: "Bath Central / Weston", coords: [51.3912, -2.3892], desc: "Frequent bus from Bath Spa railway station directly to RUH entrance.", alert: "RUH is on regular city bus routes." }
-    },
-    stages: [
-      { stage: "ST4 Base", hosp: "Royal United Hospital, Bath", desc: "Acute DGH Base" }
-    ]
-  },
-  {
-    id: "severn-north-bristol-4", code: "Severn - North Bristol 4", region: "South West - Severn", title: "Severn - North Bristol (Southmead Base)", places: "0",
-    hubs: {
-      driver: { name: "Westbury-on-Trym / Bradley Stoke", coords: [51.4972, -2.5931], desc: "North Bristol. 8m drive to Southmead Hospital with staff parking.", alert: "Very close to M5/M4." },
-      transit: { name: "Horfield / Henleaze", coords: [51.4972, -2.5931], desc: "Walking or cycling distance to Southmead; MetroBus routes M1/M2 connect to city centre.", alert: "Southmead has a dedicated MetroBus hub." }
-    },
-    stages: [
-      { stage: "ST4 Base", hosp: "Southmead Hospital (NBT)", desc: "Regional Major Trauma & Neuro Base" }
-    ]
-  },
-  {
-    id: "severn-glos-3", code: "Severn - Glos 3", region: "South West - Severn", title: "Severn - Cheltenham/Gloucester 3", places: "2",
+    id: "severn-glos-3", code: "Severn - Glos 3", region: "South West - Severn", title: "Gloucester, UHBW & Southmead", places: "2",
     hubs: {
       driver: { name: "North Bristol (Bradley Stoke / Thornbury)", coords: [51.5362, -2.5482], desc: "M5 Junction 16. Driving: 15m to Southmead, 22m to Bristol BRI, 30m up M5 to Gloucester.", alert: "Motorway access avoids Bristol Clean Air Zone." },
       transit: { name: "Bristol (Temple Meads / Central)", coords: [51.4492, -2.5812], desc: "Direct trains to Gloucester (38m); direct MetroBus (M1/M2) to Southmead Hospital and BRI.", alert: "MetroBus routes run directly to Southmead entrance." }
@@ -1036,19 +918,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "severn-glos-6", code: "Severn - Glos 6", region: "South West - Severn", title: "Severn - Cheltenham/Gloucester 6", places: "0",
-    hubs: {
-      driver: { name: "North Bristol (Bradley Stoke / Thornbury)", coords: [51.5362, -2.5482], desc: "M5 Junction 16. Driving: 15m to Southmead, 22m to Bristol BRI, 30m up M5 to Gloucester.", alert: "Motorway access avoids Bristol Clean Air Zone." },
-      transit: { name: "Bristol (Temple Meads / Central)", coords: [51.4492, -2.5812], desc: "Direct trains to Gloucester (38m); direct MetroBus (M1/M2) to Southmead Hospital and BRI.", alert: "MetroBus routes run directly to Southmead entrance." }
-    },
-    stages: [
-      { stage: "Stage 1 (9m)", hosp: "Gloucestershire Royal Hospital", desc: "Acute General Anaesthesia" },
-      { stage: "Stage 2 (9m)", hosp: "Bristol Royal Infirmary (UHBW)", desc: "Cardiac, Paeds & Major Surgery" },
-      { stage: "Stage 3 (6m)", hosp: "Southmead Hospital (NBT)", desc: "Neuro & Major Trauma Centre" }
-    ]
-  },
-  {
-    id: "severn-swindon-5", code: "Severn - Swindon 5", region: "South West - Severn", title: "Severn - Swindon 5 (Swindon, UHBW, NBT)", places: "2",
+    id: "severn-swindon-5", code: "Severn - Swindon 5", region: "South West - Severn", title: "Swindon, UHBW & Southmead", places: "2",
     hubs: {
       driver: { name: "Chippenham / M4 Junction 17", coords: [51.4582, -2.1162], desc: "M4 corridor midway between Swindon (GWH) and Bristol (BRI/Southmead). Commute: 22m to Swindon, 28m to Bristol.", alert: "Direct M4 motorway driving in both directions." },
       transit: { name: "Swindon Central / Bristol Temple Meads", coords: [51.5652, -1.7852], desc: "Direct fast GWR trains between Swindon and Bristol Temple Meads (25m); bus from Swindon station to Great Western Hospital.", alert: "Frequent fast trains run on the mainline." }
@@ -1060,12 +930,12 @@ const ROTATIONS_DATA = [
     ]
   },
 
-  // --- PENINSULA (ALL 7 INDIVIDUAL TRACKS RESTORED) ---
+  // ==================== PENINSULA (ALL 4 ACTIVE TRACKS) ====================
   {
-    id: "peninsula-cornwall-1e", code: "Peninsula - Cornwall 1E", region: "South West - Peninsula", title: "Peninsula - Cornwall 1E (Truro & Derriford)", places: "1",
+    id: "peninsula-cornwall-1e", code: "Peninsula - Cornwall 1E", region: "South West - Peninsula", title: "Cornwall 1E (Truro & Derriford)", places: "1",
     hubs: {
       driver: { name: "Bodmin / Liskeard", coords: [50.4682, -4.7182], desc: "A30/A38 midpoint. Commute: 35m to Truro (Royal Cornwall), 35m to Plymouth (Derriford).", alert: "Strategic cross-county driving base." },
-      transit: { name: "Truro Central (for Truro block) / Plymouth Central", coords: [50.2632, -5.0512], desc: "T1/T2 buses connect Truro railway station directly to Royal Cornwall Hospital; direct mainline train to Plymouth.", alert: "⚠️ Note: Cornwall to Plymouth is 1h 15m on the train; moving to Plymouth for the Derriford block is common." }
+      transit: { name: "Truro Central / Plymouth", coords: [50.2632, -5.0512], desc: "Direct bus from Truro station to Royal Cornwall Hospital; mainline train to Plymouth.", alert: "⚠️ Note: Moving to Plymouth for the Derriford block is common." }
     },
     stages: [
       { stage: "First Placement", hosp: "Royal Cornwall Hospital, Truro", desc: "General & Obstetric Anaesthesia" },
@@ -1073,21 +943,10 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "peninsula-cornwall-3", code: "Peninsula - Cornwall 3", region: "South West - Peninsula", title: "Peninsula - Cornwall 3 (Truro & Derriford)", places: "0",
-    hubs: {
-      driver: { name: "Bodmin / Liskeard", coords: [50.4682, -4.7182], desc: "A30/A38 midpoint. Commute: 35m to Truro (Royal Cornwall), 35m to Plymouth (Derriford).", alert: "Strategic cross-county driving base." },
-      transit: { name: "Truro Central / Plymouth", coords: [50.2632, -5.0512], desc: "Direct bus to Royal Cornwall Hospital; mainline train to Plymouth.", alert: "Mainline rail connects Cornwall and Devon." }
-    },
-    stages: [
-      { stage: "First Placement", hosp: "Royal Cornwall Hospital, Truro", desc: "General & Obstetric Anaesthesia" },
-      { stage: "Rotational Base", hosp: "Derriford Hospital, Plymouth", desc: "Regional Major Trauma & Neuro" }
-    ]
-  },
-  {
-    id: "peninsula-exeter-1", code: "Peninsula - Exeter 1", region: "South West - Peninsula", title: "Peninsula - Exeter 1 (Exeter & Derriford)", places: "2",
+    id: "peninsula-exeter-1", code: "Peninsula - Exeter 1", region: "South West - Peninsula", title: "Exeter 1 (Exeter & Derriford)", places: "2",
     hubs: {
       driver: { name: "Newton Abbot / Ashburton", coords: [50.5312, -3.6102], desc: "A38 dual carriageway. Commute: 22m drive to Exeter (RD&E), 32m to Plymouth (Derriford).", alert: "A38 dual carriageway connects both hospitals easily." },
-      transit: { name: "Exeter (St David's) / Plymouth", coords: [50.7292, -3.5432], desc: "Frequent city buses from Exeter stations to RD&E Wonford; direct 55m mainline trains to Plymouth station (bus 42 to Derriford).", alert: "Exeter St David's is a major rail hub." }
+      transit: { name: "Exeter (St David's) / Plymouth", coords: [50.7292, -3.5432], desc: "Frequent city buses from Exeter stations to RD&E Wonford; direct 55m mainline trains to Plymouth station.", alert: "Exeter St David's is a major rail hub." }
     },
     stages: [
       { stage: "First Placement", hosp: "Royal Devon & Exeter Hospital", desc: "Acute General Base" },
@@ -1095,30 +954,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "peninsula-north-devon-6", code: "Peninsula - North Devon 6", region: "South West - Peninsula", title: "Peninsula - North Devon 6", places: "0",
-    hubs: {
-      driver: { name: "South Molton / Tiverton", coords: [51.0182, -3.8342], desc: "North Devon Link Road (A361). Commute: 25m to Barnstaple (NDDH), 40m to Exeter.", alert: "A car is essential for North Devon." },
-      transit: { name: "Barnstaple / Exeter", coords: [51.0782, -4.0562], desc: "Tarka Line train connects Exeter to Barnstaple in 1h 10m; bus from Barnstaple station to North Devon District Hospital.", alert: "⚠️ Note: Very rural public transport; car strongly advised." }
-    },
-    stages: [
-      { stage: "First Placement", hosp: "North Devon District Hospital", desc: "North Devon Acute Base" },
-      { stage: "Rotational Base", hosp: "Royal Devon & Exeter Hospital", desc: "South Devon Acute" },
-      { stage: "Rotational Base", hosp: "Torbay Hospital", desc: "South Devon Acute" }
-    ]
-  },
-  {
-    id: "peninsula-plymouth-2", code: "Peninsula - Plymouth 2", region: "South West - Peninsula", title: "Peninsula - Plymouth 2 (Derriford & Taunton)", places: "0",
-    hubs: {
-      driver: { name: "Exeter (South / M5 Corridor)", coords: [50.7102, -3.5202], desc: "M5/A38 junction. Commute: 35m drive north to Taunton (Musgrove Park), 45m drive south to Derriford.", alert: "Central pivot point between Devon and Somerset." },
-      transit: { name: "Plymouth Central / Exeter", coords: [50.3782, -4.1422], desc: "Direct buses (1, 34, 42) every 10m to Derriford Hospital; mainline train connects Plymouth directly to Taunton in 1h 15m.", alert: "Direct trains on the Great Western Mainline." }
-    },
-    stages: [
-      { stage: "First Placement", hosp: "Derriford Hospital, Plymouth", desc: "Regional Trauma & Neuro Base" },
-      { stage: "Rotational Base", hosp: "Musgrove Park Hospital, Taunton", desc: "Somerset Acute Base" }
-    ]
-  },
-  {
-    id: "peninsula-taunton-5", code: "Peninsula - Taunton 5", region: "South West - Peninsula", title: "Peninsula - Taunton 5 (Taunton & Derriford)", places: "1",
+    id: "peninsula-taunton-5", code: "Peninsula - Taunton 5", region: "South West - Peninsula", title: "Taunton 5 (Taunton & Derriford)", places: "1",
     hubs: {
       driver: { name: "Exeter (North / Cullompton)", coords: [50.8542, -3.3902], desc: "M5 corridor. Commute: 22m drive north to Taunton, 50m drive south to Plymouth.", alert: "Straightforward motorway driving on the M5." },
       transit: { name: "Taunton Central", coords: [51.0202, -3.1002], desc: "Frequent bus from Taunton station to Musgrove Park Hospital; direct mainline train to Plymouth (1h 15m).", alert: "Musgrove Park is easily accessible by bus from Taunton centre." }
@@ -1129,7 +965,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "peninsula-torbay-4", code: "Peninsula - Torbay 4", region: "South West - Peninsula", title: "Peninsula - Torbay 4 (Torbay & Derriford)", places: "4",
+    id: "peninsula-torbay-4", code: "Peninsula - Torbay 4", region: "South West - Peninsula", title: "Torbay 4 (Torbay & Derriford)", places: "4",
     hubs: {
       driver: { name: "Totnes / Newton Abbot", coords: [50.4322, -3.6842], desc: "A38/A380 midpoint. Commute: 18m drive to Torbay Hospital, 35m drive to Plymouth (Derriford).", alert: "Scenic, manageable dual carriageway driving." },
       transit: { name: "Newton Abbot / Torquay", coords: [50.5312, -3.6102], desc: "Frequent local buses (12, 13) connect directly to Torbay Hospital; direct 40m mainline train from Newton Abbot to Plymouth.", alert: "Newton Abbot is a key rail junction station." }
@@ -1140,117 +976,430 @@ const ROTATIONS_DATA = [
     ]
   },
 
-  // --- WALES (ALL 9 INDIVIDUAL TRACKS RESTORED) ---
+  // ==================== EAST OF ENGLAND ====================
   {
-    id: "wales-1", code: "Wales - ST4 - Feb - 1", region: "Wales", title: "Wales 1 (Glan Clwyd, Walton Neuro -> South Wales)", places: "1",
+    id: "eoe-watford-12-13", code: "EoE - Watford 12 & 13", region: "East of England", title: "Hertfordshire & Cambridge Track", places: "3 total",
     hubs: {
-      driver: { name: "Chester / St Asaph", coords: [53.1902, -2.8902], desc: "A55 expressway. Commute: 35m to Rhyl (Glan Clwyd), 30m to Walton Neuro (Liverpool). ST6/7討論 in South Wales.", alert: "A55 provides fast coastal driving in North Wales." },
-      transit: { name: "Chester Central", coords: [53.1962, -2.8792], desc: "Direct mainline trains along North Wales coast (Rhyl 35m) and north to Liverpool/Walton (40m).", alert: "⚠️ Note: Glan Clwyd requires bus connection from Rhyl." }
+      driver: { name: "St Albans / Welwyn Garden City", coords: [51.7522, -0.3392], desc: "A414/A1(M)/M25 junction. Commute by car: 20m to Watford General, 22m to Lister, 55m to Cambridge (ST5), 45m to Broomfield (A414).", alert: "A414 corridor avoids M25 morning jams." },
+      transit: { name: "Stevenage (Station Area)", coords: [51.9032, -0.2012], desc: "East Coast Main Line: 10m bus to Lister Hospital, 25m fast train to Cambridge (Addenbrooke's). Watford reachable via Thameslink/rail.", alert: "⚠️ Note: Broomfield (ST7) requires train to Chelmsford then hospital shuttle bus (C1/C2)." }
     },
     stages: [
-      { stage: "ST4 (9m)", hosp: "Glan Clwyd Hospital, Rhyl", desc: "North Wales Acute Base" },
-      { stage: "ST4 (3m)", hosp: "The Walton Centre, Liverpool", desc: "Tertiary Neuroanaesthesia" },
-      { stage: "ST5-ST7", hosp: "University Hospital of Wales, Cardiff", desc: "South Wales Regional Centre" }
+      { stage: "ST4 (12m)", hosp: "Watford General Hospital", desc: "General & Obstetric Anaesthesia" },
+      { stage: "ST4/ST5", hosp: "Lister Hospital, Stevenage", desc: "General Acute DGH" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Tertiary Neuroanaesthesia" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiothoracic Anaesthesia" },
+      { stage: "ST6 (12m)", hosp: "Watford General Hospital", desc: "Higher General Anaesthesia" },
+      { stage: "ST7 (12m)", hosp: "Broomfield Hospital, Chelmsford", desc: "Burns & Plastics Specialist Centre" }
     ]
   },
   {
-    id: "wales-2", code: "Wales - ST4 - Feb - 2", region: "Wales", title: "Wales 2 (Rhyl, Bangor, Walton -> South Wales)", places: "0",
+    id: "eoe-chelmsford-7-9", code: "EoE - Chelmsford 7 & 9", region: "East of England", title: "Essex & Cambridge Track", places: "2 total",
     hubs: {
-      driver: { name: "Conwy / Llandudno Junction", coords: [53.2802, -3.8302], desc: "A55 midpoint between Bangor (Ysbyty Gwynedd) and Rhyl (Glan Clwyd). Commute: 25m to both.", alert: "A55 expressway links both hospitals easily." },
-      transit: { name: "Llandudno Junction", coords: [53.2852, -3.8102], desc: "Key rail junction: direct trains to Bangor (18m) and Rhyl (15m).", alert: "Mainline rail runs parallel to the north coast." }
+      driver: { name: "Chelmsford (South) / Shenfield", coords: [51.7352, 0.4682], desc: "A12/A130. Commute: 10m to Broomfield, 25m to Basildon CTC, 35m to Southend, 55m to Cambridge.", alert: "Quick access to the A130 bypass makes reaching Basildon and Southend straightforward." },
+      transit: { name: "Chelmsford Central", coords: [51.7362, 0.4692], desc: "Direct C1/C2 buses to Broomfield front entrance (15m). Direct trains to Shenfield, Southend Victoria, and London.", alert: "⚠️ Note: Cambridge (ST5) requires cross-country connection; plan ahead for ST5." }
     },
     stages: [
-      { stage: "ST4 (3m)", hosp: "The Walton Centre, Liverpool", desc: "Neuroanaesthesia Module" },
-      { stage: "ST4 (3m)", hosp: "Glan Clwyd Hospital, Rhyl", desc: "North Wales Acute" },
-      { stage: "ST4 (6m)", hosp: "Ysbyty Gwynedd, Bangor", desc: "North-West Wales Acute" },
-      { stage: "ST5-ST7", hosp: "University Hospital of Wales, Cardiff", desc: "South Wales Rotations" }
+      { stage: "ST4 (12m)", hosp: "Broomfield Hospital, Chelmsford", desc: "Regional Burns & General" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuroanaesthesia Module" },
+      { stage: "ST5", hosp: "Basildon Cardiothoracic Centre", desc: "Cardiothoracic Anaesthesia" },
+      { stage: "ST6 (12m)", hosp: "Southend Hospital", desc: "Acute DGH Anaesthesia" },
+      { stage: "ST7 (12m)", hosp: "Lister Hospital, Stevenage", desc: "Advanced General Anaesthesia" }
     ]
   },
   {
-    id: "wales-3", code: "Wales - ST4 - Feb - 3", region: "Wales", title: "Wales 3 (Wrexham Maelor, Walton -> South Wales)", places: "0",
+    id: "eoe-colchester-8-10", code: "EoE - Colchester 8 & 10", region: "East of England", title: "North Essex & Cambridge Track", places: "2 total",
     hubs: {
-      driver: { name: "Chester", coords: [53.1902, -2.8902], desc: "A483/M53. Commute: 18m drive to Wrexham Maelor Hospital, 30m drive to The Walton Centre (Liverpool).", alert: "Chester is ideally positioned for Wrexham and Merseyside." },
-      transit: { name: "Chester Central", coords: [53.1962, -2.8792], desc: "Direct train to Wrexham General (15m); direct train to Liverpool Lime St/Walton (40m).", alert: "Short train rides to both ST4 placements." }
+      driver: { name: "Bishop's Stortford / Great Dunmow", coords: [51.8712, 0.1602], desc: "A120 & M11. Commute: 25m to Harlow, 30m to Cambridge, 35m to Broomfield, 45m to Colchester, 35m to Lister.", alert: "A120 dual carriageway provides swift cross-county links." },
+      transit: { name: "Stratford / Tottenham Hale", coords: [51.5412, -0.0032], desc: "Greater Anglia rail hub: 30m to Harlow Town, 45m to Cambridge, 45m to Colchester.", alert: "Living in North-East London interchange allows reverse rail commutes." }
     },
     stages: [
-      { stage: "ST4 (9m)", hosp: "Wrexham Maelor Hospital", desc: "Acute General Base" },
-      { stage: "ST4 (3m)", hosp: "The Walton Centre, Liverpool", desc: "Neuroanaesthesia Module" },
-      { stage: "ST5-ST7", hosp: "University Hospital of Wales, Cardiff", desc: "South Wales Rotations" }
+      { stage: "ST4", hosp: "Colchester Hospital", desc: "Acute General Surgery" },
+      { stage: "ST4/ST5", hosp: "Broomfield Hospital, Chelmsford", desc: "Burns, Plastics, ICU" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuroanaesthesia Module" },
+      { stage: "ST5", hosp: "Basildon Cardiothoracic Centre", desc: "Cardiothoracic Module" },
+      { stage: "ST6 (12m)", hosp: "Princess Alexandra Hospital, Harlow", desc: "General DGH" },
+      { stage: "ST7 (12m)", hosp: "Lister Hospital, Stevenage", desc: "Senior Placement" }
     ]
   },
   {
-    id: "wales-4", code: "Wales - ST4 - Feb - 4", region: "Wales", title: "Wales 4 (Wrexham & Glangwili Carmarthen)", places: "0",
+    id: "eoe-bedford-1", code: "EoE - Bedford 1", region: "East of England", title: "Bedford, Cambridge & Norwich", places: "1",
     hubs: {
-      driver: { name: "Mid Wales / Relocation needed", coords: [52.4102, -3.5002], desc: "Wrexham (North) to Carmarthen (South-West) is 120 miles. Trainees typically relocate mid-year.", alert: "⚠️ High relocation rotation across North and West Wales." },
-      transit: { name: "Wrexham (6m) then Carmarthen (6m)", coords: [53.0452, -3.0071], desc: "Trainees base themselves near Wrexham hospital for block 1, then Carmarthen for block 2.", alert: "Relocation between North and South Wales required." }
+      driver: { name: "St Neots / Royston", coords: [52.2272, -0.2682], desc: "A421/A1/A505 corridor. Commute: 22m to Bedford, 30m to Cambridge (Addenbrooke's/Papworth).", alert: "A421 provides smooth daily driving to Bedford." },
+      transit: { name: "Cambridge (South / Central)", coords: [52.1952, 0.1312], desc: "Direct bus/cycle to Addenbrooke's; X5 coach line to Bedford; direct 1h 10m train to Norwich.", alert: "Cambridge is an exceptional cycle and public transport hub." }
     },
     stages: [
-      { stage: "ST4 (6m)", hosp: "Wrexham Maelor Hospital", desc: "North Wales Acute" },
-      { stage: "ST4 (6m)", hosp: "Glangwili Hospital, Carmarthen", desc: "West Wales Acute" },
-      { stage: "ST5-ST7", hosp: "University Hospital of Wales, Cardiff", desc: "South Wales Rotations" }
+      { stage: "ST4", hosp: "Bedford Hospital", desc: "General DGH" },
+      { stage: "ST4/ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuro & Major Surgery" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Heart & Lung Centre" },
+      { stage: "ST6 (12m)", hosp: "Bedford Hospital", desc: "Higher General" },
+      { stage: "ST7 (12m)", hosp: "Norfolk & Norwich University Hospital", desc: "Tertiary Teaching Hospital" }
     ]
   },
   {
-    id: "wales-5", code: "Wales - ST4 - Feb - 5", region: "Wales", title: "Wales 5 (Royal Glamorgan Llantrisant)", places: "1",
+    id: "eoe-cambridge-2", code: "EoE - Cambridge 2", region: "East of England", title: "Cambridge, Luton & Lister", places: "1",
     hubs: {
-      driver: { name: "Cardiff (West) / Pontypridd", coords: [51.5202, -3.2802], desc: "M4 / A4119. Commute: 18m drive to Royal Glamorgan Hospital (Llantrisant).", alert: "Easy driving access across South Wales." },
-      transit: { name: "Cardiff Central", coords: [51.4782, -3.1782], desc: "Direct 122 bus runs from Cardiff city centre directly to Royal Glamorgan Hospital entrance.", alert: "Regular bus routes serve the hospital from Cardiff." }
+      driver: { name: "Royston / Hitchin", coords: [52.0522, -0.0222], desc: "A505/A1(M) midpoint. Commute: 25m to Cambridge, 18m to Lister, 30m to Luton.", alert: "Avoids heavy M25 traffic." },
+      transit: { name: "Stevenage (Station Hub)", coords: [51.9032, -0.2012], desc: "East Coast Main Line: 25m to Cambridge, short bus/walk to Lister, direct connection to Luton.", alert: "Direct fast trains run early morning to late night." }
     },
     stages: [
-      { stage: "ST4 (12m)", hosp: "Royal Glamorgan Hospital, Llantrisant", desc: "South Wales Acute Base" },
-      { stage: "ST5-ST7", hosp: "University Hospital of Wales, Cardiff", desc: "South Wales Teaching Rotations" }
+      { stage: "ST4", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuro & Major Trauma" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiothoracics Module" },
+      { stage: "ST6 (12m)", hosp: "Luton & Dunstable Hospital", desc: "Obstetrics & General" },
+      { stage: "ST7 (12m)", hosp: "Lister Hospital, Stevenage", desc: "Senior Placement" }
     ]
   },
   {
-    id: "wales-6", code: "Wales - ST4 - Feb - 6", region: "Wales", title: "Wales 6 (Glangwili Carmarthen)", places: "1",
+    id: "eoe-ipswich-11", code: "EoE - Ipswich 11", region: "East of England", title: "Ipswich, Norwich, Cambridge & Colchester", places: "1",
     hubs: {
-      driver: { name: "Carmarthen / Llanelli", coords: [51.8542, -4.3002], desc: "A48/A40. Commute: 8m drive to Glangwili General Hospital.", alert: "Rural West Wales base." },
-      transit: { name: "Carmarthen Town", coords: [51.8542, -4.3002], desc: "Local buses connect Carmarthen railway station directly to Glangwili Hospital.", alert: "Hospital has regular local town bus connections." }
+      driver: { name: "Bury St Edmunds / Stowmarket", coords: [52.2472, 0.7182], desc: "A14 trunk road. Commute: 35m to Ipswich, 38m to Cambridge, 45m to Norwich, 38m to Colchester.", alert: "Central base in East Anglia." },
+      transit: { name: "Ipswich Central or Stowmarket", coords: [52.0582, 1.1502], desc: "Direct junction station connecting Cambridge (50m), Norwich (35m), and Colchester (18m).", alert: "⚠️ Note: Broomfield (ST7) requires rail to Chelmsford + C1 bus." }
     },
     stages: [
-      { stage: "ST4 (12m)", hosp: "Glangwili Hospital, Carmarthen", desc: "West Wales Acute Base" },
-      { stage: "ST5-ST7", hosp: "University Hospital of Wales, Cardiff", desc: "South Wales Rotations" }
+      { stage: "ST4", hosp: "Ipswich Hospital", desc: "Acute General" },
+      { stage: "ST4/ST5", hosp: "Norfolk & Norwich University Hospital", desc: "Tertiary Hospital" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiothoracics Module" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuro Module" },
+      { stage: "ST6", hosp: "Colchester Hospital", desc: "General DGH" },
+      { stage: "ST7 (12m)", hosp: "Broomfield Hospital, Chelmsford", desc: "Burns & Plastics Specialist Base" }
     ]
   },
   {
-    id: "wales-7", code: "Wales - ST4 - Feb - 7", region: "Wales", title: "Wales 7 (Morriston Swansea - LTFT 70%)", places: "3",
+    id: "eoe-ipswich-5-6", code: "EoE - Ipswich 5 & 6", region: "East of England", title: "Ipswich, Norwich, Cambridge & Broomfield", places: "2 total",
     hubs: {
-      driver: { name: "Swansea (Mumbles / Sketty)", coords: [51.6202, -3.9502], desc: "M4 Junction 45. Commute: 15m drive to Morriston Hospital.", alert: "Lovely coastal living in South Wales." },
-      transit: { name: "Swansea Central", coords: [51.6202, -3.9402], desc: "Frequent 4/4A buses run directly from Swansea city centre to Morriston Hospital.", alert: "Very frequent dedicated hospital bus service." }
+      driver: { name: "Bury St Edmunds / Stowmarket", coords: [52.2472, 0.7182], desc: "A14 trunk road. Commute: 35m to Ipswich, 38m to Cambridge, 45m to Norwich.", alert: "Central base in East Anglia." },
+      transit: { name: "Ipswich Central or Stowmarket", coords: [52.0582, 1.1502], desc: "Direct junction station connecting Cambridge (50m), Norwich (35m), and Ipswich.", alert: "⚠️ Note: Broomfield (ST7) requires rail to Chelmsford + C1 bus." }
     },
     stages: [
-      { stage: "ST4 (12m - LTFT 70%)", hosp: "Morriston Hospital, Swansea", desc: "Regional Burns, Cardiac & Intensive Care" },
-      { stage: "ST5-ST7", hosp: "University Hospital of Wales, Cardiff", desc: "South Wales Rotations" }
+      { stage: "ST4", hosp: "Ipswich Hospital", desc: "Acute General" },
+      { stage: "ST4/ST5", hosp: "Norfolk & Norwich University Hospital", desc: "Tertiary Hospital" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiothoracics Module" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuro Module" },
+      { stage: "ST6", hosp: "Ipswich Hospital", desc: "General DGH (Return)" },
+      { stage: "ST7 (12m)", hosp: "Broomfield Hospital, Chelmsford", desc: "Burns & Plastics Specialist Base" }
     ]
   },
   {
-    id: "wales-8", code: "Wales - ST4 - Feb - 8", region: "Wales", title: "Wales 8 (UHW Cardiff)", places: "1",
+    id: "eoe-ipswich-16", code: "EoE - Ipswich 16", region: "East of England", title: "Ipswich, Broomfield, Harlow & Cambridge", places: "1",
     hubs: {
-      driver: { name: "Cardiff (North / Heath)", coords: [51.5072, -3.1802], desc: "A48 Eastern Avenue. Walking/driving distance to University Hospital of Wales.", alert: "Staff parking available on site." },
-      transit: { name: "Cardiff (Heath / Roath)", coords: [51.5072, -3.1802], desc: "Heath High Level and Heath Low Level train stations are adjacent to UHW; frequent city buses.", alert: "Completely walkable from Heath residential area." }
+      driver: { name: "Chelmsford / Stansted", coords: [51.7352, 0.4682], desc: "A12/A120/M11 corridor linking Ipswich, Broomfield, Harlow, and Cambridge.", alert: "Good motorway links." },
+      transit: { name: "Chelmsford Central", coords: [51.7362, 0.4692], desc: "Rail links on Greater Anglia line to Ipswich, London, and Stansted.", alert: "Central hub for Essex." }
     },
     stages: [
-      { stage: "ST4 (12m)", hosp: "University Hospital of Wales, Cardiff", desc: "Major Trauma & Tertiary Teaching Centre" },
-      { stage: "ST5-ST7", hosp: "University Hospital of Wales, Cardiff", desc: "South Wales Rotations" }
+      { stage: "ST4", hosp: "Ipswich Hospital", desc: "Acute General" },
+      { stage: "ST4/ST5", hosp: "Broomfield Hospital, Chelmsford", desc: "Burns & Plastics" },
+      { stage: "ST5", hosp: "Basildon Cardiothoracic Centre", desc: "Cardiac Module" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuro Module" },
+      { stage: "ST6", hosp: "Princess Alexandra Hospital, Harlow", desc: "General DGH" },
+      { stage: "ST7 (12m)", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Senior Placement" }
     ]
   },
   {
-    id: "wales-9", code: "Wales - ST4 - Feb - 9", region: "Wales", title: "Wales 9 (UHW Cardiff)", places: "1",
+    id: "eoe-luton-14", code: "EoE - Luton 14", region: "East of England", title: "Luton, Lister & Addenbrooke's", places: "1",
     hubs: {
-      driver: { name: "Cardiff (North / Heath)", coords: [51.5072, -3.1802], desc: "A48 Eastern Avenue. Walking/driving distance to University Hospital of Wales.", alert: "Staff parking available on site." },
-      transit: { name: "Cardiff (Heath / Roath)", coords: [51.5072, -3.1802], desc: "Heath High Level and Heath Low Level train stations are adjacent to UHW; frequent city buses.", alert: "Completely walkable from Heath residential area." }
+      driver: { name: "Hitchin / Welwyn", coords: [51.9472, -0.2822], desc: "A505/A1(M) corridor. Commute: 10m to Lister, 20m to Luton, 35m to Cambridge via A505.", alert: "Hitchin provides fast road links to all sites." },
+      transit: { name: "Stevenage / Luton Town", coords: [51.9032, -0.2012], desc: "Thameslink and East Coast Mainline provide early connections between Stevenage, Cambridge, and Luton.", alert: "Guided Busway connects Luton Station directly to the hospital." }
     },
     stages: [
-      { stage: "ST4 (12m)", hosp: "University Hospital of Wales, Cardiff", desc: "Major Trauma & Tertiary Teaching Centre" },
-      { stage: "ST5-ST7", hosp: "University Hospital of Wales, Cardiff", desc: "South Wales Rotations" }
+      { stage: "ST4", hosp: "Luton & Dunstable Hospital", desc: "High Risk Obstetrics & General" },
+      { stage: "ST4/ST5", hosp: "Lister Hospital, Stevenage", desc: "Acute General" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuroanaesthesia" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiothoracics" },
+      { stage: "ST6 (12m)", hosp: "Luton & Dunstable Hospital", desc: "General Placements (Return)" },
+      { stage: "ST7 (12m)", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Senior Placement" }
+    ]
+  },
+  {
+    id: "eoe-luton-15", code: "EoE - Luton 15", region: "East of England", title: "Luton, Lister, Cambridge, Watford & Broomfield", places: "1",
+    hubs: {
+      driver: { name: "Hitchin / Welwyn", coords: [51.9472, -0.2822], desc: "A505/A1(M) corridor. Commute: 10m to Lister, 20m to Luton, 35m to Cambridge via A505, 30m to Watford.", alert: "Hitchin provides fast road links to all sites." },
+      transit: { name: "Stevenage / Luton Town", coords: [51.9032, -0.2012], desc: "Thameslink connects Stevenage and Luton easily.", alert: "⚠️ Note: ST7 at Broomfield will require travel to Chelmsford." }
+    },
+    stages: [
+      { stage: "ST4", hosp: "Luton & Dunstable Hospital", desc: "High Risk Obstetrics & General" },
+      { stage: "ST4/ST5", hosp: "Lister Hospital, Stevenage", desc: "Acute General" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuroanaesthesia" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiothoracics" },
+      { stage: "ST6 (12m)", hosp: "Watford General Hospital", desc: "General Placements" },
+      { stage: "ST7 (12m)", hosp: "Broomfield Hospital, Chelmsford", desc: "Specialist Centre" }
+    ]
+  },
+  {
+    id: "eoe-norwich-17", code: "EoE - Norwich 17", region: "East of England", title: "NNUH, Cambridge & West Suffolk", places: "1",
+    hubs: {
+      driver: { name: "Thetford / Bury St Edmunds", coords: [52.4142, 0.7502], desc: "A11/A14 midpoint between Norwich (NNUH), Cambridge, and Bury St Edmunds (West Suffolk).", alert: "A11 dual carriageway connects all sites." },
+      transit: { name: "Norwich City Centre / Cambridge", coords: [52.6282, 1.2982], desc: "Direct rail between Norwich, Thetford, and Cambridge.", alert: "Frequent mainline trains." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "Norfolk & Norwich University Hospital", desc: "Tertiary Teaching Base" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiac Module" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuro Module" },
+      { stage: "ST6", hosp: "West Suffolk Hospital, Bury St Edmunds", desc: "General Placement" },
+      { stage: "ST7", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Senior Placement" }
+    ]
+  },
+  {
+    id: "eoe-norwich-18", code: "EoE - Norwich 18", region: "East of England", title: "NNUH, Cambridge & James Paget", places: "1",
+    hubs: {
+      driver: { name: "Norwich (South / Cringleford)", coords: [52.6102, 1.2502], desc: "A11/A47 bypass. 8m to NNUH, 30m to James Paget (Gt Yarmouth), 55m to Cambridge.", alert: "Quick bypass access." },
+      transit: { name: "Norwich City Centre", coords: [52.6282, 1.2982], desc: "Direct 25/26 bus to NNUH; 30m train to Gt Yarmouth; 1h 10m train to Cambridge.", alert: "Hospital has dedicated Blue Line bus." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "Norfolk & Norwich University Hospital", desc: "Tertiary Teaching Base" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiac Module" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuro Module" },
+      { stage: "ST6", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Tertiary Surgery" },
+      { stage: "ST7", hosp: "James Paget Hospital, Great Yarmouth", desc: "Senior Placement" }
+    ]
+  },
+  {
+    id: "eoe-norwich-19", code: "EoE - Norwich 19", region: "East of England", title: "NNUH, Cambridge & Kings Lynn", places: "1",
+    hubs: {
+      driver: { name: "Swaffham / Dereham", coords: [52.6502, 0.6902], desc: "A47 midpoint between Norwich (NNUH) and Queen Elizabeth Hospital (Kings Lynn).", alert: "A47 connects both Norfolk hospitals." },
+      transit: { name: "Norwich City Centre", coords: [52.6282, 1.2982], desc: "Direct 25/26 bus to NNUH; Excel D coach to Kings Lynn.", alert: "⚠️ Note: Kings Lynn is 1h+ on bus from Norwich." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "Norfolk & Norwich University Hospital", desc: "Tertiary Teaching Base" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiac Module" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuro Module" },
+      { stage: "ST6", hosp: "Queen Elizabeth Hospital, Kings Lynn", desc: "General Placement" },
+      { stage: "ST7", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Senior Placement" }
+    ]
+  },
+  {
+    id: "eoe-norwich-3", code: "EoE - Norwich 3", region: "East of England", title: "NNUH, Cambridge & Colchester", places: "2",
+    hubs: {
+      driver: { name: "Diss / Thetford", coords: [52.3782, 1.1102], desc: "A140/A11 midpoint between Norwich, Colchester, and Cambridge.", alert: "Central rural base." },
+      transit: { name: "Norwich / Cambridge", coords: [52.6282, 1.2982], desc: "Direct Greater Anglia mainline trains between Norwich, Colchester, and Cambridge.", alert: "Frequent mainline services." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "Norfolk & Norwich University Hospital", desc: "Tertiary Teaching Base" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuro Module" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiac Module" },
+      { stage: "ST6", hosp: "Colchester Hospital", desc: "General Placement" },
+      { stage: "ST7", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Senior Placement" }
+    ]
+  },
+  {
+    id: "eoe-norwich-4", code: "EoE - Norwich 4", region: "East of England", title: "NNUH, Cambridge & James Paget (Track 4)", places: "1",
+    hubs: {
+      driver: { name: "Norwich (South / Cringleford)", coords: [52.6102, 1.2502], desc: "A11/A47. 8m to NNUH, 30m to James Paget (Gt Yarmouth), 55m to Cambridge.", alert: "Fast bypass driving." },
+      transit: { name: "Norwich City Centre", coords: [52.6282, 1.2982], desc: "Direct 25/26 bus to NNUH; 30m train to Gt Yarmouth; 1h 10m train to Cambridge.", alert: "Hospital has dedicated Blue Line bus." }
+    },
+    stages: [
+      { stage: "ST4 (12m)", hosp: "Norfolk & Norwich University Hospital", desc: "Tertiary Teaching Base" },
+      { stage: "ST5", hosp: "Royal Papworth Hospital, Cambridge", desc: "Cardiac Module" },
+      { stage: "ST5", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Neuro Module" },
+      { stage: "ST6", hosp: "James Paget Hospital, Great Yarmouth", desc: "General Placement" },
+      { stage: "ST7", hosp: "Addenbrooke's Hospital, Cambridge", desc: "Senior Placement" }
     ]
   },
 
-  // --- WEST MIDLANDS ---
+  // ==================== EAST MIDLANDS NORTH ====================
   {
-    id: "wmid-1-warwickshire", code: "West Midlands - ST4 - Feb - 1", region: "West Midlands", title: "West Midlands 1 (Warwickshire Scheme)", places: "5",
+    id: "emids-north-1", code: "East Midlands - North 1 (N1)", region: "East Midlands", title: "Boston, Derby, QMC, City & Chesterfield", places: "1",
     hubs: {
-      driver: { name: "Coventry / Kenilworth / Warwick", coords: [52.3802, -1.5502], desc: "A46 corridor. Commute: 15m to UHCW Coventry, 15m to Warwick Hospital, 20m to George Eliot.", alert: "A46 dual carriageway connects all Warwickshire hospitals." },
+      driver: { name: "Long Eaton / Nottingham East", coords: [52.8982, -1.2702], desc: "M1 Junction 25. 15m drive to Derby, 15m to QMC, 35m to Chesterfield, 55m to Boston Pilgrim.", alert: "Central M1 driving hub." },
+      transit: { name: "Nottingham City Centre", coords: [52.9502, -1.1502], desc: "NET Tram to QMC; Medilink bus to City Hospital; 22m train to Derby.", alert: "⚠️ Note: Boston Pilgrim has poor Sunday early public transit." }
+    },
+    stages: [
+      { stage: "Feb-27", hosp: "Boston Pilgrim Hospital", desc: "General Anaesthesia" },
+      { stage: "Aug-27", hosp: "Royal Derby Hospital", desc: "Acute Surgery" },
+      { stage: "Feb-28", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Major Trauma Centre" },
+      { stage: "Aug-28", hosp: "Nottingham City Hospital", desc: "Thoracics & Elective" },
+      { stage: "Feb-29", hosp: "Chesterfield Royal Hospital", desc: "General DGH" },
+      { stage: "Aug-29", hosp: "Royal Derby Hospital", desc: "Specialist Placement" },
+      { stage: "Feb-30", hosp: "Nottingham City Hospital", desc: "Senior Placement" },
+      { stage: "Aug-30", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Advanced MTC & ICU" }
+    ]
+  },
+  {
+    id: "emids-north-2", code: "East Midlands - North 2 (N2)", region: "East Midlands", title: "Boston, Derby, QMC, City & Lincoln", places: "1",
+    hubs: {
+      driver: { name: "Newark-on-Trent", coords: [53.0782, -0.8122], desc: "A46/A1 corridor. 30m drive to Lincoln, 30m to Nottingham, 50m to Boston Pilgrim, 45m to Derby.", alert: "A46 dual carriageway connects Lincoln and Nottingham." },
+      transit: { name: "Newark / Nottingham", coords: [53.0782, -0.8122], desc: "Trains connect Newark to Nottingham and Lincoln directly.", alert: "⚠️ Note: Boston Pilgrim has poor public transport." }
+    },
+    stages: [
+      { stage: "Feb-27", hosp: "Boston Pilgrim Hospital", desc: "General Anaesthesia" },
+      { stage: "Aug-27", hosp: "Royal Derby Hospital", desc: "Acute Surgery" },
+      { stage: "Feb-28", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Major Trauma Centre" },
+      { stage: "Aug-28", hosp: "Nottingham City Hospital", desc: "Thoracics & Elective" },
+      { stage: "Feb-29", hosp: "Lincoln County Hospital", desc: "General Placement" },
+      { stage: "Aug-29", hosp: "Royal Derby Hospital", desc: "Specialist Placement" },
+      { stage: "Feb-30", hosp: "Nottingham City Hospital", desc: "Senior Placement" },
+      { stage: "Aug-30", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Advanced MTC & ICU" }
+    ]
+  },
+  {
+    id: "emids-north-3", code: "East Midlands - North 3 (N3)", region: "East Midlands", title: "Lincoln, Chesterfield, City & QMC", places: "1",
+    hubs: {
+      driver: { name: "Mansfield / Worksop", coords: [53.1452, -1.1982], desc: "M1 Junction 28/30. 25m to Chesterfield Royal, 25m to Nottingham, 40m to Lincoln.", alert: "M1 corridor makes accessing acute sites straightforward." },
+      transit: { name: "Nottingham Central", coords: [52.9502, -1.1502], desc: "Direct train north to Chesterfield (30m); Tram directly into QMC; bus to City Hospital.", alert: "Nottingham tram network stops directly inside QMC." }
+    },
+    stages: [
+      { stage: "Feb-27", hosp: "Lincoln County Hospital", desc: "Acute General" },
+      { stage: "Aug-27", hosp: "Chesterfield Royal Hospital", desc: "DGH Anaesthesia" },
+      { stage: "Feb-28", hosp: "Nottingham City Hospital", desc: "Elective Surgery" },
+      { stage: "Aug-28", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Major Trauma Centre" },
+      { stage: "Feb-29", hosp: "Lincoln County Hospital", desc: "Acute General" },
+      { stage: "Aug-29", hosp: "Nottingham City Hospital", desc: "Senior Placement" },
+      { stage: "Feb-30", hosp: "Nottingham City Hospital", desc: "Senior Placement" },
+      { stage: "Aug-30", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Advanced MTC & ICU" }
+    ]
+  },
+  {
+    id: "emids-north-4", code: "East Midlands - North 4 (N4)", region: "East Midlands", title: "Lincoln, QMC, Chesterfield & City", places: "1",
+    hubs: {
+      driver: { name: "Mansfield / Nottingham North", coords: [53.1452, -1.1982], desc: "M1 corridor. Commute: 25m to Chesterfield Royal, 22m to Nottingham, 40m to Lincoln.", alert: "M1 access to both Derbyshire and Nottinghamshire." },
+      transit: { name: "Nottingham (Central / Beeston)", coords: [52.9272, -1.2142], desc: "Tram directly into QMC; direct bus to City Hospital; train north to Chesterfield (30m).", alert: "Frequent tram and train services." }
+    },
+    stages: [
+      { stage: "Feb-27", hosp: "Lincoln County Hospital", desc: "Acute General" },
+      { stage: "Aug-27", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Major Trauma Centre" },
+      { stage: "Feb-28", hosp: "Chesterfield Royal Hospital", desc: "DGH Anaesthesia" },
+      { stage: "Aug-28", hosp: "Nottingham City Hospital", desc: "Elective Surgery" },
+      { stage: "Feb-29", hosp: "Lincoln County Hospital", desc: "Acute General" },
+      { stage: "Aug-29", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "MTC & Specialist" },
+      { stage: "Feb-30", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Senior MTC" },
+      { stage: "Aug-30", hosp: "Nottingham City Hospital", desc: "Senior Placement" }
+    ]
+  },
+  {
+    id: "emids-north-5", code: "East Midlands - North 5 (N5)", region: "East Midlands", title: "City, Kings Mill, Lincoln, QMC & Derby", places: "1",
+    hubs: {
+      driver: { name: "Nottingham (West / Wollaton)", coords: [52.9502, -1.2102], desc: "A52/M1. Commute: 8m to QMC, 15m to City, 22m to Kings Mill, 20m to Derby.", alert: "Exceptionally convenient driving hub." },
+      transit: { name: "Nottingham Central / Beeston", coords: [52.9272, -1.2142], desc: "Tram to QMC; Medilink bus to City Hospital; train to Derby (20m); Robin Hood Line to Kings Mill (Mansfield).", alert: "Very strong public transport links." }
+    },
+    stages: [
+      { stage: "Feb-27", hosp: "Nottingham City Hospital", desc: "Elective Surgery" },
+      { stage: "Aug-27", hosp: "Kings Mill Hospital, Mansfield", desc: "Acute DGH Base" },
+      { stage: "Feb-28", hosp: "Lincoln County Hospital", desc: "Acute General" },
+      { stage: "Aug-28", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Major Trauma Centre" },
+      { stage: "Feb-29", hosp: "Kings Mill Hospital, Mansfield", desc: "DGH Base" },
+      { stage: "Aug-29", hosp: "Royal Derby Hospital", desc: "Specialist Surgery" },
+      { stage: "Feb-30", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Senior MTC" },
+      { stage: "Aug-30", hosp: "Nottingham City Hospital", desc: "Senior Placement" }
+    ]
+  },
+
+  // ==================== EAST MIDLANDS SOUTH ====================
+  {
+    id: "emids-south-6", code: "East Midlands - South 6 (S1)", region: "East Midlands", title: "LRI, Northampton, QMC & Glenfield (S1)", places: "1",
+    hubs: {
+      driver: { name: "Market Harborough / South Leicester", coords: [52.4782, -0.9222], desc: "A6/M1 corridor. Commute: 22m to Leicester (LRI/Glenfield), 30m to Northampton, 40m to QMC.", alert: "Sits right in the sweet spot between Leicester and Northants." },
+      transit: { name: "Leicester Central", coords: [52.6312, -1.1252], desc: "The 'Hospital Hopper' bus connects station directly to LRI and Glenfield Hospital. Midland Mainline connects to Nottingham.", alert: "Hospital Hopper runs frequently for hospital staff." }
+    },
+    stages: [
+      { stage: "Feb-27", hosp: "Leicester Royal Infirmary", desc: "Teaching Hospital Base" },
+      { stage: "Aug-27", hosp: "Northampton General Hospital", desc: "Acute Surgery" },
+      { stage: "Feb-28", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Trauma Module" },
+      { stage: "Aug-28", hosp: "Glenfield Hospital, Leicester", desc: "Cardiothoracics Module" },
+      { stage: "Feb-29", hosp: "Northampton General Hospital", desc: "Acute Surgery" },
+      { stage: "Aug-29", hosp: "Leicester Royal Infirmary", desc: "Senior Base" },
+      { stage: "Feb-30", hosp: "Leicester Royal Infirmary", desc: "Senior Base" },
+      { stage: "Aug-30", hosp: "Glenfield Hospital, Leicester", desc: "Cardiothoracics" }
+    ]
+  },
+  {
+    id: "emids-south-7", code: "East Midlands - South 7 (S2)", region: "East Midlands", title: "Glenfield, LRI, QMC & Kettering (S2)", places: "1",
+    hubs: {
+      driver: { name: "Market Harborough / South Leicester", coords: [52.4782, -0.9222], desc: "A6/A14 corridor. Commute: 20m to Kettering, 22m to Leicester (LRI/Glenfield).", alert: "Very manageable driving times." },
+      transit: { name: "Leicester Central", coords: [52.6312, -1.1252], desc: "Hospital Hopper bus between LRI and Glenfield; train to Kettering (25m) and Nottingham.", alert: "Direct trains on Midland Main Line." }
+    },
+    stages: [
+      { stage: "Feb-27", hosp: "Glenfield Hospital, Leicester", desc: "Cardiothoracics" },
+      { stage: "Aug-27", hosp: "Leicester Royal Infirmary", desc: "Teaching Base" },
+      { stage: "Feb-28", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Trauma Module" },
+      { stage: "Aug-28", hosp: "Kettering General Hospital", desc: "General Placement" },
+      { stage: "Feb-29", hosp: "Kettering General Hospital", desc: "General Placement" },
+      { stage: "Aug-29", hosp: "Leicester Royal Infirmary", desc: "Senior Base" },
+      { stage: "Feb-30", hosp: "Leicester Royal Infirmary", desc: "Senior Base" },
+      { stage: "Aug-30", hosp: "Glenfield Hospital, Leicester", desc: "Senior Placement" }
+    ]
+  },
+  {
+    id: "emids-south-8", code: "East Midlands - South 8 (S3)", region: "East Midlands", title: "Derby, LRI, QMC & Glenfield (S3)", places: "1",
+    hubs: {
+      driver: { name: "Loughborough / North Leicester", coords: [52.7702, -1.2102], desc: "A6/M1 corridor. Commute: 25m to Derby, 20m to Leicester (LRI/Glenfield), 30m to QMC.", alert: "Central between Derby, Nottingham, and Leicester." },
+      transit: { name: "Loughborough / Leicester", coords: [52.7702, -1.2102], desc: "Midland Mainline connects Loughborough to Derby (18m), Leicester (10m), and Nottingham (15m).", alert: "Superb mainline railway access." }
+    },
+    stages: [
+      { stage: "Feb-27", hosp: "Royal Derby Hospital", desc: "Acute Surgery" },
+      { stage: "Aug-27", hosp: "Leicester Royal Infirmary", desc: "Teaching Base" },
+      { stage: "Feb-28", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Trauma Module" },
+      { stage: "Aug-28", hosp: "Glenfield Hospital, Leicester", desc: "Cardiothoracics" },
+      { stage: "Feb-29", hosp: "Royal Derby Hospital", desc: "Specialist Surgery" },
+      { stage: "Aug-29", hosp: "Royal Derby Hospital", desc: "Specialist Surgery" },
+      { stage: "Feb-30", hosp: "Leicester Royal Infirmary", desc: "Senior Base" },
+      { stage: "Aug-30", hosp: "Glenfield Hospital, Leicester", desc: "Senior Placement" }
+    ]
+  },
+  {
+    id: "emids-south-9", code: "East Midlands - South 9 (S4)", region: "East Midlands", title: "QMC, Northampton, Glenfield & LRI (S4)", places: "1",
+    hubs: {
+      driver: { name: "Market Harborough / South Leicester", coords: [52.4782, -0.9222], desc: "A6/M1 corridor. Commute: 22m to Leicester (LRI/Glenfield), 30m to Northampton, 40m to QMC.", alert: "Central driving base." },
+      transit: { name: "Leicester Central", coords: [52.6312, -1.1252], desc: "Hospital Hopper bus between LRI and Glenfield; train to Nottingham and Kettering.", alert: "Regular train and bus connections." }
+    },
+    stages: [
+      { stage: "Feb-27", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Trauma Module" },
+      { stage: "Aug-27", hosp: "Northampton General Hospital", desc: "Acute Surgery" },
+      { stage: "Feb-28", hosp: "Glenfield Hospital, Leicester", desc: "Cardiothoracics" },
+      { stage: "Aug-28", hosp: "Leicester Royal Infirmary", desc: "Teaching Base" },
+      { stage: "Feb-29", hosp: "Northampton General Hospital", desc: "Acute Surgery" },
+      { stage: "Aug-29", hosp: "Glenfield Hospital, Leicester", desc: "Senior Placement" },
+      { stage: "Feb-30", hosp: "Leicester Royal Infirmary", desc: "Senior Base" },
+      { stage: "Aug-30", hosp: "Leicester Royal Infirmary", desc: "Senior Base" }
+    ]
+  },
+  {
+    id: "emids-south-10", code: "East Midlands - South 10 (S5)", region: "East Midlands", title: "QMC, Kettering, LRI & Glenfield (S5)", places: "1",
+    hubs: {
+      driver: { name: "Market Harborough", coords: [52.4782, -0.9222], desc: "A6/A14 corridor. Commute: 18m to Kettering, 22m to Leicester (LRI/Glenfield).", alert: "Short driving commutes." },
+      transit: { name: "Leicester Central / Market Harborough", coords: [52.6312, -1.1252], desc: "Direct train to Kettering (12m); Hospital Hopper in Leicester.", alert: "Direct rail on Midland Mainline." }
+    },
+    stages: [
+      { stage: "Feb-27", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Trauma Module" },
+      { stage: "Aug-27", hosp: "Kettering General Hospital", desc: "Acute Placement" },
+      { stage: "Feb-28", hosp: "Leicester Royal Infirmary", desc: "Teaching Base" },
+      { stage: "Aug-28", hosp: "Glenfield Hospital, Leicester", desc: "Cardiothoracics" },
+      { stage: "Feb-29", hosp: "Kettering General Hospital", desc: "General Placement" },
+      { stage: "Aug-29", hosp: "Glenfield Hospital, Leicester", desc: "Senior Placement" },
+      { stage: "Feb-30", hosp: "Leicester Royal Infirmary", desc: "Senior Base" },
+      { stage: "Aug-30", hosp: "Leicester Royal Infirmary", desc: "Senior Base" }
+    ]
+  },
+  {
+    id: "emids-south-13", code: "East Midlands - South 13 (S8)", region: "East Midlands", title: "QMC, Northampton, LRI & Glenfield (S8)", places: "1",
+    hubs: {
+      driver: { name: "Market Harborough / South Leicester", coords: [52.4782, -0.9222], desc: "A6/M1 corridor. Commute: 22m to Leicester (LRI/Glenfield), 30m to Northampton, 40m to QMC.", alert: "Central driving base." },
+      transit: { name: "Leicester Central", coords: [52.6312, -1.1252], desc: "Hospital Hopper bus between LRI and Glenfield; train to Nottingham.", alert: "Regular train and bus connections." }
+    },
+    stages: [
+      { stage: "Feb-27", hosp: "Queen's Medical Centre (QMC), Nottingham", desc: "Trauma Module" },
+      { stage: "Aug-27", hosp: "Northampton General Hospital", desc: "Acute Surgery" },
+      { stage: "Feb-28", hosp: "Leicester Royal Infirmary", desc: "Teaching Base" },
+      { stage: "Aug-28", hosp: "Glenfield Hospital, Leicester", desc: "Cardiothoracics" },
+      { stage: "Feb-29", hosp: "Northampton General Hospital", desc: "Acute Surgery" },
+      { stage: "Aug-29", hosp: "Leicester Royal Infirmary", desc: "Senior Base" },
+      { stage: "Feb-30", hosp: "Glenfield Hospital, Leicester", desc: "Senior Placement" },
+      { stage: "Aug-30", hosp: "Glenfield Hospital, Leicester", desc: "Senior Placement" }
+    ]
+  },
+  {
+    id: "emids-south-1e", code: "East Midlands - South 1E", region: "East Midlands", title: "Northampton General Starting Base", places: "2",
+    hubs: {
+      driver: { name: "Northampton / Milton Keynes", coords: [52.2352, -0.8871], desc: "M1 Junction 15. Commute: 8m drive to Northampton General Hospital.", alert: "Easy driving with staff parking." },
+      transit: { name: "Northampton Central", coords: [52.2352, -0.8871], desc: "15-minute walk or short bus ride from Northampton railway station to hospital.", alert: "Walkable from town centre." }
+    },
+    stages: [
+      { stage: "Starting Trust", hosp: "Northampton General Hospital", desc: "Acute Surgery & Trauma Base" }
+    ]
+  },
+
+  // ==================== WEST MIDLANDS ====================
+  {
+    id: "wmid-1-warwickshire", code: "West Midlands - ST4 - Feb - 1", region: "West Midlands", title: "Warwickshire Scheme", places: "5",
+    hubs: {
+      driver: { name: "Coventry / Kenilworth / Warwick", coords: [52.3802, -1.5502], desc: "A46 corridor. Commute: 15m to UHCW Coventry, 15m to Warwick Hospital.", alert: "A46 dual carriageway connects all Warwickshire hospitals." },
       transit: { name: "Coventry Central / Leamington Spa", coords: [52.4082, -1.5102], desc: "Frequent direct buses (9, 9A) connect Coventry station to UHCW; direct train to Warwick.", alert: "UHCW has extensive bus links from Coventry railway station." }
     },
     stages: [
@@ -1259,7 +1408,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "wmid-2-birmingham", code: "West Midlands - ST4 - Feb - 2", region: "West Midlands", title: "West Midlands 2 (Birmingham Scheme)", places: "9",
+    id: "wmid-2-birmingham", code: "West Midlands - ST4 - Feb - 2", region: "West Midlands", title: "Birmingham Scheme", places: "9",
     hubs: {
       driver: { name: "Harborne / Edgbaston / Solihull", coords: [52.4512, -1.9602], desc: "Central location for Queen Elizabeth Hospital Birmingham, Heartlands, Worcester, and Dudley.", alert: "Central base across the West Midlands." },
       transit: { name: "Birmingham City Centre / Selly Oak", coords: [52.4772, -1.8982], desc: "CrossCity rail line stops at University station right inside Queen Elizabeth Hospital (7m from New St).", alert: "University station is on the QE hospital grounds." }
@@ -1269,7 +1418,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "wmid-3-stoke", code: "West Midlands - ST4 - Feb - 3", region: "West Midlands", title: "West Midlands 3 (Stoke UHNM Base)", places: "3",
+    id: "wmid-3-stoke", code: "West Midlands - ST4 - Feb - 3", region: "West Midlands", title: "Stoke UHNM Base", places: "3",
     hubs: {
       driver: { name: "Newcastle-under-Lyme / Stafford", coords: [53.0052, -2.2252], desc: "A34/M6. 8m drive to Royal Stoke University Hospital (UHNM).", alert: "Easy driving with staff parking." },
       transit: { name: "Stoke-on-Trent (Station)", coords: [53.0082, -2.1812], desc: "Frequent direct 25 bus from Stoke railway station to Royal Stoke Hospital front entrance.", alert: "Hospital has regular station bus links." }
@@ -1279,7 +1428,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "wmid-4-wolverhampton", code: "West Midlands - ST4 - Feb - 4", region: "West Midlands", title: "West Midlands 4 (Wolverhampton New Cross)", places: "2",
+    id: "wmid-4-wolverhampton", code: "West Midlands - ST4 - Feb - 4", region: "West Midlands", title: "Wolverhampton New Cross", places: "2",
     hubs: {
       driver: { name: "Wolverhampton (Tettenhall / Wednesfield)", coords: [52.5972, -2.1072], desc: "Wednesfield is 5m from New Cross Hospital.", alert: "Easy local driving." },
       transit: { name: "Wolverhampton Central", coords: [52.5862, -2.1222], desc: "Frequent buses (number 59) connect Wolverhampton station directly to New Cross Hospital in 12 mins.", alert: "Bus runs every 8 minutes." }
@@ -1289,7 +1438,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "wmid-5-walsall", code: "West Midlands - ST4 - Feb - 5", region: "West Midlands", title: "West Midlands 5 (Walsall Manor)", places: "1",
+    id: "wmid-5-walsall", code: "West Midlands - ST4 - Feb - 5", region: "West Midlands", title: "Walsall Manor", places: "1",
     hubs: {
       driver: { name: "Walsall / Sutton Coldfield", coords: [52.5852, -1.9862], desc: "M6 Junction 9/10. 5m drive to Walsall Manor Hospital.", alert: "Convenient M6 access." },
       transit: { name: "Walsall Town Centre", coords: [52.5852, -1.9862], desc: "Walsall railway station is a short walk or 5m bus from Walsall Manor Hospital.", alert: "Very accessible on foot from Walsall town." }
@@ -1299,7 +1448,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "wmid-6-mmuh", code: "West Midlands - ST4 - Feb - 6", region: "West Midlands", title: "West Midlands 6 (Midlands Met MMUH)", places: "3",
+    id: "wmid-6-mmuh", code: "West Midlands - ST4 - Feb - 6", region: "West Midlands", title: "Midlands Met MMUH", places: "3",
     hubs: {
       driver: { name: "Harborne / Smethwick", coords: [52.4972, -1.9672], desc: "Close to the newly opened Midlands Metropolitan University Hospital.", alert: "Staff parking on site." },
       transit: { name: "Birmingham New Street / Smethwick Galton Bridge", coords: [52.4972, -1.9672], desc: "Direct buses (82, 87) connect Birmingham city centre directly to MMUH.", alert: "Rapid bus connections from central Birmingham." }
@@ -1309,7 +1458,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "wmid-7-shrewsbury", code: "West Midlands - ST4 - Feb - 7", region: "West Midlands", title: "West Midlands 7 (Shrewsbury & Telford)", places: "3",
+    id: "wmid-7-shrewsbury", code: "West Midlands - ST4 - Feb - 7", region: "West Midlands", title: "Shrewsbury & Telford", places: "3",
     hubs: {
       driver: { name: "Shrewsbury / Telford midpoint", coords: [52.7062, -2.6502], desc: "A5/M54 dual carriageway. Commute: 15m to Royal Shrewsbury, 15m to Princess Royal (Telford).", alert: "A5 dual carriageway links both hospitals." },
       transit: { name: "Shrewsbury Central", coords: [52.7112, -2.7502], desc: "Frequent bus from Shrewsbury railway station to Royal Shrewsbury Hospital; direct trains to Telford (18m).", alert: "Trains connect Shrewsbury and Telford stations." }
@@ -1319,11 +1468,11 @@ const ROTATIONS_DATA = [
     ]
   },
 
-  // --- YORKSHIRE & THE HUMBER ---
+  // ==================== YORKSHIRE & THE HUMBER ====================
   {
-    id: "york-north-east-1", code: "Yorkshire - North / East 1", region: "Yorkshire and the Humber", title: "Yorkshire - North / East 1 (Hull, York, Grimsby)", places: "6",
+    id: "york-north-east-1", code: "Yorkshire - North / East 1", region: "Yorkshire and the Humber", title: "Hull, York, Scarborough & Scunthorpe", places: "6",
     hubs: {
-      driver: { name: "Beverley / York East", coords: [53.8422, -0.4282], desc: "A1079/A64 corridor linking York Hospital and Hull Royal Infirmary.", alert: "Car recommended due to rural East Yorkshire distances." },
+      driver: { name: "Beverley / York East", coords: [53.8422, -0.4282], desc: "A1079/A64 corridor linking York Hospital, Hull Royal Infirmary, and Scarborough.", alert: "Car recommended due to rural East Yorkshire distances." },
       transit: { name: "York City Centre", coords: [53.9582, -1.0902], desc: "York Hospital is walking distance (15m) from centre; direct trains to Hull (1h) and Scarborough (50m).", alert: "York is a major national rail interchange." }
     },
     stages: [
@@ -1334,7 +1483,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "york-south-2", code: "Yorkshire - South 2", region: "Yorkshire and the Humber", title: "Yorkshire - South 2 (Sheffield, Doncaster, Barnsley)", places: "7",
+    id: "york-south-2-3e", code: "Yorkshire - South 2 & 3E", region: "Yorkshire and the Humber", title: "South Yorkshire Scheme (Sheffield, Doncaster, Barnsley, Rotherham)", places: "8 total",
     hubs: {
       driver: { name: "Sheffield (West) / Rotherham", coords: [53.3812, -1.4682], desc: "M1 corridor connecting Northern General (Sheffield), Doncaster Royal, Rotherham, and Barnsley.", alert: "M1 enables 20-30m driving to all acute sites." },
       transit: { name: "Sheffield City Centre", coords: [53.3782, -1.4622], desc: "Supertram and buses link station directly to Northern General Hospital; trains to Doncaster (22m) and Barnsley (20m).", alert: "Extensive tram and bus lines for hospital staff." }
@@ -1347,17 +1496,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "york-south-3e", code: "Yorkshire - South 3E", region: "Yorkshire and the Humber", title: "Yorkshire - South 3E", places: "1",
-    hubs: {
-      driver: { name: "Sheffield (West) / Rotherham", coords: [53.3812, -1.4682], desc: "M1 corridor across South Yorkshire.", alert: "M1 connects all acute sites." },
-      transit: { name: "Sheffield City Centre", coords: [53.3782, -1.4622], desc: "Superb public transport via Supertram and regional trains.", alert: "Supertram connects to hospital grounds." }
-    },
-    stages: [
-      { stage: "South Yorks Network", hosp: "Northern General Hospital, Sheffield", desc: "Major Trauma Centre Base" }
-    ]
-  },
-  {
-    id: "york-west-3", code: "Yorkshire - West 3", region: "Yorkshire and the Humber", title: "Yorkshire - West 3 (Leeds, Bradford, Wakefield)", places: "8",
+    id: "york-west-3-4e", code: "Yorkshire - West 3 & 4E", region: "Yorkshire and the Humber", title: "West Yorkshire Scheme (Leeds, Bradford, Wakefield)", places: "9 total",
     hubs: {
       driver: { name: "Leeds (North / Horsforth)", coords: [53.8342, -1.6422], desc: "Ring road access. Commute: 15m to Leeds General Infirmary, 22m to Bradford Royal, 25m to Pinderfields.", alert: "Avoids inner-city congestion." },
       transit: { name: "Leeds City Centre", coords: [53.7952, -1.5482], desc: "12m walk or free city bus to Leeds General Infirmary; frequent 20m trains to Bradford and Wakefield.", alert: "High frequency West Yorkshire rail network." }
@@ -1368,20 +1507,10 @@ const ROTATIONS_DATA = [
       { stage: "West Yorks Network", hosp: "Pinderfields Hospital, Wakefield", desc: "Burns & Plastics" }
     ]
   },
-  {
-    id: "york-west-4e", code: "Yorkshire - West 4E", region: "Yorkshire and the Humber", title: "Yorkshire - West 4E", places: "1",
-    hubs: {
-      driver: { name: "Leeds (North / Horsforth)", coords: [53.8342, -1.6422], desc: "Ring road access across West Yorkshire.", alert: "Avoids inner-city traffic." },
-      transit: { name: "Leeds City Centre", coords: [53.7952, -1.5482], desc: "Unrivalled West Yorkshire public transport frequency from Leeds station.", alert: "Walking distance to LGI." }
-    },
-    stages: [
-      { stage: "West Yorks Network", hosp: "Leeds General Infirmary", desc: "Major Trauma Base" }
-    ]
-  },
 
-  // --- NORTH WEST ---
+  // ==================== NORTH WEST & NORTH EAST ====================
   {
-    id: "nw-cheshire-mersey-1", code: "North West - Cheshire & Mersey 1", region: "North West", title: "Cheshire & Merseyside Scheme 1", places: "11",
+    id: "nw-cheshire-mersey-1-1e", code: "North West - Cheshire & Mersey 1 & 1E", region: "North West", title: "Cheshire & Merseyside Scheme", places: "13 total",
     hubs: {
       driver: { name: "Liverpool (South / Aigburth) / Chester", coords: [53.3702, -2.9302], desc: "M62/M53/M56. Central driving location across Merseyside and Cheshire.", alert: "Fast road access via Queensway/Kingsway tunnels." },
       transit: { name: "Liverpool City Centre", coords: [53.4092, -2.9642], desc: "Walking distance to Royal Liverpool; Merseyrail network to Walton and Arrowe Park.", alert: "Merseyrail connects all hospital sites." }
@@ -1392,17 +1521,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "nw-cheshire-mersey-1e", code: "North West - Cheshire & Mersey 1E", region: "North West", title: "Cheshire & Merseyside Scheme 1E", places: "2",
-    hubs: {
-      driver: { name: "Liverpool (South) / Chester", coords: [53.3702, -2.9302], desc: "M62/M53/M56.", alert: "Fast road access." },
-      transit: { name: "Liverpool City Centre", coords: [53.4092, -2.9642], desc: "Merseyrail connects all hospital sites.", alert: "Walking distance to Royal Liverpool." }
-    },
-    stages: [
-      { stage: "Merseyside Network", hosp: "Royal Liverpool University Hospital", desc: "Teaching Hospital Base" }
-    ]
-  },
-  {
-    id: "nw-gt-manchester-2", code: "North West - Gt Manchester 2", region: "North West", title: "Greater Manchester Scheme 2", places: "12",
+    id: "nw-gt-manchester-2-2e", code: "North West - Gt Manchester 2 & 2E", region: "North West", title: "Greater Manchester Scheme", places: "16 total",
     hubs: {
       driver: { name: "South Manchester (Didsbury / Altrincham)", coords: [53.4102, -2.2302], desc: "M60/M56. Commute: 20m to MRI, 15m to Wythenshawe, 22m to Salford Royal.", alert: "Good parking options in South Manchester." },
       transit: { name: "Manchester City Centre (Oxford Road)", coords: [53.4732, -2.2412], desc: "Oxford Road is walking distance to MRI; Metrolink tram connects to Salford Royal and Wythenshawe.", alert: "Metrolink tram makes non-driving commutes very easy." }
@@ -1411,18 +1530,6 @@ const ROTATIONS_DATA = [
       { stage: "Manchester Network", hosp: "Manchester Royal Infirmary", desc: "Major Acute Centre Base" }
     ]
   },
-  {
-    id: "nw-gt-manchester-2e", code: "North West - Gt Manchester 2E", region: "North West", title: "Greater Manchester Scheme 2E", places: "4",
-    hubs: {
-      driver: { name: "South Manchester (Didsbury / Altrincham)", coords: [53.4102, -2.2302], desc: "M60/M56 access.", alert: "Easy motorway access." },
-      transit: { name: "Manchester City Centre", coords: [53.4732, -2.2412], desc: "Metrolink tram connects all major acute hospital trusts.", alert: "Walking distance to MRI." }
-    },
-    stages: [
-      { stage: "Manchester Network", hosp: "Manchester Royal Infirmary", desc: "Major Acute Centre Base" }
-    ]
-  },
-
-  // --- NORTH EAST ---
   {
     id: "north-east-1", code: "North East - 1", region: "North East", title: "North East & North Cumbria Scheme", places: "4",
     hubs: {
@@ -1435,7 +1542,6 @@ const ROTATIONS_DATA = [
   }
 ];
 
-// Helper to extract unique hospital bases from any rotation
 function getRotationHospitalBases(rot) {
   return [...new Set(rot.stages.map(s => s.hosp))];
 }
@@ -1566,7 +1672,7 @@ function setViewMode(mode) {
   if (mode === 'all') {
     renderAllPlacements();
   } else {
-    selectRotation(prefSelect.value || "wessex-feb-2", false);
+    selectRotation(prefSelect.value || "wessex-west", false);
   }
 }
 
@@ -2151,7 +2257,7 @@ window.onload = () => {
   populateDropdown(ROTATIONS_DATA);
 
   const hashId = window.location.hash.replace('#', '');
-  const initialId = ROTATIONS_DATA.some(r => r.id === hashId) ? hashId : "wessex-feb-2";
+  const initialId = ROTATIONS_DATA.some(r => r.id === hashId) ? hashId : "wessex-west";
   
   prefSelect.value = initialId;
   selectRotation(initialId, false);
