@@ -2,7 +2,6 @@
 // ST4 Anaesthetics National Placement Data
 // ============================================================================
 
-// 1. MASTER HOSPITAL COORDINATES
 const HOSPITALS = {
   // Cambridge Biomedical Campus
   "Addenbrooke's Hospital, Cambridge": { coords: [52.1751, 0.1408], region: "East of England" },
@@ -124,7 +123,6 @@ const HOSPITALS = {
   "Royal Victoria Infirmary, Newcastle": { coords: [54.9782, -1.6232], region: "North East" }
 };
 
-// 2. REGIONAL COLOUR MAPPING
 const REGION_COLORS = {
   "East of England": "#ea580c",
   "East Midlands": "#16a34a",
@@ -142,7 +140,6 @@ const REGION_COLORS = {
   "North East": "#6366f1"
 };
 
-// 3. MASTER ROTATIONS DATA (76 valid, non-zero rotations)
 const ROTATIONS_DATA = [
   // ==================== WESSEX ====================
   {
@@ -1173,15 +1170,12 @@ const ROTATIONS_DATA = [
   }
 ];
 
-// Helper to extract unique hospital bases from any rotation
 function getRotationHospitalBases(rot) {
   return [...new Set(rot.stages.map(s => s.hosp))];
 }
 
-// Global window exposure for zero-configuration browser loading
+// Window attachments for cross-script safety
 window.HOSPITALS = HOSPITALS;
 window.REGION_COLORS = REGION_COLORS;
-window.ROTATIONS_DATA = ROTATIONS_DATA;
-window.getRotationHospitalBases = getRotationHospitalBases;
 window.ROTATIONS_DATA = ROTATIONS_DATA;
 window.getRotationHospitalBases = getRotationHospitalBases;
