@@ -8,16 +8,18 @@ An interactive, open-source web application designed to help UK Anaesthetics tra
 
 ## Features
 
-- **National Overview Map:** All 60+ NHS hospital trusts colour-coded by NHS region. Click any hospital pin on the map to see every rotation that visits it.
-- **Chronological Route Paths:** Numbers each placement stage (`1`, `2`, `3`...) and connects them with route lines to illustrate the 4-year rotational footprint.
-- **Dual Living Hubs (🏡):**
+- **National Overview Map with Network Lines:** All 60+ NHS hospital trusts colour-coded by NHS region, connected by interactive dashed rotation route lines. Hover over any line or hospital to highlight linked placements, or click to dive into details.
+- **Chronological Route Paths:** Numbers each placement stage (`1`, `2`, `3`...) and connects them with sequential route lines to illustrate the multi-year rotational footprint.
+- **Personalized Living Hubs & Commute Calculator (🏡):**
   - **🚗 Driving / Mixed:** Motorway and bypass corridors for trainees with cars.
   - **🚆 Public Transport Only:** Major rail/bus junctions with shift feasibility warnings for early 07:45 handovers.
-- **Commute Spread Analysis:** Calculates the maximum pairwise mileage spread with realistic drive-time estimates.
-- **Ratings & Notes:** Star-rate rotations (1–5) and save personal notes directly in your browser (`localStorage`).
-- **Shortlist Reordering & CSV Export:** Drag or reorder your top choices into an ordered rank list and export to CSV.
-- **Partner Sync:** Transfer your ratings and notes to a partner's device with a one-click sync code.
-- **Zero API Keys & Privacy:** 100% client-side, zero analytics, zero cookies, runs on free OpenStreetMap tiles.
+  - **📍 Custom Home Postcode:** Input your own prospective home postcode or town (or click on the map) to calculate a stage-by-stage commute breakdown with drive times to every hospital base.
+- **Side-by-Side Comparison Matrix (⚖️):** Compare up to 3 candidate rotations side-by-side (footprint, commute spread, hospital types, living hubs, user notes, and ratings).
+- **Preferencing Tiers & Star Ratings:** Categorize rotations into standard Oriel tiers (🟢 Tier 1, 🟡 Tier 2, 🔴 Tier 3, ⚪ Excluded) and 1–5 stars with personal notes saved locally in your browser (`localStorage`).
+- **Interactive Shortlist Reordering:** Drag-and-drop ranking or direct rank number inputs with instant recalculation and CSV export formatted for Oriel.
+- **One-Click Backup & Partner Sync:** Download or upload your preferences as a `.json` backup file, or transfer them to a partner with a one-click sync code.
+- **Map Tools:** Fullscreen toggle, GPS "Locate Me", and rotation line visibility toggles.
+- **Zero API Keys & Privacy:** 100% client-side, zero analytics, zero cookies, runs on free OpenStreetMap tiles and UK Postcodes API.
 
 ---
 

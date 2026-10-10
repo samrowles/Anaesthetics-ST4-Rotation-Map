@@ -10,7 +10,7 @@
   <!-- Favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🩺</text></svg>">
 
-  <!-- OpenGraph Metadata for WhatsApp / Slack / Social Previews -->
+  <!-- OpenGraph Metadata -->
   <meta property="og:title" content="ST4 Anaesthetics Rotation &amp; Commute Explorer">
   <meta property="og:description" content="Explore UK ST4 Anaesthetics rotations, commute radii, hospital bases, and living hubs.">
   <meta property="og:type" content="website">
@@ -19,310 +19,12 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- External Placement Data -->
-  <script src="data.js"></script>
-
-  <style>
-    :root {
-      --primary: #0284c7;
-      --primary-dark: #0369a1;
-      --amber: #f59e0b;
-      --emerald: #10b981;
-      --purple: #7c3aed;
-      --rose: #e11d48;
-      --slate-50: #f8fafc;
-      --slate-100: #f1f5f9;
-      --slate-200: #e2e8f0;
-      --slate-300: #cbd5e1;
-      --slate-600: #475569;
-      --slate-700: #334155;
-      --slate-800: #1e293b;
-      --slate-900: #0f172a;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-      display: flex; 
-      height: 100vh; 
-      height: 100dvh; 
-      width: 100vw; 
-      overflow: hidden; 
-      color: var(--slate-900); 
-      position: relative; 
-      background: #fff; 
-    }
-    
-    #sidebar { 
-      width: 530px; 
-      min-width: 440px; 
-      height: 100%; 
-      background: #ffffff; 
-      border-right: 1px solid var(--slate-200); 
-      display: flex; 
-      flex-direction: column; 
-      box-shadow: 4px 0 16px rgba(0,0,0,0.05); 
-      z-index: 1000; 
-      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    #sidebar-header { padding: 14px 18px; background: var(--slate-50); border-bottom: 1px solid var(--slate-200); }
-    #sidebar-header h1 { font-size: 1.15rem; font-weight: 800; color: var(--slate-900); display: flex; align-items: center; justify-content: space-between; }
-    #sidebar-header p { font-size: 0.78rem; color: var(--slate-600); margin-top: 2px; }
-
-    .header-actions { display: flex; gap: 6px; align-items: center; }
-    .btn-top { border: none; padding: 5px 9px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: background 0.15s; }
-    .btn-export { background: #10b981; color: white; }
-    .btn-export:hover { background: #059669; }
-    .btn-sync { background: var(--slate-200); color: var(--slate-700); }
-    .btn-sync:hover { background: var(--slate-300); }
-
-    #controls { padding: 12px 18px; border-bottom: 1px solid var(--slate-200); display: flex; flex-direction: column; gap: 8px; background: #fff; }
-    .control-row { display: flex; gap: 6px; align-items: center; }
-    select, input, textarea { width: 100%; padding: 8px 10px; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; transition: border-color 0.15s; }
-    select:focus, input:focus, textarea:focus { border-color: var(--primary); }
-
-    .view-toggle { display: flex; background: var(--slate-100); border-radius: 6px; padding: 2px; }
-    .view-btn { flex: 1; padding: 6px; font-size: 0.75rem; font-weight: 700; text-align: center; border: none; background: transparent; cursor: pointer; border-radius: 4px; color: var(--slate-600); transition: all 0.15s; }
-    .view-btn.active { background: #fff; color: var(--slate-900); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-
-    .mode-toggle-group { display: flex; flex-direction: column; gap: 5px; }
-    .mode-label { font-size: 0.7rem; font-weight: 800; color: var(--slate-600); text-transform: uppercase; letter-spacing: 0.04em; }
-    
-    .transport-toggle { display: flex; background: var(--slate-100); border-radius: 6px; padding: 2px; border: 1px solid var(--slate-200); }
-    .transport-btn { flex: 1; padding: 6px 8px; font-size: 0.76rem; font-weight: 700; text-align: center; border: none; background: transparent; cursor: pointer; border-radius: 4px; color: var(--slate-600); transition: all 0.15s; }
-    .transport-btn.active { background: #ffffff !important; box-shadow: 0 1px 3px rgba(0,0,0,0.12) !important; }
-    #btnModeDriver.active { color: #0284c7 !important; }
-    #btnModeTransit.active { color: #7c3aed !important; }
-
-    .nav-stepper { display: flex; gap: 4px; }
-    .btn-step { background: var(--slate-100); border: 1px solid var(--slate-200); color: var(--slate-700); padding: 7px 11px; border-radius: 6px; font-size: 0.8rem; font-weight: 800; cursor: pointer; white-space: nowrap; }
-    .btn-step:hover { background: var(--slate-200); }
-
-    .filter-pills { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px; }
-    .filter-pill-btn { border: 1px solid var(--slate-200); background: var(--slate-50); padding: 4px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; color: var(--slate-600); cursor: pointer; white-space: nowrap; }
-    .filter-pill-btn.active { background: var(--slate-900); color: white; border-color: var(--slate-900); }
-
-    #content-pane { flex-grow: 1; overflow-y: auto; padding: 14px 18px; }
-    
-    .rotation-list-card {
-      background: #ffffff;
-      border: 1.5px solid var(--slate-200);
-      border-radius: 8px;
-      padding: 10px 12px;
-      margin-bottom: 8px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    .rotation-list-card:hover {
-      border-color: var(--primary);
-      box-shadow: 0 2px 6px rgba(2, 132, 199, 0.08);
-    }
-    .rotation-list-card.active-card {
-      border-color: var(--primary);
-      background: #f0f9ff;
-      box-shadow: 0 0 0 1px var(--primary);
-    }
-    .card-list-title {
-      font-size: 0.92rem;
-      font-weight: 800;
-      color: var(--slate-900);
-      margin: 6px 0 4px 0;
-      line-height: 1.25;
-    }
-    .card-list-hub {
-      font-size: 0.76rem;
-      color: var(--slate-600);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .card { background: #fff; border: 1px solid var(--slate-200); border-radius: 10px; padding: 14px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
-    
-    .badge-container { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
-    .badge { padding: 3px 8px; border-radius: 999px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; }
-    .badge-code { background: #0284c7; color: white; }
-    .badge-places { background: #fef3c7; color: #92400e; }
-    .badge-spread-low { background: #dcfce7; color: #166534; }
-    .badge-spread-med { background: #fef9c3; color: #854d0e; }
-    .badge-spread-high { background: #fee2e2; color: #991b1b; }
-
-    .card-title { font-size: 1.05rem; font-weight: 800; color: var(--slate-900); margin-bottom: 4px; line-height: 1.3; }
-    
-    .card-actions-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; flex-wrap: wrap; }
-    .btn-share-link { background: none; border: 1px solid var(--slate-200); padding: 4px 8px; border-radius: 5px; font-size: 0.72rem; font-weight: 700; color: var(--slate-600); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
-    .btn-share-link:hover { background: var(--slate-50); color: var(--primary); }
-    .btn-back-to-list { background: var(--slate-100); border: 1px solid var(--slate-200); padding: 4px 10px; border-radius: 5px; font-size: 0.74rem; font-weight: 800; color: var(--slate-700); cursor: pointer; }
-    .btn-back-to-list:hover { background: var(--slate-200); }
-
-    .hub-box { border-radius: 8px; padding: 12px; margin: 10px 0 14px 0; transition: all 0.2s; }
-    .hub-box.driver-theme { background: #f0fdf4; border: 1.5px solid #bbf7d0; }
-    .hub-box.transit-theme { background: #f5f3ff; border: 1.5px solid #ddd6fe; }
-
-    .hub-title { font-size: 0.85rem; font-weight: 800; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-    .hub-box.driver-theme .hub-title { color: #166534; }
-    .hub-box.transit-theme .hub-title { color: #5b21b6; }
-    .hub-directions-link { font-size: 0.7rem; font-weight: 700; text-decoration: underline; color: inherit; }
-
-    .hub-content { font-size: 0.8rem; line-height: 1.45; }
-    .hub-box.driver-theme .hub-content { color: #14532d; }
-    .hub-box.transit-theme .hub-content { color: #4c1d95; }
-    .hub-alert { margin-top: 6px; padding: 6px 8px; border-radius: 5px; font-size: 0.74rem; line-height: 1.35; background: #fff; border: 1px solid rgba(0,0,0,0.08); font-weight: 600; }
-
-    .metrics-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; background: var(--slate-50); border-radius: 8px; margin-bottom: 14px; border: 1px solid var(--slate-200); }
-    .metric-item { text-align: center; }
-    .metric-value { font-size: 1.15rem; font-weight: 800; color: var(--primary-dark); }
-    .metric-label { font-size: 0.68rem; color: var(--slate-600); text-transform: uppercase; font-weight: 700; }
-
-    .hospitals-box { background: #f8fafc; border: 1px solid var(--slate-200); border-radius: 8px; padding: 12px; margin-bottom: 14px; }
-    .hospitals-box-title { font-size: 0.76rem; font-weight: 800; color: var(--slate-700); text-transform: uppercase; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
-    .hospitals-chip-list { display: flex; flex-direction: column; gap: 6px; }
-    .hospital-chip-item { background: #ffffff; border: 1px solid var(--slate-200); border-radius: 6px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; }
-    .hospital-chip-name { font-weight: 700; color: var(--slate-900); }
-    .hospital-chip-btn { background: var(--slate-100); border: 1px solid var(--slate-200); padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; color: var(--primary); cursor: pointer; text-decoration: none; }
-    .hospital-chip-btn:hover { background: var(--slate-200); }
-
-    .timeline { position: relative; padding-left: 20px; margin-bottom: 16px; }
-    .timeline::before { content: ""; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 2px; background: #cbd5e1; }
-    .timeline-step { position: relative; margin-bottom: 10px; }
-    .timeline-dot { position: absolute; left: -20px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); color: white; font-size: 9px; font-weight: 800; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-    .timeline-content { background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: 6px; padding: 6px 10px; font-size: 0.78rem; }
-    .timeline-stage { font-size: 0.7rem; font-weight: 700; color: var(--primary-dark); text-transform: uppercase; }
-    .timeline-hosp { font-weight: 800; color: var(--slate-900); margin: 1px 0; display: flex; justify-content: space-between; align-items: center; }
-    .timeline-desc { font-size: 0.74rem; color: var(--slate-600); }
-
-    .rating-section { background: var(--slate-50); border-top: 1px solid var(--slate-200); padding: 12px; border-radius: 8px; }
-    .star-row { display: flex; gap: 4px; align-items: center; margin-bottom: 6px; }
-    .star { font-size: 1.4rem; cursor: pointer; color: #cbd5e1; transition: color 0.15s; }
-    .star.selected { color: #f59e0b; }
-    .notes-input { width: 100%; height: 60px; font-size: 0.8rem; resize: vertical; margin-top: 4px; }
-    .btn-save { background: var(--primary); color: white; border: none; border-radius: 5px; padding: 6px 12px; font-size: 0.75rem; font-weight: 700; cursor: pointer; margin-top: 6px; }
-    .btn-save:hover { background: var(--primary-dark); }
-
-    #map { flex-grow: 1; height: 100%; width: 100%; }
-
-    /* Map Markers */
-    .numbered-pin { 
-      background: #0284c7; 
-      color: #ffffff; 
-      font-weight: 800; 
-      font-size: 12px; 
-      border-radius: 50%; 
-      width: 28px !important; 
-      height: 28px !important; 
-      display: flex !important; 
-      align-items: center !important; 
-      justify-content: center !important; 
-      border: 2px solid #ffffff; 
-      box-shadow: 0 3px 8px rgba(0,0,0,0.35); 
-      cursor: pointer; 
-    }
-    .home-pin-driver { 
-      background: #16a34a; 
-      color: #ffffff; 
-      font-size: 15px; 
-      border-radius: 50%; 
-      width: 34px !important; 
-      height: 34px !important; 
-      display: flex !important; 
-      align-items: center !important; 
-      justify-content: center !important; 
-      border: 2.5px solid #ffffff; 
-      box-shadow: 0 3px 10px rgba(0,0,0,0.4); 
-      cursor: pointer; 
-    }
-    .home-pin-transit { 
-      background: #7c3aed; 
-      color: #ffffff; 
-      font-size: 15px; 
-      border-radius: 50%; 
-      width: 34px !important; 
-      height: 34px !important; 
-      display: flex !important; 
-      align-items: center !important; 
-      justify-content: center !important; 
-      border: 2.5px solid #ffffff; 
-      box-shadow: 0 3px 10px rgba(0,0,0,0.4); 
-      cursor: pointer; 
-    }
-    
-    .overview-hosp-pin { 
-      width: 18px !important; 
-      height: 18px !important; 
-      border-radius: 50%; 
-      border: 2px solid #ffffff; 
-      box-shadow: 0 2px 6px rgba(0,0,0,0.35); 
-      cursor: pointer; 
-      transition: transform 0.15s ease;
-    }
-    .overview-hosp-pin:hover {
-      transform: scale(1.35);
-      z-index: 9999 !important;
-    }
-    
-    .bg-site-pin { 
-      width: 10px !important; 
-      height: 10px !important; 
-      border-radius: 50%; 
-      background: #64748b; 
-      border: 1.5px solid #ffffff; 
-      opacity: 0.65; 
-      box-shadow: 0 1px 3px rgba(0,0,0,0.2); 
-      cursor: pointer; 
-    }
-
-    .btn-mobile-nav { display: none; }
-    #mobileFabOpen { display: none; }
-    #mobileMiniCard { display: none; }
-    .btn-view-map-card { display: none; width: 100%; background: var(--primary); color: white; border: none; padding: 10px; border-radius: 6px; font-weight: 800; font-size: 0.85rem; cursor: pointer; margin-bottom: 12px; text-align: center; }
-
-    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(2px); z-index: 5000; align-items: center; justify-content: center; padding: 20px; }
-    .modal-content { background: white; width: 100%; max-width: 620px; max-height: 85vh; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); }
-    .modal-header { padding: 16px 20px; background: var(--slate-50); border-bottom: 1px solid var(--slate-200); display: flex; justify-content: space-between; align-items: center; }
-    .modal-header h2 { font-size: 1.1rem; font-weight: 800; }
-    .modal-body { padding: 18px 20px; overflow-y: auto; flex-grow: 1; }
-
-    #toast { position: fixed; bottom: 20px; right: 20px; background: var(--slate-900); color: white; padding: 10px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); z-index: 9999; transform: translateY(100px); opacity: 0; transition: all 0.25s ease; }
-    #toast.show { transform: translateY(0); opacity: 1; }
-
-    .overview-popup-title { font-weight: 800; font-size: 0.95rem; margin-bottom: 2px; color: var(--slate-900); }
-    .overview-popup-reg { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; }
-    .overview-popup-rot-list { margin-top: 6px; max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-top: 4px; border-top: 1px solid #f1f5f9; }
-    .popup-rotation-btn {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #f8fafc;
-      border: 1px solid var(--slate-200);
-      border-radius: 5px;
-      padding: 5px 8px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: var(--primary);
-      text-decoration: none;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .popup-rotation-btn:hover {
-      background: #e0f2fe;
-      border-color: var(--primary);
-    }
-
-    @media (max-width: 768px) {
-      body { flex-direction: column; }
-      select, input, textarea { font-size: 16px !important; }
-      #sidebar { position: fixed; top: 0; left: 0; width: 100vw; min-width: 100vw; height: 100vh; height: 100dvh; z-index: 3000; border-right: none; }
-      #sidebar.mobile-closed { transform: translateY(105%); pointer-events: none; }
-      .btn-mobile-nav { display: inline-flex; align-items: center; background: var(--primary); color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
-      .btn-view-map-card { display: block; }
-      #mobileFabOpen { display: flex; position: fixed; top: 14px; left: 14px; z-index: 1500; background: #ffffff; color: var(--slate-900); border: 1px solid var(--slate-200); padding: 8px 14px; border-radius: 999px; font-size: 0.82rem; font-weight: 800; box-shadow: 0 4px 14px rgba(0,0,0,0.18); cursor: pointer; align-items: center; gap: 6px; }
-      #mobileMiniCard { display: flex; flex-direction: column; position: fixed; bottom: 14px; left: 14px; right: 14px; background: #ffffff; border: 1px solid var(--slate-200); border-radius: 12px; padding: 10px 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.22); z-index: 1500; cursor: pointer; }
-      .leaflet-top { top: 60px !important; }
-      .leaflet-bottom.leaflet-right { bottom: 75px !important; }
-    }
-  </style>
+  <!-- Modular Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
 
+<!-- Toast Notification -->
 <div id="toast">Saved</div>
 
 <!-- Mobile Floating Trigger -->
@@ -343,16 +45,20 @@
   </div>
 </div>
 
+<!-- Left Control & Information Sidebar -->
 <div id="sidebar">
   <div id="sidebar-header">
     <h1>
       ST4 Explorer
       <div class="header-actions">
-        <button class="btn-top btn-sync" onclick="openShortlistModal()" title="View and reorder your starred shortlist">
+        <button class="btn-top btn-sync" onclick="openShortlistModal()" title="View and reorder your ranked shortlist">
           ⭐ Shortlist <span id="headerShortlistBadge" style="background:var(--amber); color:#000; border-radius:999px; padding:1px 6px; font-size:0.68rem; font-weight:800; margin-left:2px;">0</span>
         </button>
+        <button class="btn-top btn-compare-top" onclick="openCompareModal()" title="Compare candidate rotations side-by-side">
+          ⚖️ Compare <span id="headerCompareBadge" style="background:#7c3aed; color:white; border-radius:999px; padding:1px 6px; font-size:0.68rem; font-weight:800; margin-left:2px;">0</span>
+        </button>
         <button class="btn-top btn-export" onclick="exportPreferencesCSV()" title="Export CSV for Oriel">Export</button>
-        <button class="btn-top btn-sync" onclick="openSyncModal()" title="Backup or transfer ratings">Sync</button>
+        <button class="btn-top btn-sync" onclick="openSyncModal()" title="Backup or transfer ratings">Backup</button>
         <button class="btn-mobile-nav" onclick="toggleMobileSidebar(false)" aria-label="View Map">🗺️ Map</button>
       </div>
     </h1>
@@ -360,21 +66,21 @@
   </div>
 
   <div id="controls">
-    <!-- Top View Switcher -->
+    <!-- View Mode Switcher -->
     <div class="view-toggle">
       <button class="view-btn active" id="btnModeAll" onclick="setViewMode('all')">🌐 Overview</button>
       <button class="view-btn" id="btnModeList" onclick="setViewMode('list')">📋 List (<span id="listCountBadge">76</span>)</button>
       <button class="view-btn" id="btnModeDetails" onclick="setViewMode('details')">🔍 Details</button>
     </div>
 
-    <!-- Filter 1: Region Dropdown (Top) -->
+    <!-- Filter 1: NHS Region Dropdown -->
     <div class="control-row">
       <select id="regionFilter" onchange="filterRegion(this.value)" aria-label="Filter by NHS Region">
         <!-- Populated Dynamically in JS -->
       </select>
     </div>
 
-    <!-- Filter 2: Specific Rotation Dropdown & Stepper -->
+    <!-- Filter 2: Rotation Selector & Stepper -->
     <div class="control-row">
       <select id="prefSelect" onchange="selectRotation(this.value, false); setViewMode('details');" aria-label="Select Rotation">
         <option value="">-- Choose Rotation to Inspect --</option>
@@ -385,35 +91,61 @@
       </div>
     </div>
 
-    <!-- Commute Mode Switcher -->
+    <!-- Commute Base Toggle (Driver, Transit, or Custom Base) -->
     <div class="mode-toggle-group">
-      <div class="mode-label">Commuting Preference:</div>
+      <div class="mode-label">
+        <span>Commuting Base / Hub:</span>
+        <button onclick="openCustomBaseModal()" style="border:none; background:none; color:var(--primary); font-size:0.68rem; font-weight:800; cursor:pointer; text-decoration:underline;">
+          <span id="customBasePillText">📍 Set My Postcode</span>
+        </button>
+      </div>
       <div class="transport-toggle">
-        <button class="transport-btn active" id="btnModeDriver" onclick="setCommuteMode('driver')">🚗 Driver / Mixed</button>
-        <button class="transport-btn" id="btnModeTransit" onclick="setCommuteMode('transit')">🚆 Public Transport Only</button>
+        <button class="transport-btn active" id="btnModeDriver" onclick="setCommuteMode('driver')">🚗 Suggested Driver</button>
+        <button class="transport-btn" id="btnModeTransit" onclick="setCommuteMode('transit')">🚆 Public Transit</button>
+        <button class="transport-btn" id="btnModeCustom" onclick="setCommuteMode('custom')">📍 My Base</button>
       </div>
     </div>
 
     <!-- Search Input & Sort Selector -->
     <div class="control-row">
-      <input type="text" id="searchInput" placeholder="Search hospital (e.g. Addenbrooke's, QMC, BCF)..." oninput="handleSearch(this.value)" style="flex:1;">
-      <select id="sortSelect" onchange="handleSortChange(this.value)" style="width:190px;" title="Sort Rotations" aria-label="Sort Rotations">
+      <div class="search-wrapper">
+        <input type="text" id="searchInput" placeholder="Search hospital (e.g. Addenbrooke's, QMC)..." oninput="handleSearch(this.value)">
+        <button class="btn-search-clear" id="btnSearchClear" onclick="clearSearch()" title="Clear search">✕</button>
+      </div>
+      <select id="sortSelect" onchange="handleSortChange(this.value)" style="width:175px;" title="Sort Rotations" aria-label="Sort Rotations">
         <option value="DEFAULT">Sort: Oriel Order</option>
-        <option value="SPREAD_ASC">Sort: Lowest Commute First</option>
+        <option value="SPREAD_ASC">Sort: Lowest Spread First</option>
         <option value="PLACES_DESC">Sort: Most Places</option>
         <option value="RATING_DESC">Sort: Highest Rating</option>
       </select>
     </div>
 
-    <div class="filter-pills">
-      <button class="filter-pill-btn active" id="pillAll" onclick="setQuickFilter('ALL')">All Posts</button>
-      <button class="filter-pill-btn" id="pillStarred" onclick="setQuickFilter('STARRED')">⭐ Starred Only</button>
-      <button class="filter-pill-btn" id="pillLowSpread" onclick="setQuickFilter('LOW_SPREAD')">🟢 Low Spread (&lt;30mi)</button>
+    <!-- Commute Spread Range Radius Filter -->
+    <div class="control-row">
+      <select id="spreadFilterSelect" onchange="handleSpreadFilterChange(this.value)" aria-label="Filter by Max Spread Radius">
+        <option value="ALL">Max Spread: Any Radius</option>
+        <option value="25">Max Spread: ≤ 25 miles (Tight footprint)</option>
+        <option value="35">Max Spread: ≤ 35 miles</option>
+        <option value="50">Max Spread: ≤ 50 miles</option>
+      </select>
+    </div>
+
+    <!-- Quick Filter Pills & Reset Button -->
+    <div class="filter-pills-row">
+      <div class="filter-pills">
+        <button class="filter-pill-btn active" id="pillAll" onclick="setQuickFilter('ALL')">All Posts</button>
+        <button class="filter-pill-btn" id="pillStarred" onclick="setQuickFilter('STARRED')">⭐ Starred</button>
+        <button class="filter-pill-btn" id="pillTier1" onclick="setQuickFilter('TIER1')">🟢 Tier 1</button>
+        <button class="filter-pill-btn" id="pillTier2" onclick="setQuickFilter('TIER2')">🟡 Tier 2</button>
+        <button class="filter-pill-btn" id="pillTier3" onclick="setQuickFilter('TIER3')">🔴 Tier 3</button>
+        <button class="filter-pill-btn" id="pillLowSpread" onclick="setQuickFilter('LOW_SPREAD')">&lt;30mi</button>
+      </div>
+      <button class="btn-reset-filters" onclick="resetAllFilters()" title="Reset all search queries and filters">↺ Reset</button>
     </div>
   </div>
 
   <div id="content-pane">
-    <!-- View 1: Scrollable List of Rotation Cards -->
+    <!-- View 1: Scrollable Feed of Rotation Cards -->
     <div id="listViewContainer" style="display: none;">
       <div id="rotationCardsFeed"></div>
     </div>
@@ -430,13 +162,17 @@
             <button class="btn-back-to-list" onclick="setViewMode('list')">&larr; List</button>
             <button class="btn-back-to-list" onclick="setViewMode('all')">🌐 Overview Map</button>
           </div>
-          <button class="btn-share-link" onclick="copyDirectShareLink()" title="Copy direct link to this rotation">🔗 Copy Link</button>
+          <div style="display:flex; gap:6px;">
+            <button id="cardCompareBtn" class="btn-compare-action" onclick="toggleCompareFromCard()">⚖️ Compare</button>
+            <button class="btn-share-link" onclick="copyDirectShareLink()" title="Copy direct link to this rotation">🔗 Link</button>
+          </div>
         </div>
 
         <div class="badge-container">
           <span class="badge badge-code" id="cardCode">Oriel Code</span>
           <span class="badge badge-places" id="cardPlaces">Places: -</span>
           <span class="badge" id="cardSpreadBadge">Max: 0 mi</span>
+          <span class="badge" id="cardTierBadge" style="display:none;">Tier 1</span>
         </div>
         <div class="card-title" id="cardTitle">Track Title</div>
 
@@ -464,7 +200,16 @@
           </div>
         </div>
 
-        <!-- Explicit Hospital Bases Section -->
+        <!-- Commute Breakdown Matrix From Chosen Base -->
+        <div class="commute-matrix-box">
+          <div class="commute-matrix-title">
+            <span>🚗 Estimated Commute from Base:</span>
+            <span id="commuteMatrixHubName" style="font-size:0.7rem; color:var(--primary); font-weight:700;">Base Name</span>
+          </div>
+          <div id="commuteMatrixList"></div>
+        </div>
+
+        <!-- Hospital Bases Section -->
         <div class="hospitals-box">
           <div class="hospitals-box-title">
             <span>🏥 Hospital Bases in this Rotation:</span>
@@ -476,9 +221,17 @@
         <div style="font-weight: 800; font-size: 0.76rem; margin-bottom: 8px; color: var(--slate-700);">ROTATION TIMELINE:</div>
         <div class="timeline" id="timelineContainer"></div>
 
-        <!-- Rating & Shared Notes Section -->
+        <!-- Rating, Tier & Shared Notes Section -->
         <div class="rating-section">
-          <div style="font-weight: 800; font-size: 0.76rem; color: var(--slate-700); margin-bottom: 4px;">YOUR RATING &amp; NOTES:</div>
+          <div style="font-weight: 800; font-size: 0.74rem; color: var(--slate-700); margin-bottom: 6px;">ASSIGN PREFERENCE TIER:</div>
+          <div class="tier-selector-row">
+            <button class="tier-btn tier-1" id="tierBtn1" onclick="setTier('TIER1')">🟢 Tier 1 (Top)</button>
+            <button class="tier-btn tier-2" id="tierBtn2" onclick="setTier('TIER2')">🟡 Tier 2 (Mid)</button>
+            <button class="tier-btn tier-3" id="tierBtn3" onclick="setTier('TIER3')">🔴 Tier 3 (Low)</button>
+            <button class="tier-btn tier-exclude" id="tierBtnExclude" onclick="setTier('EXCLUDE')">⚪ Exclude</button>
+          </div>
+
+          <div style="font-weight: 800; font-size: 0.74rem; color: var(--slate-700); margin-bottom: 4px;">YOUR RATING &amp; NOTES:</div>
           <div class="star-row" id="starContainer">
             <span class="star" onclick="setRating(1)">★</span>
             <span class="star" onclick="setRating(2)">★</span>
@@ -488,7 +241,7 @@
             <span style="font-size: 0.75rem; color: var(--slate-600); margin-left: 6px;" id="ratingText">(Unrated)</span>
           </div>
           <textarea class="notes-input" id="partnerNotes" placeholder="Personal notes (e.g., commute manageable, excellent cardiac block)..."></textarea>
-          <button class="btn-save" onclick="saveUserPreferences()">Save Notes &amp; Score</button>
+          <button class="btn-save" onclick="saveUserPreferences()">Save Notes &amp; Tier</button>
         </div>
       </div>
     </div>
@@ -500,19 +253,38 @@
           <strong style="font-size: 1rem; color: var(--slate-900);">🌐 National Overview Map</strong>
           <span class="badge badge-code" style="font-size: 0.7rem;">76 Rotations</span>
         </div>
-        <p style="font-size: 0.8rem; color: var(--slate-600); line-height: 1.45; margin-bottom: 12px;">
-          Displaying all 60+ NHS hospital trusts across England and Wales colour-coded by NHS region. 
-          <b>Click any pin on the map</b> to see all rotations that run through that hospital and dive into route details, living hubs, and commute times.
+        <p style="font-size: 0.79rem; color: var(--slate-600); line-height: 1.45; margin-bottom: 10px;">
+          Displaying all 60+ NHS hospital trusts colour-coded by region, connected with <b>small dashed rotation route lines</b>.
         </p>
-        <div style="display:flex; gap:6px;">
+        <ul style="font-size:0.77rem; color:var(--slate-600); margin-left:18px; margin-bottom:12px; line-height:1.45;">
+          <li><b>Hover / Click any dashed line</b> to preview that rotation footprint.</li>
+          <li><b>Click any hospital pin</b> to see every rotation that visits it.</li>
+          <li>Filter by region above to inspect individual training networks.</li>
+        </ul>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
           <button class="btn-top btn-export" onclick="setViewMode('list')" style="font-size:0.78rem; padding:6px 12px;">📋 Browse Rotations List &rarr;</button>
+          <button class="btn-top btn-sync" onclick="toggleOverviewLines()" id="btnToggleLinesOverview">🔀 Rotation Lines: ON</button>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<div id="map"></div>
+<!-- Map Container -->
+<div id="map">
+  <!-- Map Floating Overlay Controls -->
+  <div class="map-floating-overlay">
+    <button class="map-float-btn" id="btnMapLinesToggle" onclick="toggleOverviewLines()" title="Toggle dashed rotation network lines on overview map">
+      🔀 Lines: ON
+    </button>
+    <button class="map-float-btn" onclick="locateUserOnMap()" title="Show my current GPS location on the map">
+      🎯 Locate Me
+    </button>
+    <button class="map-float-btn" onclick="toggleMapFullscreen()" title="Toggle fullscreen view">
+      ⛶ Fullscreen
+    </button>
+  </div>
+</div>
 
 <!-- Modal 1: Starred Shortlist & Reordering View -->
 <div class="modal-overlay" id="shortlistModal">
@@ -522,8 +294,8 @@
       <button class="btn-step" onclick="closeModal('shortlistModal')" aria-label="Close modal">✕</button>
     </div>
     <div class="modal-body">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <span style="font-size:0.8rem; color:var(--slate-600);">Reorder jobs using ▲ ▼ to set your final Oriel ranking:</span>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:6px;">
+        <span style="font-size:0.78rem; color:var(--slate-600);">Type a rank number or drag cards to reorder your Oriel list:</span>
         <button class="btn-top btn-export" onclick="exportShortlistCSV()">Download Shortlist CSV</button>
       </div>
       <div id="shortlistModalBody"></div>
@@ -531,18 +303,63 @@
   </div>
 </div>
 
-<!-- Modal 2: Data Sync / Transfer (JSON) -->
+<!-- Modal 2: Side-by-Side Comparison Modal -->
+<div class="modal-overlay" id="compareModal">
+  <div class="modal-content modal-content-wide">
+    <div class="modal-header">
+      <h2>⚖️ Side-by-Side Rotation Comparison</h2>
+      <button class="btn-step" onclick="closeModal('compareModal')" aria-label="Close modal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="compareModalContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 3: Custom Home Base Calculator -->
+<div class="modal-overlay" id="customBaseModal">
+  <div class="modal-content" style="max-width:480px;">
+    <div class="modal-header">
+      <h2>📍 Set My Custom Home / Commute Base</h2>
+      <button class="btn-step" onclick="closeModal('customBaseModal')" aria-label="Close modal">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.78rem; color:var(--slate-600); margin-bottom:12px; line-height:1.4;">
+        Enter your prospective home postcode or town in the UK. We'll calculate personalized commute distances and drive times to every hospital in all rotations.
+      </p>
+      <div style="display:flex; gap:6px; margin-bottom:10px;">
+        <input type="text" id="customPostcodeInput" placeholder="e.g. CB2 0QQ, BS1 5AH, Leeds..." onkeydown="if(event.key === 'Enter') lookupCustomPostcode();" style="flex:1;">
+        <button class="btn-top btn-export" onclick="lookupCustomPostcode()" style="padding:6px 14px;">Find</button>
+      </div>
+      <div style="display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap;">
+        <button class="btn-top btn-sync" onclick="useGpsForCustomBase()">🎯 Use GPS Location</button>
+        <button class="btn-top btn-sync" onclick="startMapPickBase()">🗺️ Click on Map</button>
+        <button class="btn-top btn-sync" onclick="clearCustomHomeBase()" style="color:#b91c1c;">Clear Base</button>
+      </div>
+      <div id="customBaseStatusBox" style="font-size:0.76rem; color:var(--slate-700); background:#f8fafc; padding:8px 10px; border-radius:6px; border:1px solid var(--slate-200);">
+        Current Base: <b>None set</b> (using suggested programme hubs).
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 4: Data Sync / Transfer (JSON + File Import/Export) -->
 <div class="modal-overlay" id="syncModal">
   <div class="modal-content">
     <div class="modal-header">
-      <h2>Backup &amp; Sync Preferences</h2>
+      <h2>Backup &amp; Restore Preferences</h2>
       <button class="btn-step" onclick="closeModal('syncModal')" aria-label="Close modal">✕</button>
     </div>
     <div class="modal-body">
-      <p style="font-size:0.8rem; color:var(--slate-600); margin-bottom:10px;">
-        Copy this code to transfer your scores and notes to your partner, or paste their code below to load their preferences.
+      <div style="display:flex; gap:8px; margin-bottom:14px;">
+        <button class="btn-save" style="margin-top:0; flex:1;" onclick="downloadJsonBackup()">💾 Download .JSON Backup File</button>
+        <button class="btn-save" style="margin-top:0; background:var(--emerald); flex:1;" onclick="document.getElementById('backupFileInput').click()">📂 Upload .JSON Backup File</button>
+        <input type="file" id="backupFileInput" accept=".json" style="display:none;" onchange="handleBackupFileUpload(event)">
+      </div>
+      <p style="font-size:0.78rem; color:var(--slate-600); margin-bottom:8px;">
+        Or copy/paste the sync text code below to share ratings with your partner:
       </p>
-      <textarea id="syncJsonArea" style="height:140px; font-family:monospace; font-size:0.75rem;"></textarea>
+      <textarea id="syncJsonArea" style="height:120px; font-family:monospace; font-size:0.74rem;"></textarea>
       <div style="display:flex; gap:8px; margin-top:10px;">
         <button class="btn-save" style="margin-top:0;" onclick="copySyncData()">📋 Copy Code</button>
         <button class="btn-save" style="margin-top:0; background:var(--emerald);" onclick="importSyncData()">📥 Import Code</button>
@@ -551,922 +368,8 @@
   </div>
 </div>
 
-<script>
-// Defensive Check for external data.js
-if (typeof ROTATIONS_DATA === 'undefined' || typeof HOSPITALS === 'undefined') {
-  alert("Error: data.js failed to load. Please verify that data.js is in the same directory as index.html.");
-}
-
-// 1. HAVERSINE DISTANCE FORMULA (Miles)
-function calcDistanceMiles(c1, c2) {
-  if (!c1 || !c2) return 0;
-  const R = 3958.8;
-  const dLat = (c2[0] - c1[0]) * Math.PI / 180;
-  const dLon = (c2[1] - c1[1]) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(c1[0] * Math.PI / 180) * Math.cos(c2[0] * Math.PI / 180) *
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-}
-
-// HTML Entity Sanitizer to prevent XSS from imported user notes
-function escapeHtml(str) {
-  if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-// 2. MAP SETUP
-const map = L.map('map', { zoomControl: true }).setView([53.2, -1.8], 6);
-
-const osmStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
-
-const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, Tiles courtesy of <a href="https://www.hotosm.org/">HOT</a>'
-});
-
-const baseLayers = {
-  "Standard OSM": osmStandard,
-  "Soft Pastel (HOT)": osmHot
-};
-L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
-
-const backgroundHospitalsGroup = L.layerGroup().addTo(map);
-const activeRouteGroup = L.layerGroup().addTo(map);
-
-let currentSelectedId = null;
-let currentCommuteMode = 'driver';
-let currentViewMode = 'all'; // Default to Overview Map mode on initial load
-let activeQuickFilter = 'ALL';
-let activeRegionFilter = 'ALL';
-let currentSortMode = 'DEFAULT';
-let currentSearchTerm = '';
-let currentFilteredList = [...ROTATIONS_DATA];
-
-let shortlistOrder = JSON.parse(localStorage.getItem('anaesth_shortlist_order') || '[]');
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2400);
-}
-
-function getRotationMaxDistance(rot) {
-  if (!rot || !rot.stages) return 0;
-  const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
-  let maxDist = 0;
-  for (let i = 0; i < coords.length; i++) {
-    for (let j = i + 1; j < coords.length; j++) {
-      const d = calcDistanceMiles(coords[i], coords[j]);
-      if (d > maxDist) maxDist = d;
-    }
-  }
-  return maxDist;
-}
-
-function updateShortlistBadge() {
-  const badge = document.getElementById('headerShortlistBadge');
-  if (!badge) return;
-  const count = ROTATIONS_DATA.filter(r => {
-    const d = getUserData(r.id);
-    return d.rating > 0 || (d.notes && d.notes.trim() !== "");
-  }).length;
-  badge.textContent = count;
-}
-
-function populateRegionDropdown() {
-  const regSelect = document.getElementById('regionFilter');
-  if (!regSelect) return;
-  const regionCounts = {};
-  ROTATIONS_DATA.forEach(r => {
-    regionCounts[r.region] = (regionCounts[r.region] || 0) + 1;
-  });
-
-  let html = `<option value="ALL">All Regions (${ROTATIONS_DATA.length} Rotations)</option>`;
-  Object.keys(regionCounts).sort().forEach(reg => {
-    html += `<option value="${reg}">${reg} (${regionCounts[reg]})</option>`;
-  });
-  regSelect.innerHTML = html;
-  if (activeRegionFilter) regSelect.value = activeRegionFilter;
-}
-
-const prefSelect = document.getElementById('prefSelect');
-function populateDropdown(list) {
-  if (!prefSelect) return;
-  prefSelect.innerHTML = '<option value="">-- Choose Rotation to Inspect --</option>';
-  
-  const groups = {};
-  list.forEach(r => {
-    if (!groups[r.region]) groups[r.region] = [];
-    groups[r.region].push(r);
-  });
-
-  Object.keys(groups).sort().forEach(reg => {
-    const optgroup = document.createElement('optgroup');
-    optgroup.label = reg;
-    groups[reg].forEach(r => {
-      const saved = getUserData(r.id);
-      const starStr = saved.rating > 0 ? ` [${saved.rating}★]` : "";
-      const opt = document.createElement('option');
-      opt.value = r.id;
-      opt.textContent = `${r.title} (${r.code})${starStr}`;
-      optgroup.appendChild(opt);
-    });
-    prefSelect.appendChild(optgroup);
-  });
-
-  if (currentSelectedId && list.some(r => r.id === currentSelectedId)) {
-    prefSelect.value = currentSelectedId;
-  }
-}
-
-function renderRotationCardsFeed(list) {
-  const container = document.getElementById('rotationCardsFeed');
-  if (!container) return;
-  container.innerHTML = "";
-
-  if (!list.length) {
-    container.innerHTML = `<div style="text-align:center; padding:40px 15px; color:var(--slate-600);"><p style="font-weight:700;">No matching rotations found</p><p style="font-size:0.8rem; margin-top:4px;">Try clearing your search query or filters.</p></div>`;
-    return;
-  }
-
-  list.forEach((r) => {
-    const userData = getUserData(r.id);
-    const maxDist = getRotationMaxDistance(r);
-    const estMins = Math.round(maxDist * 1.35);
-    const isSelected = r.id === currentSelectedId;
-    const activeHub = r.hubs[currentCommuteMode];
-    const hubEmoji = currentCommuteMode === 'driver' ? '🚗' : '🚆';
-
-    let spreadBadgeClass = 'badge-spread-low';
-    if (maxDist > 45) spreadBadgeClass = 'badge-spread-high';
-    else if (maxDist > 25) spreadBadgeClass = 'badge-spread-med';
-
-    const card = document.createElement('div');
-    card.className = `rotation-list-card ${isSelected ? 'active-card' : ''}`;
-    card.onclick = (e) => {
-      if (e.target.closest('button')) return;
-      selectRotation(r.id, false);
-      renderRotationCardsFeed(currentFilteredList);
-    };
-
-    card.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
-        <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
-          <span class="badge badge-code">${escapeHtml(r.code)}</span>
-          <span class="badge badge-places">${escapeHtml(r.places)}</span>
-        </div>
-        <span class="badge ${spreadBadgeClass}">${maxDist} mi (~${estMins}m)</span>
-      </div>
-      <div class="card-list-title">${escapeHtml(r.title)}</div>
-      <div class="card-list-hub">
-        <span>${hubEmoji} Base: <b>${escapeHtml(activeHub.name)}</b></span>
-        <span style="color:var(--amber); font-weight:800; font-size:0.85rem;">${'★'.repeat(userData.rating) || '☆☆☆☆☆'}</span>
-      </div>
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:6px; border-top:1px solid #f1f5f9;">
-        <span style="font-size:0.72rem; color:var(--slate-600);">${escapeHtml(r.region)}</span>
-        <button class="hospital-chip-btn" onclick="openDetailsForRotation('${r.id}')" style="font-size:0.72rem; padding:3px 9px;">Details &amp; Timeline &rarr;</button>
-      </div>
-    `;
-    container.appendChild(card);
-  });
-}
-
-function openDetailsForRotation(id) {
-  if (prefSelect) prefSelect.value = id;
-  selectRotation(id, false);
-  setViewMode('details');
-}
-
-function getUserData(id) {
-  const raw = localStorage.getItem(`anaesth_pref_${id}`);
-  return raw ? JSON.parse(raw) : { rating: 0, notes: "" };
-}
-
-function saveUserPreferences() {
-  if (!currentSelectedId) return;
-  const notes = document.getElementById('partnerNotes').value;
-  const currentRating = currentActiveRating;
-  localStorage.setItem(`anaesth_pref_${currentSelectedId}`, JSON.stringify({ rating: currentRating, notes }));
-
-  if (currentRating > 0 && !shortlistOrder.includes(currentSelectedId)) {
-    shortlistOrder.push(currentSelectedId);
-    localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
-  } else if (currentRating === 0 && !notes) {
-    shortlistOrder = shortlistOrder.filter(x => x !== currentSelectedId);
-    localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
-  }
-
-  updateShortlistBadge();
-  applyFiltersAndSearch();
-  prefSelect.value = currentSelectedId;
-  showToast("Saved to browser");
-}
-
-let currentActiveRating = 0;
-function setRating(val) {
-  if (val === currentActiveRating) {
-    val = 0;
-  }
-  currentActiveRating = val;
-  const stars = document.querySelectorAll('#starContainer .star');
-  stars.forEach((s, idx) => {
-    s.classList.toggle('selected', idx < val);
-  });
-  document.getElementById('ratingText').textContent = val > 0 ? `(${val} / 5 Stars)` : `(Unrated)`;
-}
-
-// Clean View Mode Switching (Fixes container collision)
-function setViewMode(mode) {
-  currentViewMode = mode;
-  document.getElementById('btnModeList').classList.toggle('active', mode === 'list');
-  document.getElementById('btnModeDetails').classList.toggle('active', mode === 'details');
-  document.getElementById('btnModeAll').classList.toggle('active', mode === 'all');
-
-  const listView = document.getElementById('listViewContainer');
-  const inspectorCard = document.getElementById('inspectorCard');
-  const welcomeMessage = document.getElementById('welcomeMessage');
-
-  if (mode === 'list') {
-    listView.style.display = 'block';
-    inspectorCard.style.display = 'none';
-    welcomeMessage.style.display = 'none';
-    renderRotationCardsFeed(currentFilteredList);
-  } else if (mode === 'details') {
-    listView.style.display = 'none';
-    inspectorCard.style.display = 'block';
-    welcomeMessage.style.display = 'none';
-    if (!currentSelectedId) {
-      selectRotation(prefSelect.value || ROTATIONS_DATA[0].id, false);
-    }
-  } else if (mode === 'all') {
-    listView.style.display = 'none';
-    inspectorCard.style.display = 'none';
-    welcomeMessage.style.display = 'block';
-    renderAllPlacements();
-  }
-}
-
-// Commute Mode Switcher
-function setCommuteMode(mode) {
-  currentCommuteMode = mode;
-  document.getElementById('btnModeDriver').classList.toggle('active', mode === 'driver');
-  document.getElementById('btnModeTransit').classList.toggle('active', mode === 'transit');
-
-  renderRotationCardsFeed(currentFilteredList);
-
-  if (currentSelectedId && currentViewMode === 'details') {
-    selectRotation(currentSelectedId, false);
-  }
-}
-
-function stepRotation(direction) {
-  if (!currentFilteredList.length) return;
-  let currentIndex = currentFilteredList.findIndex(r => r.id === currentSelectedId);
-  if (currentIndex === -1) {
-    currentIndex = 0;
-  } else {
-    currentIndex += direction;
-    if (currentIndex < 0) currentIndex = currentFilteredList.length - 1;
-    if (currentIndex >= currentFilteredList.length) currentIndex = 0;
-  }
-  const nextId = currentFilteredList[currentIndex].id;
-  prefSelect.value = nextId;
-  selectRotation(nextId, false);
-  renderRotationCardsFeed(currentFilteredList);
-}
-
-function focusHospitalBaseFromBtn(btn) {
-  const hospName = btn.dataset.hosp;
-  const h = HOSPITALS[hospName];
-  if (h) {
-    map.flyTo(h.coords, 13, { duration: 1.2 });
-    if (window.innerWidth <= 768) {
-      toggleMobileSidebar(false);
-    }
-    showToast(`Focused: ${hospName}`);
-  }
-}
-
-function copyDirectShareLink() {
-  const base = window.location.href.split('#')[0];
-  const url = base + '#' + currentSelectedId;
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(url).then(() => showToast("Direct link copied!")).catch(() => prompt("Copy link:", url));
-  } else {
-    prompt("Copy link:", url);
-  }
-}
-
-// 3. RENDER ROTATION (Focus Mode)
-function selectRotation(id, shouldCloseMobile = false) {
-  if (!id) return;
-
-  currentSelectedId = id;
-  currentViewMode = 'details';
-  document.getElementById('btnModeDetails').classList.add('active');
-  document.getElementById('btnModeList').classList.remove('active');
-  document.getElementById('btnModeAll').classList.remove('active');
-  
-  if (window.location.hash !== '#' + id) {
-    window.location.hash = id;
-  }
-
-  document.getElementById('welcomeMessage').style.display = 'none';
-  document.getElementById('inspectorCard').style.display = 'block';
-
-  const rot = ROTATIONS_DATA.find(r => r.id === id);
-  if (!rot) return;
-
-  activeRouteGroup.clearLayers();
-  backgroundHospitalsGroup.clearLayers();
-
-  document.getElementById('cardCode').textContent = rot.code;
-  document.getElementById('cardPlaces').textContent = `Places: ${rot.places}`;
-  document.getElementById('cardTitle').textContent = rot.title;
-
-  const activeHub = rot.hubs[currentCommuteMode];
-  const hubBox = document.getElementById('hubBox');
-  const alertBox = document.getElementById('hubAlertBox');
-
-  if (currentCommuteMode === 'driver') {
-    hubBox.className = "hub-box driver-theme";
-    document.getElementById('hubTitlePrefix').textContent = "🏡 Suggested Base (🚗 Driver):";
-  } else {
-    hubBox.className = "hub-box transit-theme";
-    document.getElementById('hubTitlePrefix').textContent = "🏡 Suggested Base (🚆 Transit Only):";
-  }
-
-  document.getElementById('hubTownName').textContent = activeHub.name;
-
-  const gmapsLink = document.getElementById('hubDirectionsLink');
-  if (gmapsLink) {
-    gmapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeHub.name + ', UK')}`;
-  }
-
-  document.getElementById('hubDescription').textContent = activeHub.desc;
-  
-  if (activeHub.alert) {
-    alertBox.style.display = 'block';
-    alertBox.textContent = activeHub.alert;
-  } else {
-    alertBox.style.display = 'none';
-  }
-
-  const userData = getUserData(id);
-  setRating(userData.rating);
-  document.getElementById('partnerNotes').value = userData.notes;
-
-  // Populate Hospital Bases Chips (XSS safe)
-  const uniqueHospBases = getRotationHospitalBases(rot);
-  const hospitalsListContainer = document.getElementById('hospitalsListContainer');
-  hospitalsListContainer.innerHTML = "";
-
-  uniqueHospBases.forEach(hName => {
-    const chip = document.createElement('div');
-    chip.className = "hospital-chip-item";
-    
-    const nameSpan = document.createElement('div');
-    nameSpan.className = "hospital-chip-name";
-    nameSpan.textContent = "🏥 " + hName;
-    chip.appendChild(nameSpan);
-
-    const btnGroup = document.createElement('div');
-    btnGroup.style.display = "flex";
-    btnGroup.style.gap = "4px";
-
-    const focusBtn = document.createElement('button');
-    focusBtn.className = "hospital-chip-btn";
-    focusBtn.textContent = "📍 Focus";
-    focusBtn.dataset.hosp = hName;
-    focusBtn.onclick = function() { focusHospitalBaseFromBtn(this); };
-    btnGroup.appendChild(focusBtn);
-
-    const mapLink = document.createElement('a');
-    mapLink.className = "hospital-chip-btn";
-    mapLink.textContent = "Maps ↗";
-    mapLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hName + ', UK')}`;
-    mapLink.target = "_blank";
-    btnGroup.appendChild(mapLink);
-
-    chip.appendChild(btnGroup);
-    hospitalsListContainer.appendChild(chip);
-  });
-
-  // Render Timeline
-  const timeline = document.getElementById('timelineContainer');
-  timeline.innerHTML = "";
-  const hospitalCoords = [];
-
-  rot.stages.forEach((stg, idx) => {
-    const step = document.createElement('div');
-    step.className = "timeline-step";
-    step.innerHTML = `
-      <div class="timeline-dot">${idx + 1}</div>
-      <div class="timeline-content">
-        <div class="timeline-stage">${escapeHtml(stg.stage)}</div>
-        <div class="timeline-hosp">
-          <span>${escapeHtml(stg.hosp)}</span>
-          <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stg.hosp + ', UK')}" target="_blank" style="color:var(--primary); font-size:0.7rem; text-decoration:none;">Map ↗</a>
-        </div>
-        <div class="timeline-desc">${escapeHtml(stg.desc)}</div>
-      </div>
-    `;
-    timeline.appendChild(step);
-
-    const hData = HOSPITALS[stg.hosp];
-    if (hData) hospitalCoords.push(hData.coords);
-  });
-
-  const maxDist = getRotationMaxDistance(rot);
-  const estMins = Math.round(maxDist * 1.35);
-
-  document.getElementById('metricSites').textContent = uniqueHospBases.length;
-  document.getElementById('metricDistance').textContent = `${maxDist} mi`;
-
-  const spreadBadge = document.getElementById('cardSpreadBadge');
-  spreadBadge.textContent = `Max: ${maxDist} mi`;
-  if (maxDist <= 25) {
-    spreadBadge.className = 'badge badge-spread-low';
-    spreadBadge.textContent = `🟢 Low Spread: ${maxDist} mi (~${Math.max(15, estMins)}m)`;
-  } else if (maxDist <= 45) {
-    spreadBadge.className = 'badge badge-spread-med';
-    spreadBadge.textContent = `🟡 Moderate: ${maxDist} mi (~${estMins}m)`;
-  } else {
-    spreadBadge.className = 'badge badge-spread-high';
-    spreadBadge.textContent = `🔴 High Spread: ${maxDist} mi (~${Math.round(estMins/60)}h+)`;
-  }
-
-  const modeEmoji = currentCommuteMode === 'driver' ? '🚗' : '🚆';
-  document.getElementById('miniCardTitle').textContent = `${rot.title} (${rot.code})`;
-  document.getElementById('miniCardSpread').textContent = `${maxDist} mi`;
-  document.getElementById('miniCardSpread').className = maxDist <= 25 ? 'badge badge-spread-low' : (maxDist <= 45 ? 'badge badge-spread-med' : 'badge badge-spread-high');
-  document.getElementById('miniCardHub').innerHTML = `<span>${modeEmoji} <b>${activeHub.name}</b> (${uniqueHospBases.length} Bases)</span> <span style="font-weight:700; color:var(--primary);">Details &rarr;</span>`;
-
-  // Plot Subtle Background Markers
-  Object.keys(HOSPITALS).forEach(hName => {
-    if (!uniqueHospBases.includes(hName)) {
-      const h = HOSPITALS[hName];
-      const bgIcon = L.divIcon({
-        className: 'bg-site-pin',
-        iconSize: [10, 10],
-        iconAnchor: [5, 5]
-      });
-      const bgMarker = L.marker(h.coords, { icon: bgIcon, zIndexOffset: 100 })
-        .bindPopup(`<b>${hName}</b><br><span style="font-size:0.75rem; color:#64748b;">${h.region}</span>`);
-      backgroundHospitalsGroup.addLayer(bgMarker);
-    }
-  });
-
-  const allMapPoints = [];
-
-  // Plot Living Base (🏡) with 25-Mile Buffer Circle
-  if (activeHub && activeHub.coords) {
-    allMapPoints.push(activeHub.coords);
-    const pinClass = currentCommuteMode === 'driver' ? 'home-pin-driver' : 'home-pin-transit';
-    const pinIconHtml = currentCommuteMode === 'driver' ? '🚗' : '🚆';
-
-    const homeIcon = L.divIcon({
-      className: pinClass,
-      html: pinIconHtml,
-      iconSize: [34, 34],
-      iconAnchor: [17, 17]
-    });
-    const homeMarker = L.marker(activeHub.coords, { icon: homeIcon, zIndexOffset: 2000 })
-      .bindPopup(`<b>🏡 Suggested Base (${currentCommuteMode.toUpperCase()}): ${activeHub.name}</b><br><span style="font-size:0.8rem; color:#475569;">${activeHub.desc}</span>`);
-    activeRouteGroup.addLayer(homeMarker);
-
-    const commuteCircle = L.circle(activeHub.coords, {
-      radius: 40233.6,
-      color: currentCommuteMode === 'driver' ? '#16a34a' : '#7c3aed',
-      fillColor: currentCommuteMode === 'driver' ? '#16a34a' : '#7c3aed',
-      fillOpacity: 0.04,
-      weight: 1.5,
-      dashArray: '5, 5',
-      interactive: false
-    });
-    activeRouteGroup.addLayer(commuteCircle);
-  }
-
-  // Plot Active Hospital Bases
-  const plottedHospitalPoints = [];
-  rot.stages.forEach((stg, idx) => {
-    const hData = HOSPITALS[stg.hosp];
-    if (hData) {
-      allMapPoints.push(hData.coords);
-      plottedHospitalPoints.push(hData.coords);
-      const icon = L.divIcon({
-        className: 'numbered-pin',
-        html: `${idx + 1}`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
-      });
-      const m = L.marker(hData.coords, { icon, zIndexOffset: 1500 })
-        .bindPopup(`<b>Stage ${idx + 1}: ${stg.hosp}</b><br><span style="font-size:0.8rem; color:#64748b;">${stg.stage} - ${stg.desc}</span>`);
-      activeRouteGroup.addLayer(m);
-    }
-  });
-
-  if (plottedHospitalPoints.length > 1) {
-    const polyline = L.polyline(plottedHospitalPoints, {
-      color: '#0284c7',
-      weight: 3.5,
-      dashArray: '6, 6',
-      opacity: 0.85
-    });
-    activeRouteGroup.addLayer(polyline);
-  }
-
-  if (allMapPoints.length > 0) {
-    map.fitBounds(L.latLngBounds(allMapPoints), { padding: [60, 60], maxZoom: 12 });
-  }
-
-  if (shouldCloseMobile && window.innerWidth <= 768) {
-    toggleMobileSidebar(false);
-  }
-}
-
-// 4. ALL UK PLACEMENTS VIEW (National Overview Map with Regional Zoom Sync)
-function renderAllPlacements() {
-  activeRouteGroup.clearLayers();
-  backgroundHospitalsGroup.clearLayers();
-
-  document.getElementById('miniCardTitle').textContent = `All UK Placement Sites (${Object.keys(HOSPITALS).length} Bases)`;
-  document.getElementById('miniCardSpread').textContent = `All Regions`;
-  document.getElementById('miniCardHub').innerHTML = `<span>National Map View</span> <span style="font-weight:700; color:var(--primary);">Menu &rarr;</span>`;
-
-  const allPoints = [];
-  Object.keys(HOSPITALS).forEach(hName => {
-    const h = HOSPITALS[hName];
-
-    if (activeRegionFilter !== "ALL" && h.region !== activeRegionFilter) {
-      const linkedInRegion = ROTATIONS_DATA.filter(r => r.region === activeRegionFilter && r.stages.some(s => s.hosp === hName));
-      if (!linkedInRegion.length) return;
-    }
-
-    allPoints.push(h.coords);
-
-    const linkedRotations = ROTATIONS_DATA.filter(r => r.stages.some(s => s.hosp === hName));
-    const regColor = REGION_COLORS[h.region] || "#0284c7";
-
-    const linkedHtml = linkedRotations.length ? 
-      `<div class="overview-popup-rot-list">
-        <span style="font-size:0.7rem; font-weight:800; color:#475569; text-transform:uppercase;">Click a rotation to view route:</span>
-        ${linkedRotations.map(r => `
-          <button class="popup-rotation-btn" onclick="diveInFromPopup('${r.id}')">
-            <span>${r.code}</span>
-            <span style="font-size:0.7rem; color:#64748b;">${r.places} pl &rarr;</span>
-          </button>
-        `).join('')}
-       </div>` : '';
-
-    const icon = L.divIcon({
-      className: 'overview-hosp-pin',
-      html: `<div style="background-color: ${regColor}; width: 100%; height: 100%; border-radius: 50%;"></div>`,
-      iconSize: [18, 18],
-      iconAnchor: [9, 9]
-    });
-
-    const m = L.marker(h.coords, { icon, zIndexOffset: 500 }).bindPopup(`
-      <div class="overview-popup-title">🏥 ${hName}</div>
-      <div class="overview-popup-reg" style="color:${regColor};">${h.region}</div>
-      <div style="font-size:0.75rem; color:#475569;">Used in <b>${linkedRotations.length}</b> rotations.</div>
-      ${linkedHtml}
-    `, { maxWidth: 280 });
-    backgroundHospitalsGroup.addLayer(m);
-  });
-
-  if (allPoints.length > 0) {
-    if (activeRegionFilter === "ALL") {
-      map.setView([52.8, -1.8], 6);
-    } else {
-      map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50], maxZoom: 10 });
-    }
-  }
-
-  if (window.innerWidth <= 768) {
-    toggleMobileSidebar(false);
-  }
-}
-
-function diveInFromPopup(id) {
-  map.closePopup();
-  if (prefSelect) prefSelect.value = id;
-  selectRotation(id, false);
-  setViewMode('details');
-  showToast("Loaded rotation details & route");
-}
-
-function clearLayers() {
-  activeRouteGroup.clearLayers();
-  backgroundHospitalsGroup.clearLayers();
-}
-
-// 5. FILTER & SEARCH ENGINE
-function setQuickFilter(filterType) {
-  activeQuickFilter = filterType;
-  document.getElementById('pillAll').classList.toggle('active', filterType === 'ALL');
-  document.getElementById('pillStarred').classList.toggle('active', filterType === 'STARRED');
-  document.getElementById('pillLowSpread').classList.toggle('active', filterType === 'LOW_SPREAD');
-  applyFiltersAndSearch();
-}
-
-function filterRegion(reg) {
-  activeRegionFilter = reg;
-  applyFiltersAndSearch();
-  if (currentViewMode === 'all') {
-    renderAllPlacements();
-  }
-}
-
-function handleSearch(term) {
-  currentSearchTerm = term.toLowerCase().trim();
-  applyFiltersAndSearch();
-}
-
-function handleSortChange(sortVal) {
-  currentSortMode = sortVal;
-  applyFiltersAndSearch();
-}
-
-function applyFiltersAndSearch() {
-  let list = [...ROTATIONS_DATA];
-
-  // Region Filter
-  if (activeRegionFilter !== "ALL") {
-    list = list.filter(r => r.region === activeRegionFilter);
-  }
-
-  // Quick Filters
-  if (activeQuickFilter === 'STARRED') {
-    list = list.filter(r => getUserData(r.id).rating > 0 || getUserData(r.id).notes.trim() !== "");
-  } else if (activeQuickFilter === 'LOW_SPREAD') {
-    list = list.filter(r => getRotationMaxDistance(r) <= 30);
-  }
-
-  // Search Filter with Common Acronym Support
-  if (currentSearchTerm) {
-    list = list.filter(r => 
-      r.title.toLowerCase().includes(currentSearchTerm) ||
-      r.code.toLowerCase().includes(currentSearchTerm) ||
-      r.hubs.driver.name.toLowerCase().includes(currentSearchTerm) ||
-      r.hubs.transit.name.toLowerCase().includes(currentSearchTerm) ||
-      getUserData(r.id).notes.toLowerCase().includes(currentSearchTerm) ||
-      r.stages.some(s => s.hosp.toLowerCase().includes(currentSearchTerm) || s.desc.toLowerCase().includes(currentSearchTerm))
-    );
-  }
-
-  // Sort Engine
-  if (currentSortMode === 'SPREAD_ASC') {
-    list.sort((a, b) => getRotationMaxDistance(a) - getRotationMaxDistance(b));
-  } else if (currentSortMode === 'PLACES_DESC') {
-    list.sort((a, b) => (parseInt(b.places, 10) || 0) - (parseInt(a.places, 10) || 0));
-  } else if (currentSortMode === 'RATING_DESC') {
-    list.sort((a, b) => getUserData(b.id).rating - getUserData(a.id).rating);
-  }
-
-  currentFilteredList = list;
-  document.getElementById('listCountBadge').textContent = list.length;
-
-  populateDropdown(list);
-  renderRotationCardsFeed(list);
-
-  if (list.length > 0) {
-    if (currentViewMode === 'details' && !list.some(r => r.id === currentSelectedId)) {
-      selectRotation(list[0].id, false);
-      prefSelect.value = list[0].id;
-    }
-  } else {
-    activeRouteGroup.clearLayers();
-    document.getElementById('inspectorCard').style.display = 'none';
-  }
-}
-
-// 6. MODALS & SHORTLIST REVIEW
-function openShortlistModal() {
-  renderShortlistModal();
-  document.getElementById('shortlistModal').style.display = 'flex';
-}
-
-function renderShortlistModal() {
-  const body = document.getElementById('shortlistModalBody');
-  body.innerHTML = "";
-
-  let starred = ROTATIONS_DATA.filter(r => getUserData(r.id).rating > 0 || getUserData(r.id).notes.trim() !== "");
-  
-  if (!starred.length) {
-    body.innerHTML = `<div style="text-align:center; padding:30px; color:var(--slate-600);"><p>No rotations rated yet!</p><p style="font-size:0.8rem; margin-top:4px;">Give stars or add notes to any rotation to build your shortlist.</p></div>`;
-    return;
-  }
-
-  starred.sort((a,b) => {
-    let idxA = shortlistOrder.indexOf(a.id);
-    let idxB = shortlistOrder.indexOf(b.id);
-    if (idxA === -1) idxA = 999;
-    if (idxB === -1) idxB = 999;
-    return idxA - idxB;
-  });
-
-  shortlistOrder = starred.map(r => r.id);
-  localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
-
-  starred.forEach((r, idx) => {
-    const data = getUserData(r.id);
-    const maxDist = getRotationMaxDistance(r);
-    const div = document.createElement('div');
-    div.className = 'card';
-    div.style.marginBottom = '10px';
-    div.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span style="background:var(--slate-900); color:white; font-size:0.75rem; font-weight:800; border-radius:4px; padding:2px 6px;">Rank #${idx + 1}</span>
-          <strong style="color:var(--primary); font-size:0.85rem;">${escapeHtml(r.code)}</strong>
-          <span class="badge ${maxDist <= 25 ? 'badge-spread-low' : (maxDist <= 45 ? 'badge-spread-med' : 'badge-spread-high')}" style="font-size:0.65rem;">${maxDist} mi</span>
-        </div>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span style="color:var(--amber); font-weight:800; font-size:0.9rem;">${'★'.repeat(data.rating)}</span>
-          <div style="display:flex; gap:2px;">
-            <button class="btn-step" style="padding:2px 6px; font-size:0.7rem;" onclick="moveShortlistItem(${idx}, -1)" aria-label="Move item up">▲</button>
-            <button class="btn-step" style="padding:2px 6px; font-size:0.7rem;" onclick="moveShortlistItem(${idx}, 1)" aria-label="Move item down">▼</button>
-          </div>
-        </div>
-      </div>
-      <div style="font-weight:700; font-size:0.95rem; margin:4px 0;">${escapeHtml(r.title)}</div>
-      <div style="font-size:0.78rem; color:var(--slate-600);">🏡 Driving: <b>${escapeHtml(r.hubs.driver.name)}</b> | Transit: <b>${escapeHtml(r.hubs.transit.name)}</b></div>
-      ${data.notes ? `<div style="margin-top:6px; font-size:0.75rem; background:#f8fafc; padding:6px; border-radius:4px; font-style:italic;">"${escapeHtml(data.notes)}"</div>` : ''}
-      <button class="btn-step" style="margin-top:8px; font-size:0.72rem; padding:4px 8px;" onclick="closeModal('shortlistModal'); openDetailsForRotation('${r.id}');">View Details &rarr;</button>
-    `;
-    body.appendChild(div);
-  });
-}
-
-function moveShortlistItem(index, dir) {
-  const newIndex = index + dir;
-  if (newIndex < 0 || newIndex >= shortlistOrder.length) return;
-  const temp = shortlistOrder[index];
-  shortlistOrder[index] = shortlistOrder[newIndex];
-  shortlistOrder[newIndex] = temp;
-  localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
-  renderShortlistModal();
-}
-
-function openSyncModal() {
-  const modal = document.getElementById('syncModal');
-  const area = document.getElementById('syncJsonArea');
-  
-  const syncObj = {
-    ratings: {},
-    shortlistOrder: shortlistOrder
-  };
-  ROTATIONS_DATA.forEach(r => {
-    const d = getUserData(r.id);
-    if (d.rating > 0 || (d.notes && d.notes.trim() !== "")) syncObj.ratings[r.id] = d;
-  });
-  area.value = JSON.stringify(syncObj, null, 2);
-  modal.style.display = 'flex';
-}
-
-function closeModal(id) {
-  document.getElementById(id).style.display = 'none';
-}
-
-function copySyncData() {
-  const area = document.getElementById('syncJsonArea');
-  navigator.clipboard.writeText(area.value);
-  showToast("Code copied to clipboard!");
-}
-
-function importSyncData() {
-  try {
-    const area = document.getElementById('syncJsonArea');
-    const parsed = JSON.parse(area.value);
-    if (parsed.ratings) {
-      Object.keys(parsed.ratings).forEach(k => {
-        localStorage.setItem(`anaesth_pref_${k}`, JSON.stringify(parsed.ratings[k]));
-      });
-    }
-    if (parsed.shortlistOrder) {
-      shortlistOrder = parsed.shortlistOrder;
-      localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
-    }
-    updateShortlistBadge();
-    showToast("Preferences imported successfully!");
-    closeModal('syncModal');
-    applyFiltersAndSearch();
-  } catch(e) {
-    showToast("Invalid code format");
-  }
-}
-
-// 7. EXPORT CSV (With UTF-8 BOM for Excel Compatibility)
-function exportPreferencesCSV() {
-  let csv = "OrielCode,TrackTitle,Region,PlacesAvailable,DriverLivingHub,TransitLivingHub,HospitalBases,RatingStars,PersonalNotes\n";
-  ROTATIONS_DATA.forEach(r => {
-    const data = getUserData(r.id);
-    const cleanNotes = `"${(data.notes || "").replace(/"/g, '""')}"`;
-    const basesStr = `"${getRotationHospitalBases(r).join('; ')}"`;
-    csv += `"${r.code}","${r.title}","${r.region}","${r.places}","${r.hubs.driver.name}","${r.hubs.transit.name}",${basesStr},${data.rating},${cleanNotes}\n`;
-  });
-  downloadBlob(csv, "ST4_Anaesthetics_All_Rotations.csv");
-}
-
-function exportShortlistCSV() {
-  const allStarred = ROTATIONS_DATA.filter(r => {
-    const d = getUserData(r.id);
-    return d.rating > 0 || (d.notes && d.notes.trim() !== "");
-  }).map(r => r.id);
-
-  allStarred.forEach(id => {
-    if (!shortlistOrder.includes(id)) shortlistOrder.push(id);
-  });
-
-  let csv = "AssignedRank,OrielCode,TrackTitle,Region,PlacesAvailable,DriverLivingHub,TransitLivingHub,HospitalBases,RatingStars,PersonalNotes\n";
-  shortlistOrder.forEach((id, idx) => {
-    const r = ROTATIONS_DATA.find(x => x.id === id);
-    if (r) {
-      const data = getUserData(r.id);
-      const cleanNotes = `"${(data.notes || "").replace(/"/g, '""')}"`;
-      const basesStr = `"${getRotationHospitalBases(r).join('; ')}"`;
-      csv += `${idx + 1},"${r.code}","${r.title}","${r.region}","${r.places}","${r.hubs.driver.name}","${r.hubs.transit.name}",${basesStr},${data.rating},${cleanNotes}\n`;
-    }
-  });
-  downloadBlob(csv, "ST4_Anaesthetics_MyShortlist_Ranked.csv");
-}
-
-function downloadBlob(content, filename) {
-  // \uFEFF Byte Order Mark forces Microsoft Excel to open with proper UTF-8 encoding
-  const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// 8. MOBILE SIDEBAR DRAWER TOGGLE
-function toggleMobileSidebar(open) {
-  const sidebar = document.getElementById('sidebar');
-  if (open) sidebar.classList.remove('mobile-closed');
-  else sidebar.classList.add('mobile-closed');
-  setTimeout(() => { map.invalidateSize(); }, 320);
-}
-
-// 9. KEYBOARD SHORTCUTS
-document.addEventListener('keydown', (e) => {
-  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
-  if (e.key === 'ArrowRight') {
-    e.preventDefault();
-    stepRotation(1);
-  } else if (e.key === 'ArrowLeft') {
-    e.preventDefault();
-    stepRotation(-1);
-  } else if (e.key === 'Escape') {
-    closeModal('shortlistModal');
-    closeModal('syncModal');
-    if (window.innerWidth <= 768) toggleMobileSidebar(false);
-  }
-});
-
-// 10. BROWSER HISTORY (HashChange Support)
-window.addEventListener('hashchange', () => {
-  const hashId = window.location.hash.replace('#', '');
-  if (hashId && hashId !== currentSelectedId && ROTATIONS_DATA.some(r => r.id === hashId)) {
-    prefSelect.value = hashId;
-    selectRotation(hashId, false);
-    setViewMode('details');
-  } else if (!hashId) {
-    setViewMode('all');
-  }
-});
-
-// Initial load
-window.onload = () => {
-  populateRegionDropdown();
-  populateDropdown(ROTATIONS_DATA);
-  renderRotationCardsFeed(ROTATIONS_DATA);
-  updateShortlistBadge();
-
-  const hashId = window.location.hash.replace('#', '');
-  if (hashId && ROTATIONS_DATA.some(r => r.id === hashId)) {
-    prefSelect.value = hashId;
-    selectRotation(hashId, false);
-    setViewMode('details');
-  } else {
-    // Defaults directly to the National Overview Map on load
-    setViewMode('all');
-  }
-
-  if (window.innerWidth <= 768) {
-    toggleMobileSidebar(false);
-  }
-};
-</script>
+<!-- Scripts (Synchronous Data Loading + Modular Application Engine) -->
+<script src="data.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
