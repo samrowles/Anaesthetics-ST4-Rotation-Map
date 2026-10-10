@@ -7,11 +7,15 @@
   <meta name="description" content="Interactive map of UK ST4 Anaesthetics training rotations with dual-commute living analysis for doctors and partners.">
   <meta name="theme-color" content="#0284c7">
 
+  <!-- Favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🩺</text></svg>">
+
+  <!-- OpenGraph Metadata for WhatsApp / Slack / Social Previews -->
   <meta property="og:title" content="ST4 Anaesthetics Rotation &amp; Commute Explorer">
   <meta property="og:description" content="Explore UK ST4 Anaesthetics rotations, commute radii, hospital bases, and living hubs.">
   <meta property="og:type" content="website">
 
+  <!-- Leaflet Dependencies -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -76,10 +80,12 @@
     select, input, textarea { width: 100%; padding: 8px 10px; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; transition: border-color 0.15s; }
     select:focus, input:focus, textarea:focus { border-color: var(--primary); }
 
+    /* Top View Switcher */
     .view-toggle { display: flex; background: var(--slate-100); border-radius: 6px; padding: 2px; }
     .view-btn { flex: 1; padding: 6px; font-size: 0.75rem; font-weight: 700; text-align: center; border: none; background: transparent; cursor: pointer; border-radius: 4px; color: var(--slate-600); transition: all 0.15s; }
     .view-btn.active { background: #fff; color: var(--slate-900); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
+    /* Commute Mode Toggle */
     .mode-toggle-group { display: flex; flex-direction: column; gap: 5px; }
     .mode-label { font-size: 0.7rem; font-weight: 800; color: var(--slate-600); text-transform: uppercase; letter-spacing: 0.04em; }
     
@@ -97,6 +103,7 @@
     .filter-pill-btn { border: 1px solid var(--slate-200); background: var(--slate-50); padding: 4px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; color: var(--slate-600); cursor: pointer; white-space: nowrap; }
     .filter-pill-btn.active { background: var(--slate-900); color: white; border-color: var(--slate-900); }
 
+    /* Content Area */
     #content-pane { flex-grow: 1; overflow-y: auto; padding: 14px 18px; }
     
     .rotation-list-card {
@@ -196,7 +203,7 @@
 
     #map { flex-grow: 1; height: 100%; width: 100%; }
 
-    /* Map Markers */
+    /* Custom Pins */
     .numbered-pin { 
       background: #0284c7; 
       color: #ffffff; 
@@ -313,7 +320,6 @@
       #mobileFabOpen { display: flex; position: fixed; top: 14px; left: 14px; z-index: 1500; background: #ffffff; color: var(--slate-900); border: 1px solid var(--slate-200); padding: 8px 14px; border-radius: 999px; font-size: 0.82rem; font-weight: 800; box-shadow: 0 4px 14px rgba(0,0,0,0.18); cursor: pointer; align-items: center; gap: 6px; }
       #mobileMiniCard { display: flex; flex-direction: column; position: fixed; bottom: 14px; left: 14px; right: 14px; background: #ffffff; border: 1px solid var(--slate-200); border-radius: 12px; padding: 10px 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.22); z-index: 1500; cursor: pointer; }
       .leaflet-top { top: 60px !important; }
-      /* Prevent mobile mini card from obstructing Leaflet attribution */
       .leaflet-bottom.leaflet-right { bottom: 75px !important; }
     }
   </style>
@@ -322,7 +328,7 @@
 
 <div id="toast">Saved</div>
 
-<!-- Mobile Trigger -->
+<!-- Mobile Floating Trigger -->
 <button id="mobileFabOpen" onclick="toggleMobileSidebar(true)" aria-label="Open Filters and Rotations Menu">
   ☰ Rotations &amp; Filters
 </button>
@@ -762,7 +768,6 @@ function saveUserPreferences() {
 
 let currentActiveRating = 0;
 function setRating(val) {
-  // Toggle off if clicking the currently active rating
   if (val === currentActiveRating) {
     val = 0;
   }
@@ -774,6 +779,7 @@ function setRating(val) {
   document.getElementById('ratingText').textContent = val > 0 ? `(${val} / 5 Stars)` : `(Unrated)`;
 }
 
+// Clean View Mode Switching (Fixes container collision)
 function setViewMode(mode) {
   currentViewMode = mode;
   document.getElementById('btnModeList').classList.toggle('active', mode === 'list');
@@ -804,6 +810,7 @@ function setViewMode(mode) {
   }
 }
 
+// Commute Mode Switcher
 function setCommuteMode(mode) {
   currentCommuteMode = mode;
   document.getElementById('btnModeDriver').classList.toggle('active', mode === 'driver');
@@ -845,9 +852,13 @@ function focusHospitalBaseFromBtn(btn) {
 }
 
 function copyDirectShareLink() {
-  const url = window.location.origin + window.location.pathname + '#' + currentSelectedId;
-  navigator.clipboard.writeText(url);
-  showToast("Direct link copied to clipboard!");
+  const base = window.location.href.split('#')[0];
+  const url = base + '#' + currentSelectedId;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => showToast("Direct link copied!")).catch(() => prompt("Copy link:", url));
+  } else {
+    prompt("Copy link:", url);
+  }
 }
 
 // 3. RENDER ROTATION (Focus Mode)
@@ -855,17 +866,10 @@ function selectRotation(id, shouldCloseMobile = false) {
   if (!id) return;
 
   currentSelectedId = id;
-  currentViewMode = 'details';
-  document.getElementById('btnModeDetails').classList.add('active');
-  document.getElementById('btnModeList').classList.remove('active');
-  document.getElementById('btnModeAll').classList.remove('active');
   
   if (window.location.hash !== '#' + id) {
     window.location.hash = id;
   }
-
-  document.getElementById('welcomeMessage').style.display = 'none';
-  document.getElementById('inspectorCard').style.display = 'block';
 
   const rot = ROTATIONS_DATA.find(r => r.id === id);
   if (!rot) return;
@@ -1012,7 +1016,7 @@ function selectRotation(id, shouldCloseMobile = false) {
 
   const allMapPoints = [];
 
-  // Plot Living Base (🏡) + Visual 25-Mile Commute Buffer
+  // Plot Living Base (🏡) with 25-Mile Buffer Circle
   if (activeHub && activeHub.coords) {
     allMapPoints.push(activeHub.coords);
     const pinClass = currentCommuteMode === 'driver' ? 'home-pin-driver' : 'home-pin-transit';
@@ -1028,9 +1032,9 @@ function selectRotation(id, shouldCloseMobile = false) {
       .bindPopup(`<b>🏡 Suggested Base (${currentCommuteMode.toUpperCase()}): ${activeHub.name}</b><br><span style="font-size:0.8rem; color:#475569;">${activeHub.desc}</span>`);
     activeRouteGroup.addLayer(homeMarker);
 
-    // 25-Mile Buffer Circle around the living hub
+    // 25-Mile Buffer Circle
     const commuteCircle = L.circle(activeHub.coords, {
-      radius: 40233.6, // 25 miles in metres
+      radius: 40233.6,
       color: currentCommuteMode === 'driver' ? '#16a34a' : '#7c3aed',
       fillColor: currentCommuteMode === 'driver' ? '#16a34a' : '#7c3aed',
       fillOpacity: 0.04,
@@ -1092,7 +1096,7 @@ function renderAllPlacements() {
   Object.keys(HOSPITALS).forEach(hName => {
     const h = HOSPITALS[hName];
 
-    // If a region filter is active, only show hospitals in that region
+    // If region filter is active, only show hospitals in that region
     if (activeRegionFilter !== "ALL" && h.region !== activeRegionFilter) {
       const linkedInRegion = ROTATIONS_DATA.filter(r => r.region === activeRegionFilter && r.stages.some(s => s.hosp === hName));
       if (!linkedInRegion.length) return;
@@ -1314,7 +1318,7 @@ function openSyncModal() {
   };
   ROTATIONS_DATA.forEach(r => {
     const d = getUserData(r.id);
-    if (d.rating > 0 || d.notes) syncObj.ratings[r.id] = d;
+    if (d.rating > 0 || (d.notes && d.notes.trim() !== "")) syncObj.ratings[r.id] = d;
   });
   area.value = JSON.stringify(syncObj, null, 2);
   modal.style.display = 'flex';
@@ -1352,7 +1356,7 @@ function importSyncData() {
   }
 }
 
-// 7. EXPORT CSV (With UTF-8 BOM for Windows Excel compatibility)
+// 7. EXPORT CSV (With UTF-8 BOM for Excel Compatibility)
 function exportPreferencesCSV() {
   let csv = "OrielCode,TrackTitle,Region,PlacesAvailable,DriverLivingHub,TransitLivingHub,HospitalBases,RatingStars,PersonalNotes\n";
   ROTATIONS_DATA.forEach(r => {
@@ -1365,7 +1369,11 @@ function exportPreferencesCSV() {
 }
 
 function exportShortlistCSV() {
-  const allStarred = ROTATIONS_DATA.filter(r => getUserData(r.id).rating > 0).map(r => r.id);
+  const allStarred = ROTATIONS_DATA.filter(r => {
+    const d = getUserData(r.id);
+    return d.rating > 0 || (d.notes && d.notes.trim() !== "");
+  }).map(r => r.id);
+
   allStarred.forEach(id => {
     if (!shortlistOrder.includes(id)) shortlistOrder.push(id);
   });
@@ -1384,7 +1392,7 @@ function exportShortlistCSV() {
 }
 
 function downloadBlob(content, filename) {
-  // Prepend \uFEFF Byte Order Mark for full Excel character compatibility
+  // \uFEFF Byte Order Mark forces Microsoft Excel to open with proper UTF-8 encoding
   const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -1443,7 +1451,6 @@ window.onload = () => {
     selectRotation(hashId, false);
     setViewMode('details');
   } else {
-    // Defaults directly to the National Overview Map on load
     setViewMode('all');
   }
 
