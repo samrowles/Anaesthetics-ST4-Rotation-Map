@@ -49,34 +49,19 @@ const map = L.map('map', {
 const osmStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-});
+}).addTo(map);
 
 const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, Tiles courtesy of <a href="https://www.hotosm.org/">HOT</a>'
 });
 
-const cartoDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  maxZoom: 20,
-  subdomains: 'abcd',
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-});
-
 const baseLayers = {
   "Standard OSM": osmStandard,
-  "Soft Pastel (HOT)": osmHot,
-  "Dark Canvas": cartoDark
+  "Soft Pastel (HOT)": osmHot
 };
-
-let lastLightLayer = osmStandard;
 // Positioned at top-left underneath zoom controls to avoid collision with top-right action buttons
-const layerControl = L.control.layers(baseLayers, null, { position: 'topleft' }).addTo(map);
-
-map.on('baselayerchange', (e) => {
-  if (e.layer === osmStandard || e.layer === osmHot) {
-    lastLightLayer = e.layer;
-  }
-});
+L.control.layers(baseLayers, null, { position: 'topleft' }).addTo(map);
 
 // Distinct Leaflet Layer Groups for Modular Control
 const overviewLinesGroup = L.layerGroup().addTo(map);
@@ -91,19 +76,6 @@ function getEffectiveTheme() {
   if (currentThemeMode === 'dark') return 'dark';
   if (currentThemeMode === 'light') return 'light';
   return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-}
-
-function updateMapTileTheme(effectiveTheme) {
-  if (effectiveTheme === 'dark') {
-    if (map.hasLayer(osmStandard)) map.removeLayer(osmStandard);
-    if (map.hasLayer(osmHot)) map.removeLayer(osmHot);
-    if (!map.hasLayer(cartoDark)) cartoDark.addTo(map);
-  } else {
-    if (map.hasLayer(cartoDark)) map.removeLayer(cartoDark);
-    if (!map.hasLayer(osmStandard) && !map.hasLayer(osmHot)) {
-      (lastLightLayer || osmStandard).addTo(map);
-    }
-  }
 }
 
 function updateThemeButtonUI() {
@@ -126,7 +98,6 @@ function applyTheme() {
   const effective = getEffectiveTheme();
   document.documentElement.setAttribute('data-theme', effective);
   updateThemeButtonUI();
-  updateMapTileTheme(effective);
 
   const metaTheme = document.getElementById('metaThemeColor');
   if (metaTheme) {

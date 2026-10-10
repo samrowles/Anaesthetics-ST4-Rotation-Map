@@ -1031,7 +1031,25 @@ select:focus, input:focus, textarea:focus {
   border-color: var(--primary);
 }
 
-/* Dark Mode Leaflet Popup Overrides */
+/* Dark Mode Leaflet Map Tile Filter (Zero API Key, 100% Open Source) */
+[data-theme="dark"] .leaflet-tile-pane {
+  filter: invert(100%) hue-rotate(180deg) brightness(88%) contrast(92%);
+}
+
+[data-theme="dark"] .leaflet-container {
+  background: #0f172a !important;
+}
+
+[data-theme="dark"] .leaflet-control-attribution {
+  background: rgba(15, 23, 42, 0.82) !important;
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .leaflet-control-attribution a {
+  color: #38bdf8 !important;
+}
+
+/* Dark Mode Leaflet Popup & Control Overrides */
 [data-theme="dark"] .leaflet-popup-content-wrapper,
 [data-theme="dark"] .leaflet-popup-tip {
   background: #1e293b !important;
