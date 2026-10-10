@@ -1178,8 +1178,10 @@ function getRotationHospitalBases(rot) {
   return [...new Set(rot.stages.map(s => s.hosp))];
 }
 
-// Explicitly attach to window for global browser availability
+// Global window exposure for zero-configuration browser loading
 window.HOSPITALS = HOSPITALS;
 window.REGION_COLORS = REGION_COLORS;
+window.ROTATIONS_DATA = ROTATIONS_DATA;
+window.getRotationHospitalBases = getRotationHospitalBases;
 window.ROTATIONS_DATA = ROTATIONS_DATA;
 window.getRotationHospitalBases = getRotationHospitalBases;
