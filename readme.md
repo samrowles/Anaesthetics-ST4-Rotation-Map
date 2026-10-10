@@ -2,7 +2,7 @@
 
 An interactive, open-source web application designed to help UK Anaesthetics trainees and their partners visualise, compare, and rank ST4 training rotations from Oriel.
 
-👉 **Live Tool:** [https://samrowles.github.io/Anaesthetics-ST4-Rotation-Map/](https://samrowles.github.io/Anaesthetics-ST4-Rotation-Map/)
+**Live Tool:** [https://samrowles.github.io/Anaesthetics-ST4-Rotation-Map/](https://samrowles.github.io/Anaesthetics-ST4-Rotation-Map/)
 
 ---
 
