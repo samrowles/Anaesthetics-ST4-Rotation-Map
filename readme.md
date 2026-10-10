@@ -18,7 +18,8 @@ An interactive, open-source web application designed to help UK Anaesthetics tra
 - **Preferencing Tiers & Star Ratings:** Categorize rotations into standard Oriel tiers (🟢 Tier 1, 🟡 Tier 2, 🔴 Tier 3, ⚪ Excluded) and 1–5 stars with personal notes saved locally in your browser (`localStorage`).
 - **Interactive Shortlist Reordering:** Drag-and-drop ranking or direct rank number inputs with instant recalculation and CSV export formatted for Oriel.
 - **One-Click Backup & Partner Sync:** Download or upload your preferences as a `.json` backup file, or transfer them to a partner with a one-click sync code.
-- **Map Tools:** Fullscreen toggle, GPS "Locate Me", and rotation line visibility toggles.
+- **Automatic & Manual Dark Mode (Night Shift Mode):** Automatically matches your OS/device preference (`prefers-color-scheme: dark`) with a manual `🌓 Auto` / `🌙 Dark` / `☀️ Light` header switcher. Features GPU-filtered high-contrast dark map tiles with zero API keys.
+- **Map Tools:** Fullscreen toggle, GPS "Locate Me", and rotation network line visibility toggles.
 - **Zero API Keys & Privacy:** 100% client-side, zero analytics, zero cookies, runs on free OpenStreetMap tiles and UK Postcodes API.
 
 ---

@@ -145,10 +145,19 @@ let showOverviewLines = true;
 let currentActiveRating = 0;
 let searchDebounceTimer = null;
 
-// Local Storage Deserialization
-let compareList = JSON.parse(localStorage.getItem('anaesth_compare_list') || '[]');
-let shortlistOrder = JSON.parse(localStorage.getItem('anaesth_shortlist_order') || '[]');
-let customHomeBase = JSON.parse(localStorage.getItem('anaesth_custom_home') || 'null');
+// Safe Local Storage Deserialization
+function safeGetStorageJson(key, defaultVal) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : defaultVal;
+  } catch (e) {
+    return defaultVal;
+  }
+}
+
+let compareList = safeGetStorageJson('anaesth_compare_list', []);
+let shortlistOrder = safeGetStorageJson('anaesth_shortlist_order', []);
+let customHomeBase = safeGetStorageJson('anaesth_custom_home', null);
 
 // 5. TOAST NOTIFICATIONS
 function showToast(msg) {
@@ -171,6 +180,20 @@ function getRotationMaxDistance(rot) {
     }
   }
   return maxDist;
+}
+
+/**
+ * Returns a deduplicated array of hospital base names visited by a rotation.
+ */
+function getRotationHospitalBases(rot) {
+  if (!rot || !rot.stages) return [];
+  const unique = [];
+  rot.stages.forEach(s => {
+    if (s.hosp && !unique.includes(s.hosp)) {
+      unique.push(s.hosp);
+    }
+  });
+  return unique;
 }
 
 function updateShortlistBadge() {
@@ -338,8 +361,18 @@ function openDetailsForRotation(id) {
 
 // 8. PREFERENCES, TIERS & RATINGS
 function getUserData(id) {
-  const raw = localStorage.getItem(`anaesth_pref_${id}`);
-  return raw ? JSON.parse(raw) : { rating: 0, notes: "", tier: "UNSET" };
+  try {
+    const raw = localStorage.getItem(`anaesth_pref_${id}`);
+    if (!raw) return { rating: 0, notes: "", tier: "UNSET" };
+    const parsed = JSON.parse(raw);
+    return {
+      rating: typeof parsed.rating === 'number' ? parsed.rating : 0,
+      notes: typeof parsed.notes === 'string' ? parsed.notes : "",
+      tier: parsed.tier || "UNSET"
+    };
+  } catch (e) {
+    return { rating: 0, notes: "", tier: "UNSET" };
+  }
 }
 
 function setTier(tierVal) {
@@ -1491,8 +1524,19 @@ function closeModal(id) {
 
 function copySyncData() {
   const area = document.getElementById('syncJsonArea');
-  navigator.clipboard.writeText(area.value);
-  showToast("Code copied to clipboard!");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(area.value)
+      .then(() => showToast("Code copied to clipboard!"))
+      .catch(() => {
+        area.select();
+        document.execCommand('copy');
+        showToast("Code copied to clipboard!");
+      });
+  } else {
+    area.select();
+    document.execCommand('copy');
+    showToast("Code copied to clipboard!");
+  }
 }
 
 function importSyncData() {
@@ -1525,7 +1569,7 @@ function downloadJsonBackup() {
 }
 
 function handleBackupFileUpload(event) {
-  const file = event.target.files[0];
+  const file = event.target.files && event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -1539,6 +1583,7 @@ function handleBackupFileUpload(event) {
     }
   };
   reader.readAsText(file);
+  event.target.value = ''; // Reset input to allow re-uploading same file if desired
 }
 
 function applyParsedBackup(parsed) {
@@ -1558,6 +1603,9 @@ function applyParsedBackup(parsed) {
   }
   updateShortlistBadge();
   applyFiltersAndSearch();
+  if (currentSelectedId && currentViewMode === 'details') {
+    selectRotation(currentSelectedId, false);
+  }
   showToast("Preferences restored!");
 }
 
