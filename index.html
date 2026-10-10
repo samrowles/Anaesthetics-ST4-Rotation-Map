@@ -80,12 +80,10 @@
     select, input, textarea { width: 100%; padding: 8px 10px; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; transition: border-color 0.15s; }
     select:focus, input:focus, textarea:focus { border-color: var(--primary); }
 
-    /* Top View Switcher */
     .view-toggle { display: flex; background: var(--slate-100); border-radius: 6px; padding: 2px; }
     .view-btn { flex: 1; padding: 6px; font-size: 0.75rem; font-weight: 700; text-align: center; border: none; background: transparent; cursor: pointer; border-radius: 4px; color: var(--slate-600); transition: all 0.15s; }
     .view-btn.active { background: #fff; color: var(--slate-900); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
-    /* Commute Mode Toggle */
     .mode-toggle-group { display: flex; flex-direction: column; gap: 5px; }
     .mode-label { font-size: 0.7rem; font-weight: 800; color: var(--slate-600); text-transform: uppercase; letter-spacing: 0.04em; }
     
@@ -103,7 +101,6 @@
     .filter-pill-btn { border: 1px solid var(--slate-200); background: var(--slate-50); padding: 4px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; color: var(--slate-600); cursor: pointer; white-space: nowrap; }
     .filter-pill-btn.active { background: var(--slate-900); color: white; border-color: var(--slate-900); }
 
-    /* Content Area */
     #content-pane { flex-grow: 1; overflow-y: auto; padding: 14px 18px; }
     
     .rotation-list-card {
@@ -203,7 +200,7 @@
 
     #map { flex-grow: 1; height: 100%; width: 100%; }
 
-    /* Custom Pins */
+    /* Map Markers */
     .numbered-pin { 
       background: #0284c7; 
       color: #ffffff; 
@@ -562,6 +559,7 @@ if (typeof ROTATIONS_DATA === 'undefined' || typeof HOSPITALS === 'undefined') {
 
 // 1. HAVERSINE DISTANCE FORMULA (Miles)
 function calcDistanceMiles(c1, c2) {
+  if (!c1 || !c2) return 0;
   const R = 3958.8;
   const dLat = (c2[0] - c1[0]) * Math.PI / 180;
   const dLon = (c2[1] - c1[1]) * Math.PI / 180;
@@ -620,6 +618,7 @@ function showToast(msg) {
 }
 
 function getRotationMaxDistance(rot) {
+  if (!rot || !rot.stages) return 0;
   const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
   let maxDist = 0;
   for (let i = 0; i < coords.length; i++) {
@@ -633,6 +632,7 @@ function getRotationMaxDistance(rot) {
 
 function updateShortlistBadge() {
   const badge = document.getElementById('headerShortlistBadge');
+  if (!badge) return;
   const count = ROTATIONS_DATA.filter(r => {
     const d = getUserData(r.id);
     return d.rating > 0 || (d.notes && d.notes.trim() !== "");
@@ -642,6 +642,7 @@ function updateShortlistBadge() {
 
 function populateRegionDropdown() {
   const regSelect = document.getElementById('regionFilter');
+  if (!regSelect) return;
   const regionCounts = {};
   ROTATIONS_DATA.forEach(r => {
     regionCounts[r.region] = (regionCounts[r.region] || 0) + 1;
@@ -657,6 +658,7 @@ function populateRegionDropdown() {
 
 const prefSelect = document.getElementById('prefSelect');
 function populateDropdown(list) {
+  if (!prefSelect) return;
   prefSelect.innerHTML = '<option value="">-- Choose Rotation to Inspect --</option>';
   
   const groups = {};
@@ -686,6 +688,7 @@ function populateDropdown(list) {
 
 function renderRotationCardsFeed(list) {
   const container = document.getElementById('rotationCardsFeed');
+  if (!container) return;
   container.innerHTML = "";
 
   if (!list.length) {
@@ -716,18 +719,18 @@ function renderRotationCardsFeed(list) {
     card.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
         <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
-          <span class="badge badge-code">${r.code}</span>
-          <span class="badge badge-places">${r.places}</span>
+          <span class="badge badge-code">${escapeHtml(r.code)}</span>
+          <span class="badge badge-places">${escapeHtml(r.places)}</span>
         </div>
         <span class="badge ${spreadBadgeClass}">${maxDist} mi (~${estMins}m)</span>
       </div>
-      <div class="card-list-title">${r.title}</div>
+      <div class="card-list-title">${escapeHtml(r.title)}</div>
       <div class="card-list-hub">
-        <span>${hubEmoji} Base: <b>${activeHub.name}</b></span>
+        <span>${hubEmoji} Base: <b>${escapeHtml(activeHub.name)}</b></span>
         <span style="color:var(--amber); font-weight:800; font-size:0.85rem;">${'★'.repeat(userData.rating) || '☆☆☆☆☆'}</span>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:6px; border-top:1px solid #f1f5f9;">
-        <span style="font-size:0.72rem; color:var(--slate-600);">${r.region}</span>
+        <span style="font-size:0.72rem; color:var(--slate-600);">${escapeHtml(r.region)}</span>
         <button class="hospital-chip-btn" onclick="openDetailsForRotation('${r.id}')" style="font-size:0.72rem; padding:3px 9px;">Details &amp; Timeline &rarr;</button>
       </div>
     `;
@@ -736,7 +739,7 @@ function renderRotationCardsFeed(list) {
 }
 
 function openDetailsForRotation(id) {
-  prefSelect.value = id;
+  if (prefSelect) prefSelect.value = id;
   selectRotation(id, false);
   setViewMode('details');
 }
@@ -866,10 +869,17 @@ function selectRotation(id, shouldCloseMobile = false) {
   if (!id) return;
 
   currentSelectedId = id;
+  currentViewMode = 'details';
+  document.getElementById('btnModeDetails').classList.add('active');
+  document.getElementById('btnModeList').classList.remove('active');
+  document.getElementById('btnModeAll').classList.remove('active');
   
   if (window.location.hash !== '#' + id) {
     window.location.hash = id;
   }
+
+  document.getElementById('welcomeMessage').style.display = 'none';
+  document.getElementById('inspectorCard').style.display = 'block';
 
   const rot = ROTATIONS_DATA.find(r => r.id === id);
   if (!rot) return;
@@ -1032,7 +1042,6 @@ function selectRotation(id, shouldCloseMobile = false) {
       .bindPopup(`<b>🏡 Suggested Base (${currentCommuteMode.toUpperCase()}): ${activeHub.name}</b><br><span style="font-size:0.8rem; color:#475569;">${activeHub.desc}</span>`);
     activeRouteGroup.addLayer(homeMarker);
 
-    // 25-Mile Buffer Circle
     const commuteCircle = L.circle(activeHub.coords, {
       radius: 40233.6,
       color: currentCommuteMode === 'driver' ? '#16a34a' : '#7c3aed',
@@ -1096,7 +1105,6 @@ function renderAllPlacements() {
   Object.keys(HOSPITALS).forEach(hName => {
     const h = HOSPITALS[hName];
 
-    // If region filter is active, only show hospitals in that region
     if (activeRegionFilter !== "ALL" && h.region !== activeRegionFilter) {
       const linkedInRegion = ROTATIONS_DATA.filter(r => r.region === activeRegionFilter && r.stages.some(s => s.hosp === hName));
       if (!linkedInRegion.length) return;
@@ -1149,7 +1157,7 @@ function renderAllPlacements() {
 
 function diveInFromPopup(id) {
   map.closePopup();
-  prefSelect.value = id;
+  if (prefSelect) prefSelect.value = id;
   selectRotation(id, false);
   setViewMode('details');
   showToast("Loaded rotation details & route");
@@ -1451,6 +1459,7 @@ window.onload = () => {
     selectRotation(hashId, false);
     setViewMode('details');
   } else {
+    // Defaults directly to the National Overview Map on load
     setViewMode('all');
   }
 
