@@ -35,7 +35,7 @@
       overflow: hidden;
     }
 
-    /* Top Navigation Bar */
+    /* Header */
     header {
       background: var(--nhs-blue);
       color: var(--nhs-white);
@@ -81,7 +81,7 @@
       overflow: hidden;
     }
     .sidebar {
-      width: 460px;
+      width: 480px;
       background: var(--nhs-white);
       border-right: 1px solid var(--border-color);
       display: flex;
@@ -90,7 +90,7 @@
       z-index: 500;
     }
     .controls-panel {
-      padding: 16px;
+      padding: 14px;
       background: #fafbfc;
       border-bottom: 1px solid var(--border-color);
       display: flex;
@@ -112,6 +112,19 @@
       outline: 2px solid var(--nhs-blue);
       border-color: var(--nhs-blue);
     }
+
+    /* Hospital Click Filter Banner */
+    .filter-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      background: #e6f2ff;
+      border: 1px solid var(--nhs-bright-blue);
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 0.8rem;
+    }
+
     .details-scroll {
       flex: 1;
       overflow-y: auto;
@@ -137,7 +150,7 @@
       font-weight: 700;
       color: var(--nhs-dark-grey);
     }
-    .track-title { font-size: 1.05rem; font-weight: 700; color: var(--nhs-dark-blue); margin-bottom: 6px; }
+    .track-title { font-size: 1.05rem; font-weight: 700; color: var(--nhs-dark-blue); margin-bottom: 4px; }
     .metrics-bar {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -167,13 +180,13 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 6px 10px;
+      padding: 8px 10px;
       background: var(--nhs-pale-grey);
       border-radius: 4px;
       font-size: 0.82rem;
     }
 
-    /* Rating & Notes */
+    /* Star Rating */
     .star-rating { display: flex; gap: 4px; align-items: center; margin: 8px 0; }
     .star-btn {
       background: transparent;
@@ -189,7 +202,7 @@
     .map-container { flex: 1; position: relative; height: 100%; }
     #map { width: 100%; height: 100%; }
 
-    /* Toast Notification */
+    /* Modals & Toast */
     .toast {
       position: fixed;
       bottom: 20px;
@@ -202,10 +215,7 @@
       box-shadow: var(--shadow);
       display: none;
       z-index: 2000;
-      animation: fadeIn 0.2s ease;
     }
-
-    /* Modals */
     .modal-overlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -282,6 +292,12 @@
             <option value="RATING_DESC">My Rating: Highest First</option>
           </select>
         </div>
+
+        <div class="filter-banner" id="hospitalFilterBanner">
+          <span>Filtering by site: <strong id="filterHospitalName"></strong></span>
+          <button type="button" class="btn btn-sm btn-light" id="clearHospitalFilterBtn">Clear</button>
+        </div>
+
         <select id="rotationSelect" aria-label="Choose rotation to view">
           <option value="">-- Choose Rotation to Inspect --</option>
         </select>
@@ -289,7 +305,7 @@
 
       <div class="details-scroll" id="detailsView">
         <div id="emptyPrompt" style="text-align: center; color: var(--nhs-mid-grey); padding: 40px 10px;">
-          <p>Select a rotation from the dropdown above or click on any hospital pin across the map to inspect rotation tracks.</p>
+          <p>Select a rotation track above, or <b>click any hospital pin on the map</b> to see which rotations run through that site.</p>
         </div>
 
         <div id="inspectorCard" class="card" style="display: none;">
@@ -298,7 +314,8 @@
             <button type="button" class="btn btn-sm btn-light" id="inspShortlistBtn">⭐ Shortlist</button>
           </div>
           <h2 class="track-title" id="inspTitle">Track Title</h2>
-          <div style="font-size: 0.8rem; color: var(--nhs-dark-grey);" id="inspRegion">Region</div>
+          <div style="font-size: 0.8rem; color: var(--nhs-dark-grey); margin-bottom: 8px;" id="inspRegion">Region</div>
+          <p style="font-size: 0.82rem; color: #333; margin-bottom: 12px;" id="inspDescription"></p>
 
           <div class="metrics-bar">
             <div class="metric-box">
@@ -316,7 +333,7 @@
           </div>
 
           <div class="hub-box">
-            <strong>🏡 Commute Hub: </strong><span id="inspHub">Pending</span>
+            <strong>🏡 Commute Hub: </strong><span id="inspHub">Flexible</span>
             <div id="inspHubDetails" style="margin-top: 4px; color: var(--nhs-dark-grey); font-size: 0.8rem;"></div>
           </div>
 
@@ -354,7 +371,7 @@
       </div>
       <div class="modal-body">
         <p style="font-size: 0.85rem; color: var(--nhs-dark-grey); margin-bottom: 12px;">
-          Reorder your chosen jobs to establish your preferred Oriel ranking order:
+          Reorder your chosen jobs with ▲ ▼ to generate your preferred Oriel ranking order:
         </p>
         <ul class="ranking-list" id="rankingListContainer"></ul>
       </div>
@@ -383,10 +400,10 @@
 
   <div id="toast" class="toast">Changes saved</div>
 
-  <!-- External Leaflet -->
+  <!-- Leaflet JavaScript -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   
-  <!-- Independent Data Source -->
+  <!-- Data Script -->
   <script src="data.js"></script>
 
   <!-- Application Logic -->
@@ -413,7 +430,7 @@
         }
       }
 
-      // --- 2. UNICODE-SAFE BASE64 SYNC ---
+      // --- 2. UNICODE-SAFE UTF-8 SYNC ENCODER ---
       function encodeSyncPayload(data) {
         const json = JSON.stringify({ v: 1, timestamp: Date.now(), data });
         return btoa(encodeURIComponent(json).replace(/%([0-9A-F]{2})/g, (_, p1) => {
@@ -436,24 +453,44 @@
         }
       }
 
-      // --- 3. DATA RECONCILIATION ---
+      // --- 3. DATA RECONCILIATION & LOOKUP ---
       const rawData = window.ST4_DATA || { rotations: [], hospitals: {} };
       const ROTATIONS = Array.isArray(rawData.rotations) ? rawData.rotations : [];
       const HOSPITALS = rawData.hospitals || {};
 
+      // Helper: Resolve array of hospital keys to full objects
+      function getHospitalsForRotation(rotation) {
+        if (!rotation || !Array.isArray(rotation.hospitals)) return [];
+        return rotation.hospitals
+          .map(key => {
+            const h = HOSPITALS[key];
+            if (!h) {
+              console.warn(`Hospital key "${key}" not in lookup table.`);
+              return null;
+            }
+            return { id: key, ...h };
+          })
+          .filter(Boolean);
+      }
+
+      // Helper: Reverse lookup (Find all rotations passing through a hospital key)
+      function getRotationsForHospital(hospitalKey) {
+        return ROTATIONS.filter(r => Array.isArray(r.hospitals) && r.hospitals.includes(hospitalKey));
+      }
+
       // User state
       let userPreferences = safeStorageGet('st4_anaesthetics_prefs', {
-        ratings: {},    // { [orielCode]: 1..5 }
-        notes: {},      // { [orielCode]: "..." }
-        shortlist: []   // [orielCode, ...]
+        ratings: {},
+        notes: {},
+        shortlist: []
       });
 
       let selectedRotation = null;
+      let activeHospitalFilterKey = null;
       let map = null;
       let hospitalMarkers = L.layerGroup();
       let activeTrackPolyline = null;
 
-      // Toast feedback helper
       function showToast(msg) {
         const t = document.getElementById('toast');
         t.textContent = msg;
@@ -461,12 +498,12 @@
         setTimeout(() => { t.style.display = 'none'; }, 2000);
       }
 
-      // --- 4. MAP INITIALIZATION ---
+      // --- 4. MAP & HOSPITAL MARKERS ---
       function initMap() {
         map = L.map('map', {
           zoomControl: true,
           gestureHandling: true
-        }).setView([52.8, -1.5], 6); // Centered across England & Wales
+        }).setView([52.6, -1.5], 6.5);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 18,
@@ -476,51 +513,90 @@
         hospitalMarkers.addTo(map);
         renderNationalHospitalMarkers();
 
-        // Safe invalidation on resize
         window.addEventListener('resize', () => {
           if (map) map.invalidateSize();
         });
-      }
-
-      function getHospitalCoords(h) {
-        if (!h) return null;
-        const lat = typeof h.lat === 'number' ? h.lat : parseFloat(h.lat);
-        const lng = typeof h.lng === 'number' ? h.lng : parseFloat(h.lng);
-        if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
-        return null;
       }
 
       function renderNationalHospitalMarkers() {
         hospitalMarkers.clearLayers();
 
         Object.entries(HOSPITALS).forEach(([key, hosp]) => {
-          const coords = getHospitalCoords(hosp);
-          if (!coords) return;
+          if (typeof hosp.lat !== 'number' || typeof hosp.lng !== 'number') return;
 
-          const marker = L.circleMarker([coords.lat, coords.lng], {
+          const marker = L.circleMarker([hosp.lat, hosp.lng], {
             radius: 6,
             fillColor: '#005eb8',
             color: '#ffffff',
             weight: 2,
             opacity: 1,
-            fillOpacity: 0.85
+            fillOpacity: 0.9
           });
 
-          // Safe popup creation avoiding XSS
-          const popupContent = document.createElement('div');
+          // Safe popup rendering with interactive rotation links
+          const popup = document.createElement('div');
+          popup.style.maxWidth = '240px';
+
           const title = document.createElement('strong');
-          title.textContent = hosp.name || key;
-          popupContent.appendChild(title);
+          title.style.display = 'block';
+          title.style.color = '#003087';
+          title.textContent = hosp.name;
+          popup.appendChild(title);
 
           if (hosp.trust) {
-            const subtitle = document.createElement('div');
-            subtitle.style.fontSize = '0.75rem';
-            subtitle.style.color = '#555';
-            subtitle.textContent = hosp.trust;
-            popupContent.appendChild(subtitle);
+            const trustDiv = document.createElement('div');
+            trustDiv.style.fontSize = '0.75rem';
+            trustDiv.style.color = '#555';
+            trustDiv.style.marginBottom = '6px';
+            trustDiv.textContent = hosp.trust;
+            popup.appendChild(trustDiv);
           }
 
-          marker.bindPopup(popupContent);
+          const rots = getRotationsForHospital(key);
+          const meta = document.createElement('div');
+          meta.style.fontSize = '0.75rem';
+          meta.style.fontWeight = 'bold';
+          meta.style.marginTop = '4px';
+          meta.textContent = `Included in ${rots.length} rotation${rots.length === 1 ? '' : 's'}:`;
+          popup.appendChild(meta);
+
+          const list = document.createElement('ul');
+          list.style.listStyle = 'none';
+          list.style.padding = '0';
+          list.style.margin = '4px 0 0 0';
+
+          rots.forEach(r => {
+            const li = document.createElement('li');
+            li.style.margin = '3px 0';
+            const btn = document.createElement('a');
+            btn.href = '#';
+            btn.style.color = '#005eb8';
+            btn.style.fontSize = '0.75rem';
+            btn.style.textDecoration = 'underline';
+            btn.textContent = r.title;
+            btn.onclick = (e) => {
+              e.preventDefault();
+              selectRotation(r);
+              map.closePopup();
+            };
+            li.appendChild(btn);
+            list.appendChild(li);
+          });
+          popup.appendChild(list);
+
+          // Filter by hospital button
+          const filterBtn = document.createElement('button');
+          filterBtn.className = 'btn btn-sm btn-light';
+          filterBtn.style.marginTop = '8px';
+          filterBtn.style.width = '100%';
+          filterBtn.textContent = 'Filter list to this hospital';
+          filterBtn.onclick = () => {
+            setHospitalFilter(key, hosp.name);
+            map.closePopup();
+          };
+          popup.appendChild(filterBtn);
+
+          marker.bindPopup(popup);
           hospitalMarkers.addLayer(marker);
         });
       }
@@ -534,33 +610,23 @@
           activeTrackPolyline = null;
         }
 
-        if (!rotation || !Array.isArray(rotation.hospitals)) return;
-
-        const points = [];
-        rotation.hospitals.forEach(hId => {
-          const hosp = HOSPITALS[hId] || (typeof hId === 'object' ? hId : null);
-          const coords = getHospitalCoords(hosp);
-          if (coords) points.push(coords);
-        });
+        const hospitals = getHospitalsForRotation(rotation);
+        const points = hospitals.map(h => [h.lat, h.lng]);
 
         if (points.length === 0) return;
 
-        // Draw connecting route
         if (points.length > 1) {
-          activeTrackPolyline = L.polyline(points.map(p => [p.lat, p.lng]), {
+          activeTrackPolyline = L.polyline(points, {
             color: '#ffb81c',
             weight: 4,
             dashArray: '6, 8',
-            opacity: 0.9
+            opacity: 0.95
           }).addTo(map);
-        }
 
-        // Bugfix: Handle single vs multiple points without zooming to infinity
-        if (points.length === 1) {
-          map.setView([points[0].lat, points[0].lng], 11);
+          map.fitBounds(L.latLngBounds(points), { padding: [50, 50], maxZoom: 12 });
         } else {
-          const latLngBounds = L.latLngBounds(points.map(p => [p.lat, p.lng]));
-          map.fitBounds(latLngBounds, { padding: [50, 50], maxZoom: 12 });
+          // Bugfix: Prevent infinite zoom when only 1 hospital exists
+          map.setView(points[0], 11);
         }
       }
 
@@ -569,6 +635,7 @@
         selectedRotation = rot;
         const emptyPrompt = document.getElementById('emptyPrompt');
         const card = document.getElementById('inspectorCard');
+        const rotationSelect = document.getElementById('rotationSelect');
 
         if (!rot) {
           emptyPrompt.style.display = 'block';
@@ -577,51 +644,62 @@
             map.removeLayer(activeTrackPolyline);
             activeTrackPolyline = null;
           }
+          if (rotationSelect.value !== '') rotationSelect.value = '';
           return;
         }
 
         emptyPrompt.style.display = 'none';
         card.style.display = 'block';
+        rotationSelect.value = rot.orielCode || rot.id;
 
-        // Safe DOM updates
-        document.getElementById('inspOrielCode').textContent = rot.orielCode || rot.id || 'N/A';
-        document.getElementById('inspTitle').textContent = rot.title || 'Untitled Track';
+        // Populate fields safely using textContent
+        document.getElementById('inspOrielCode').textContent = rot.orielCode || rot.id;
+        document.getElementById('inspTitle').textContent = rot.title;
         document.getElementById('inspRegion').textContent = rot.region || 'National';
+        document.getElementById('inspDescription').textContent = rot.description || '';
         document.getElementById('inspPlaces').textContent = rot.places || '1';
-        document.getElementById('inspHospitalsCount').textContent = (rot.hospitals || []).length;
         document.getElementById('inspSpread').textContent = rot.maxSpreadMiles ? `${rot.maxSpreadMiles} mi` : 'N/A';
         document.getElementById('inspHub').textContent = rot.suggestedHub || 'Flexible';
         document.getElementById('inspHubDetails').textContent = rot.hubDetails || '';
 
-        // Hospital list rendering
+        // Resolved hospital items from lookup table
+        const hospitals = getHospitalsForRotation(rot);
+        document.getElementById('inspHospitalsCount').textContent = hospitals.length;
+
         const hospListEl = document.getElementById('inspHospitalList');
         hospListEl.replaceChildren();
 
-        (rot.hospitals || []).forEach(hId => {
-          const hosp = HOSPITALS[hId] || (typeof hId === 'object' ? hId : { name: hId });
+        hospitals.forEach(hosp => {
           const li = document.createElement('li');
           li.className = 'hospital-item';
 
-          const nameSpan = document.createElement('span');
-          nameSpan.textContent = hosp.name || hId;
-          li.appendChild(nameSpan);
+          const textDiv = document.createElement('div');
+          const nameSpan = document.createElement('strong');
+          nameSpan.style.display = 'block';
+          nameSpan.textContent = hosp.name;
+          textDiv.appendChild(nameSpan);
 
-          const coords = getHospitalCoords(hosp);
-          if (coords) {
-            const zoomBtn = document.createElement('button');
-            zoomBtn.type = 'button';
-            zoomBtn.className = 'btn btn-sm btn-light';
-            zoomBtn.textContent = 'Focus';
-            zoomBtn.onclick = () => map.setView([coords.lat, coords.lng], 13);
-            li.appendChild(zoomBtn);
+          if (hosp.trust) {
+            const trustSpan = document.createElement('span');
+            trustSpan.style.fontSize = '0.75rem';
+            trustSpan.style.color = '#555';
+            trustSpan.textContent = hosp.trust;
+            textDiv.appendChild(trustSpan);
           }
+          li.appendChild(textDiv);
+
+          const zoomBtn = document.createElement('button');
+          zoomBtn.type = 'button';
+          zoomBtn.className = 'btn btn-sm btn-light';
+          zoomBtn.textContent = 'Focus';
+          zoomBtn.onclick = () => map.setView([hosp.lat, hosp.lng], 13);
+          li.appendChild(zoomBtn);
+
           hospListEl.appendChild(li);
         });
 
-        // Shortlist button state
         updateInspectorShortlistBtn();
 
-        // Rating & Notes
         const code = rot.orielCode || rot.id;
         renderStars(userPreferences.ratings[code] || 0);
         document.getElementById('inspNotes').value = userPreferences.notes[code] || '';
@@ -650,7 +728,7 @@
         });
       }
 
-      // --- 7. REORDERING & SHORTLIST (Index Drift Protected) ---
+      // --- 7. SHORTLIST & RANKING LOGIC ---
       function toggleShortlist(code) {
         const idx = userPreferences.shortlist.indexOf(code);
         if (idx > -1) {
@@ -671,7 +749,6 @@
 
         const targetIdx = idx + direction;
         if (targetIdx >= 0 && targetIdx < list.length) {
-          // Swap positions safely in state array
           const temp = list[idx];
           list[idx] = list[targetIdx];
           list[targetIdx] = temp;
@@ -692,7 +769,7 @@
           const empty = document.createElement('li');
           empty.style.color = '#768692';
           empty.style.fontSize = '0.85rem';
-          empty.textContent = 'No tracks shortlisted yet. Star tracks from the inspector to rank them.';
+          empty.textContent = 'No tracks shortlisted yet. Click "☆ Shortlist" on any rotation to rank it here.';
           container.appendChild(empty);
           return;
         }
@@ -715,7 +792,6 @@
           controlsDiv.style.display = 'flex';
           controlsDiv.style.gap = '4px';
 
-          // Up button
           const upBtn = document.createElement('button');
           upBtn.type = 'button';
           upBtn.className = 'btn btn-sm btn-light';
@@ -723,7 +799,6 @@
           upBtn.disabled = i === 0;
           upBtn.onclick = () => moveRanking(code, -1);
 
-          // Down button
           const downBtn = document.createElement('button');
           downBtn.type = 'button';
           downBtn.className = 'btn btn-sm btn-light';
@@ -740,10 +815,68 @@
         });
       }
 
-      // --- 8. POPULATE DROPDOWNS & SORTING ---
-      function populateFiltersAndDropdown() {
+      // --- 8. FILTERS & POPULATION ---
+      function setHospitalFilter(hospitalKey, hospitalName) {
+        activeHospitalFilterKey = hospitalKey;
+        const banner = document.getElementById('hospitalFilterBanner');
+        document.getElementById('filterHospitalName').textContent = hospitalName;
+        banner.style.display = 'flex';
+        populateRotationDropdown();
+      }
+
+      function clearHospitalFilter() {
+        activeHospitalFilterKey = null;
+        document.getElementById('hospitalFilterBanner').style.display = 'none';
+        populateRotationDropdown();
+      }
+
+      function populateRotationDropdown() {
         const regionSelect = document.getElementById('regionFilter');
+        const sortMode = document.getElementById('sortOrder').value;
         const rotationSelect = document.getElementById('rotationSelect');
+        const selectedRegion = regionSelect.value;
+
+        rotationSelect.replaceChildren();
+
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = '-- Choose Rotation to Inspect --';
+        rotationSelect.appendChild(defaultOpt);
+
+        let filtered = ROTATIONS.filter(r => {
+          const matchesRegion = (selectedRegion === 'ALL' || r.region === selectedRegion);
+          const matchesHospital = !activeHospitalFilterKey || (Array.isArray(r.hospitals) && r.hospitals.includes(activeHospitalFilterKey));
+          return matchesRegion && matchesHospital;
+        });
+
+        filtered.sort((a, b) => {
+          const codeA = a.orielCode || a.id;
+          const codeB = b.orielCode || b.id;
+          if (sortMode === 'SPREAD_ASC') return (a.maxSpreadMiles || 0) - (b.maxSpreadMiles || 0);
+          if (sortMode === 'PLACES_DESC') return (b.places || 0) - (a.places || 0);
+          if (sortMode === 'RATING_DESC') {
+            const rA = userPreferences.ratings[codeA] || 0;
+            const rB = userPreferences.ratings[codeB] || 0;
+            return rB - rA;
+          }
+          return 0;
+        });
+
+        filtered.forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r.orielCode || r.id;
+          const placesText = r.places ? ` [${r.places} posts]` : '';
+          opt.textContent = `${r.title}${placesText}`;
+          rotationSelect.appendChild(opt);
+        });
+
+        if (selectedRotation) {
+          rotationSelect.value = selectedRotation.orielCode || selectedRotation.id;
+        }
+      }
+
+      function setupFilters() {
+        const regionSelect = document.getElementById('regionFilter');
         const regions = new Set();
 
         ROTATIONS.forEach(r => {
@@ -757,58 +890,20 @@
           regionSelect.appendChild(opt);
         });
 
-        function refreshRotationOptions() {
-          const selectedRegion = regionSelect.value;
-          const sortMode = document.getElementById('sortOrder').value;
-          rotationSelect.replaceChildren();
+        regionSelect.addEventListener('change', populateRotationDropdown);
+        document.getElementById('sortOrder').addEventListener('change', populateRotationDropdown);
+        document.getElementById('clearHospitalFilterBtn').addEventListener('click', clearHospitalFilter);
 
-          const defaultOpt = document.createElement('option');
-          defaultOpt.value = '';
-          defaultOpt.textContent = '-- Choose Rotation to Inspect --';
-          rotationSelect.appendChild(defaultOpt);
-
-          let filtered = ROTATIONS.filter(r => selectedRegion === 'ALL' || r.region === selectedRegion);
-
-          // Sorting logic
-          filtered.sort((a, b) => {
-            const codeA = a.orielCode || a.id;
-            const codeB = b.orielCode || b.id;
-            if (sortMode === 'SPREAD_ASC') return (a.maxSpreadMiles || 0) - (b.maxSpreadMiles || 0);
-            if (sortMode === 'PLACES_DESC') return (b.places || 0) - (a.places || 0);
-            if (sortMode === 'RATING_DESC') {
-              const rA = userPreferences.ratings[codeA] || 0;
-              const rB = userPreferences.ratings[codeB] || 0;
-              return rB - rA;
-            }
-            return 0; // Default order
-          });
-
-          filtered.forEach(r => {
-            const opt = document.createElement('option');
-            opt.value = r.orielCode || r.id;
-            const placesText = r.places ? ` [${r.places} posts]` : '';
-            opt.textContent = `${r.title}${placesText}`;
-            rotationSelect.appendChild(opt);
-          });
-
-          if (selectedRotation) {
-            rotationSelect.value = selectedRotation.orielCode || selectedRotation.id;
-          }
-        }
-
-        regionSelect.addEventListener('change', refreshRotationOptions);
-        document.getElementById('sortOrder').addEventListener('change', refreshRotationOptions);
-        refreshRotationOptions();
-
-        rotationSelect.addEventListener('change', (e) => {
+        document.getElementById('rotationSelect').addEventListener('change', (e) => {
           const chosen = ROTATIONS.find(r => (r.orielCode || r.id) === e.target.value);
           selectRotation(chosen || null);
         });
+
+        populateRotationDropdown();
       }
 
       // --- 9. EVENT LISTENERS & MODALS ---
       function setupUIHandlers() {
-        // Star clicking
         document.querySelectorAll('#starContainer .star-btn').forEach(btn => {
           btn.addEventListener('click', () => {
             if (!selectedRotation) return;
@@ -821,7 +916,6 @@
           });
         });
 
-        // Notes updating
         const notesInput = document.getElementById('inspNotes');
         notesInput.addEventListener('input', () => {
           if (!selectedRotation) return;
@@ -830,13 +924,11 @@
           safeStorageSet('st4_anaesthetics_prefs', userPreferences);
         });
 
-        // Shortlist button on card
         document.getElementById('inspShortlistBtn').addEventListener('click', () => {
           if (!selectedRotation) return;
           toggleShortlist(selectedRotation.orielCode || selectedRotation.id);
         });
 
-        // Modals opening/closing
         const shortlistModal = document.getElementById('shortlistModal');
         const syncModal = document.getElementById('syncModal');
 
@@ -858,12 +950,11 @@
           if (map) map.invalidateSize();
         };
 
-        // Sync modal clipboard actions
         document.getElementById('copySyncBtn').onclick = () => {
           const area = document.getElementById('syncDataArea');
           area.select();
           navigator.clipboard.writeText(area.value);
-          showToast('Sync code copied!');
+          showToast('Sync code copied to clipboard!');
         };
 
         document.getElementById('importSyncBtn').onclick = () => {
@@ -881,11 +972,10 @@
             showToast('Preferences merged successfully');
             syncModal.style.display = 'none';
           } else {
-            alert('Invalid sync code. Please check that you copied the complete code.');
+            alert('Invalid sync code. Please check that you copied the complete string.');
           }
         };
 
-        // Close modals on clicking overlay backdrop
         window.addEventListener('click', (e) => {
           if (e.target === shortlistModal) {
             shortlistModal.style.display = 'none';
@@ -898,10 +988,10 @@
         });
       }
 
-      // Initialise App
+      // Initialisation
       document.addEventListener('DOMContentLoaded', () => {
         initMap();
-        populateFiltersAndDropdown();
+        setupFilters();
         setupUIHandlers();
         updateShortlistCount();
       });
