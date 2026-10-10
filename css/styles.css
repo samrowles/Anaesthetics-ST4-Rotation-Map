@@ -858,17 +858,41 @@ select:focus, input:focus, textarea:focus {
 }
 
 .overview-hosp-pin { 
-  width: 18px !important; 
-  height: 18px !important; 
+  width: 12px !important; 
+  height: 12px !important; 
   border-radius: 50%; 
-  border: 2px solid #ffffff; 
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); 
+  border: 1.5px solid #ffffff; 
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); 
   cursor: pointer; 
-  transition: transform 0.15s ease; 
+  transform-origin: center center;
+  transition: transform 0.15s ease, width 0.2s ease, height 0.2s ease; 
 }
 .overview-hosp-pin:hover { 
-  transform: scale(1.35); 
+  transform: scale(1.65); 
   z-index: 9999 !important; 
+}
+
+/* Regional / City Zoom Level (Zoom >= 8) expands pins */
+.zoom-detailed .overview-hosp-pin {
+  width: 16px !important;
+  height: 16px !important;
+  border: 2px solid #ffffff;
+}
+
+/* Leaflet Layer Switcher Custom Styling */
+.leaflet-control-layers {
+  border-radius: 8px !important;
+  border: 1px solid var(--slate-300) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+  font-family: inherit !important;
+  font-size: 0.76rem !important;
+  font-weight: 700 !important;
+  color: var(--slate-800) !important;
+  margin-top: 6px !important;
+}
+.leaflet-control-layers-toggle {
+  width: 32px !important;
+  height: 32px !important;
 }
 
 .bg-site-pin { 

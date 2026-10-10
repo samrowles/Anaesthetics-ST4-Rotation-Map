@@ -35,7 +35,16 @@ function escapeHtml(str) {
 }
 
 // 3. LEAFLET MAP INITIALIZATION & LAYER GROUPS
-const map = L.map('map', { zoomControl: true }).setView([53.2, -1.8], 6);
+const map = L.map('map', { 
+  zoomControl: true,
+  minZoom: 6,
+  maxZoom: 18,
+  maxBounds: [
+    [49.5, -9.0],  // South-West England & Wales
+    [56.5, 2.5]    // North-East England
+  ],
+  maxBoundsViscosity: 0.75
+}).setView([52.8, -1.8], 6);
 
 const osmStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
@@ -51,7 +60,8 @@ const baseLayers = {
   "Standard OSM": osmStandard,
   "Soft Pastel (HOT)": osmHot
 };
-L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
+// Positioned at top-left underneath zoom controls to avoid collision with top-right action buttons
+L.control.layers(baseLayers, null, { position: 'topleft' }).addTo(map);
 
 // Distinct Leaflet Layer Groups for Modular Control
 const overviewLinesGroup = L.layerGroup().addTo(map);
@@ -802,8 +812,8 @@ function renderAllPlacements() {
     const icon = L.divIcon({
       className: 'overview-hosp-pin',
       html: `<div style="background-color: ${regColor}; width: 100%; height: 100%; border-radius: 50%;"></div>`,
-      iconSize: [18, 18],
-      iconAnchor: [9, 9]
+      iconSize: [12, 12],
+      iconAnchor: [6, 6]
     });
 
     const m = L.marker(h.coords, { icon, zIndexOffset: 500 }).bindPopup(`
@@ -1589,6 +1599,25 @@ window.addEventListener('hashchange', () => {
 // Window resize auto-invalidation for Leaflet
 window.addEventListener('resize', () => {
   map.invalidateSize();
+});
+
+// Dynamic zoom class to scale pins when zooming into regional/city level
+map.on('zoomend', () => {
+  const container = map.getContainer();
+  if (container) {
+    if (map.getZoom() >= 8) {
+      container.classList.add('zoom-detailed');
+    } else {
+      container.classList.remove('zoom-detailed');
+    }
+  }
+});
+
+// Tap map on mobile to dismiss open drawer
+map.on('click', () => {
+  if (window.innerWidth <= 768) {
+    toggleMobileSidebar(false);
+  }
 });
 
 // 21. APPLICATION ENTRY POINT
