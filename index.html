@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ST4 Anaesthetics Explorer | National Rotations & Commute Map</title>
   
-  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   
   <style>
@@ -35,7 +34,6 @@
       overflow: hidden;
     }
 
-    /* Header */
     header {
       background: var(--nhs-blue);
       color: var(--nhs-white);
@@ -73,7 +71,6 @@
     .btn-ghost:hover { background: rgba(255,255,255,0.1); }
     .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
 
-    /* Layout Split */
     .app-container {
       display: flex;
       flex: 1;
@@ -113,7 +110,6 @@
       border-color: var(--nhs-blue);
     }
 
-    /* Hospital Click Filter Banner */
     .filter-banner {
       display: none;
       align-items: center;
@@ -134,7 +130,6 @@
       gap: 16px;
     }
 
-    /* Track Inspector Card */
     .card {
       background: #ffffff;
       border: 1px solid var(--border-color);
@@ -166,7 +161,6 @@
     .metric-val { font-size: 1.15rem; font-weight: 700; color: var(--nhs-blue); }
     .metric-lbl { font-size: 0.7rem; color: var(--nhs-dark-grey); text-transform: uppercase; }
 
-    /* Hub & Hospitals list */
     .hub-box {
       background: #e6f2ff;
       border-left: 4px solid var(--nhs-bright-blue);
@@ -186,7 +180,6 @@
       font-size: 0.82rem;
     }
 
-    /* Star Rating */
     .star-rating { display: flex; gap: 4px; align-items: center; margin: 8px 0; }
     .star-btn {
       background: transparent;
@@ -198,11 +191,9 @@
     }
     .star-btn.active { color: var(--nhs-warm-yellow); }
 
-    /* Map container */
     .map-container { flex: 1; position: relative; height: 100%; }
     #map { width: 100%; height: 100%; }
 
-    /* Modals & Toast */
     .toast {
       position: fixed;
       bottom: 20px;
@@ -305,7 +296,7 @@
 
       <div class="details-scroll" id="detailsView">
         <div id="emptyPrompt" style="text-align: center; color: var(--nhs-mid-grey); padding: 40px 10px;">
-          <p>Select a rotation track above, or <b>click any hospital pin on the map</b> to see which rotations run through that site.</p>
+          <p>Select a rotation track above or click any hospital pin on the map to inspect rotation tracks.</p>
         </div>
 
         <div id="inspectorCard" class="card" style="display: none;">
@@ -351,7 +342,7 @@
               <button type="button" class="star-btn" data-star="4" aria-label="4 stars">★</button>
               <button type="button" class="star-btn" data-star="5" aria-label="5 stars">★</button>
             </div>
-            <textarea id="inspNotes" rows="3" placeholder="Add private notes (e.g. commute feasibility, modules offered, on-call intensity)..."></textarea>
+            <textarea id="inspNotes" rows="3" placeholder="Add private notes..."></textarea>
           </div>
         </div>
       </div>
@@ -362,7 +353,6 @@
     </main>
   </div>
 
-  <!-- Shortlist Modal -->
   <div class="modal-overlay" id="shortlistModal" role="dialog" aria-modal="true" aria-labelledby="shortlistTitle">
     <div class="modal">
       <div class="modal-header">
@@ -378,7 +368,6 @@
     </div>
   </div>
 
-  <!-- Backup & Sync Modal -->
   <div class="modal-overlay" id="syncModal" role="dialog" aria-modal="true" aria-labelledby="syncTitle">
     <div class="modal">
       <div class="modal-header">
@@ -387,7 +376,7 @@
       </div>
       <div class="modal-body">
         <p style="font-size: 0.85rem; color: var(--nhs-dark-grey); margin-bottom: 8px;">
-          Copy this code to transfer your ratings and notes to another device or partner, or paste an existing code to import:
+          Copy this code to transfer your ratings and notes to another device, or paste a code to import:
         </p>
         <textarea id="syncDataArea" rows="6" style="margin-bottom: 12px; font-family: monospace; font-size: 0.8rem;"></textarea>
         <div style="display: flex; gap: 8px; justify-content: flex-end;">
@@ -400,24 +389,19 @@
 
   <div id="toast" class="toast">Changes saved</div>
 
-  <!-- Leaflet JavaScript -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  
-  <!-- Data Script -->
   <script src="data.js"></script>
 
-  <!-- Application Logic -->
   <script>
     (function() {
       'use strict';
 
-      // --- 1. DEFENSIVE LOCAL STORAGE WRAPPER ---
+      // 1. Storage Helpers
       function safeStorageGet(key, fallback) {
         try {
           const item = localStorage.getItem(key);
           return item ? JSON.parse(item) : fallback;
         } catch (e) {
-          console.warn('localStorage read error:', e);
           return fallback;
         }
       }
@@ -425,12 +409,10 @@
       function safeStorageSet(key, value) {
         try {
           localStorage.setItem(key, JSON.stringify(value));
-        } catch (e) {
-          console.warn('localStorage write error:', e);
-        }
+        } catch (e) {}
       }
 
-      // --- 2. UNICODE-SAFE UTF-8 SYNC ENCODER ---
+      // 2. Safe Sync Encoder
       function encodeSyncPayload(data) {
         const json = JSON.stringify({ v: 1, timestamp: Date.now(), data });
         return btoa(encodeURIComponent(json).replace(/%([0-9A-F]{2})/g, (_, p1) => {
@@ -448,35 +430,80 @@
           const parsed = JSON.parse(json);
           return parsed.data || parsed;
         } catch (err) {
-          console.error("Corrupted sync string:", err);
           return null;
         }
       }
 
-      // --- 3. DATA RECONCILIATION & LOOKUP ---
+      // 3. Universal Data Normalisation
       const rawData = window.ST4_DATA || { rotations: [], hospitals: {} };
-      const ROTATIONS = Array.isArray(rawData.rotations) ? rawData.rotations : [];
-      const HOSPITALS = rawData.hospitals || {};
+      const HOSPITALS_DICT = rawData.hospitals || {};
 
-      // Helper: Resolve array of hospital keys to full objects
-      function getHospitalsForRotation(rotation) {
-        if (!rotation || !Array.isArray(rotation.hospitals)) return [];
-        return rotation.hospitals
-          .map(key => {
-            const h = HOSPITALS[key];
-            if (!h) {
-              console.warn(`Hospital key "${key}" not in lookup table.`);
-              return null;
-            }
-            return { id: key, ...h };
-          })
+      function normalizeHospital(hRef) {
+        if (!hRef) return null;
+
+        // If already an object with lat/lng
+        if (typeof hRef === 'object') {
+          const lat = parseFloat(hRef.lat || hRef.latitude);
+          const lng = parseFloat(hRef.lng || hRef.lon || hRef.longitude);
+          return {
+            name: hRef.name || hRef.hospital || 'Hospital Site',
+            trust: hRef.trust || '',
+            lat: !isNaN(lat) ? lat : null,
+            lng: !isNaN(lng) ? lng : null
+          };
+        }
+
+        // If string key or name
+        if (typeof hRef === 'string') {
+          const key = hRef.trim();
+          if (HOSPITALS_DICT[key]) {
+            const h = HOSPITALS_DICT[key];
+            return {
+              name: h.name || key,
+              trust: h.trust || '',
+              lat: parseFloat(h.lat),
+              lng: parseFloat(h.lng)
+            };
+          }
+          // Lookup by matching name in dictionary
+          const matchByName = Object.values(HOSPITALS_DICT).find(v => 
+            v.name && v.name.toLowerCase() === key.toLowerCase()
+          );
+          if (matchByName) {
+            return {
+              name: matchByName.name,
+              trust: matchByName.trust || '',
+              lat: parseFloat(matchByName.lat),
+              lng: parseFloat(matchByName.lng)
+            };
+          }
+          // Fallback: name string without coordinates
+          return { name: key, trust: '', lat: null, lng: null };
+        }
+
+        return null;
+      }
+
+      const ROTATIONS = (Array.isArray(rawData.rotations) ? rawData.rotations : []).map((r, idx) => {
+        const id = r.orielCode || r.code || r.id || `ROT-${idx + 1}`;
+        const rawHospitals = r.hospitals || r.sites || r.trusts || [];
+        const resolvedHospitals = (Array.isArray(rawHospitals) ? rawHospitals : [rawHospitals])
+          .map(normalizeHospital)
           .filter(Boolean);
-      }
 
-      // Helper: Reverse lookup (Find all rotations passing through a hospital key)
-      function getRotationsForHospital(hospitalKey) {
-        return ROTATIONS.filter(r => Array.isArray(r.hospitals) && r.hospitals.includes(hospitalKey));
-      }
+        return {
+          id: id,
+          orielCode: id,
+          title: r.title || r.trackTitle || r.name || `Rotation ${id}`,
+          region: r.region || r.deanery || r.letb || 'National',
+          places: r.places || r.posts || r.count || '-',
+          maxSpreadMiles: r.maxSpreadMiles || r.spread || r.maxSpread || 0,
+          suggestedHub: r.suggestedHub || r.suggestedBase || r.hub || 'Flexible',
+          hubDetails: r.hubDetails || r.hubTravel || r.commuteDetails || '',
+          description: r.description || r.details || '',
+          hospitals: resolvedHospitals
+        };
+      });
 
       // User state
       let userPreferences = safeStorageGet('st4_anaesthetics_prefs', {
@@ -486,7 +513,7 @@
       });
 
       let selectedRotation = null;
-      let activeHospitalFilterKey = null;
+      let activeHospitalFilterName = null;
       let map = null;
       let hospitalMarkers = L.layerGroup();
       let activeTrackPolyline = null;
@@ -498,7 +525,7 @@
         setTimeout(() => { t.style.display = 'none'; }, 2000);
       }
 
-      // --- 4. MAP & HOSPITAL MARKERS ---
+      // 4. Map Setup
       function initMap() {
         map = L.map('map', {
           zoomControl: true,
@@ -511,491 +538,37 @@
         }).addTo(map);
 
         hospitalMarkers.addTo(map);
-        renderNationalHospitalMarkers();
+        renderHospitalMarkers();
 
         window.addEventListener('resize', () => {
           if (map) map.invalidateSize();
         });
       }
 
-      function renderNationalHospitalMarkers() {
+      function renderHospitalMarkers() {
         hospitalMarkers.clearLayers();
 
-        Object.entries(HOSPITALS).forEach(([key, hosp]) => {
-          if (typeof hosp.lat !== 'number' || typeof hosp.lng !== 'number') return;
+        // Collect all unique hospital sites that have valid coordinates
+        const uniqueSites = new Map();
 
-          const marker = L.circleMarker([hosp.lat, hosp.lng], {
-            radius: 6,
-            fillColor: '#005eb8',
-            color: '#ffffff',
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.9
-          });
-
-          // Safe popup rendering with interactive rotation links
-          const popup = document.createElement('div');
-          popup.style.maxWidth = '240px';
-
-          const title = document.createElement('strong');
-          title.style.display = 'block';
-          title.style.color = '#003087';
-          title.textContent = hosp.name;
-          popup.appendChild(title);
-
-          if (hosp.trust) {
-            const trustDiv = document.createElement('div');
-            trustDiv.style.fontSize = '0.75rem';
-            trustDiv.style.color = '#555';
-            trustDiv.style.marginBottom = '6px';
-            trustDiv.textContent = hosp.trust;
-            popup.appendChild(trustDiv);
-          }
-
-          const rots = getRotationsForHospital(key);
-          const meta = document.createElement('div');
-          meta.style.fontSize = '0.75rem';
-          meta.style.fontWeight = 'bold';
-          meta.style.marginTop = '4px';
-          meta.textContent = `Included in ${rots.length} rotation${rots.length === 1 ? '' : 's'}:`;
-          popup.appendChild(meta);
-
-          const list = document.createElement('ul');
-          list.style.listStyle = 'none';
-          list.style.padding = '0';
-          list.style.margin = '4px 0 0 0';
-
-          rots.forEach(r => {
-            const li = document.createElement('li');
-            li.style.margin = '3px 0';
-            const btn = document.createElement('a');
-            btn.href = '#';
-            btn.style.color = '#005eb8';
-            btn.style.fontSize = '0.75rem';
-            btn.style.textDecoration = 'underline';
-            btn.textContent = r.title;
-            btn.onclick = (e) => {
-              e.preventDefault();
-              selectRotation(r);
-              map.closePopup();
-            };
-            li.appendChild(btn);
-            list.appendChild(li);
-          });
-          popup.appendChild(list);
-
-          // Filter by hospital button
-          const filterBtn = document.createElement('button');
-          filterBtn.className = 'btn btn-sm btn-light';
-          filterBtn.style.marginTop = '8px';
-          filterBtn.style.width = '100%';
-          filterBtn.textContent = 'Filter list to this hospital';
-          filterBtn.onclick = () => {
-            setHospitalFilter(key, hosp.name);
-            map.closePopup();
-          };
-          popup.appendChild(filterBtn);
-
-          marker.bindPopup(popup);
-          hospitalMarkers.addLayer(marker);
-        });
-      }
-
-      // --- 5. SAFE MAP BOUNDS ZOOMING ---
-      function focusRotationOnMap(rotation) {
-        if (!map) return;
-
-        if (activeTrackPolyline) {
-          map.removeLayer(activeTrackPolyline);
-          activeTrackPolyline = null;
-        }
-
-        const hospitals = getHospitalsForRotation(rotation);
-        const points = hospitals.map(h => [h.lat, h.lng]);
-
-        if (points.length === 0) return;
-
-        if (points.length > 1) {
-          activeTrackPolyline = L.polyline(points, {
-            color: '#ffb81c',
-            weight: 4,
-            dashArray: '6, 8',
-            opacity: 0.95
-          }).addTo(map);
-
-          map.fitBounds(L.latLngBounds(points), { padding: [50, 50], maxZoom: 12 });
-        } else {
-          // Bugfix: Prevent infinite zoom when only 1 hospital exists
-          map.setView(points[0], 11);
-        }
-      }
-
-      // --- 6. ROTATION INSPECTOR & RENDERING ---
-      function selectRotation(rot) {
-        selectedRotation = rot;
-        const emptyPrompt = document.getElementById('emptyPrompt');
-        const card = document.getElementById('inspectorCard');
-        const rotationSelect = document.getElementById('rotationSelect');
-
-        if (!rot) {
-          emptyPrompt.style.display = 'block';
-          card.style.display = 'none';
-          if (activeTrackPolyline) {
-            map.removeLayer(activeTrackPolyline);
-            activeTrackPolyline = null;
-          }
-          if (rotationSelect.value !== '') rotationSelect.value = '';
-          return;
-        }
-
-        emptyPrompt.style.display = 'none';
-        card.style.display = 'block';
-        rotationSelect.value = rot.orielCode || rot.id;
-
-        // Populate fields safely using textContent
-        document.getElementById('inspOrielCode').textContent = rot.orielCode || rot.id;
-        document.getElementById('inspTitle').textContent = rot.title;
-        document.getElementById('inspRegion').textContent = rot.region || 'National';
-        document.getElementById('inspDescription').textContent = rot.description || '';
-        document.getElementById('inspPlaces').textContent = rot.places || '1';
-        document.getElementById('inspSpread').textContent = rot.maxSpreadMiles ? `${rot.maxSpreadMiles} mi` : 'N/A';
-        document.getElementById('inspHub').textContent = rot.suggestedHub || 'Flexible';
-        document.getElementById('inspHubDetails').textContent = rot.hubDetails || '';
-
-        // Resolved hospital items from lookup table
-        const hospitals = getHospitalsForRotation(rot);
-        document.getElementById('inspHospitalsCount').textContent = hospitals.length;
-
-        const hospListEl = document.getElementById('inspHospitalList');
-        hospListEl.replaceChildren();
-
-        hospitals.forEach(hosp => {
-          const li = document.createElement('li');
-          li.className = 'hospital-item';
-
-          const textDiv = document.createElement('div');
-          const nameSpan = document.createElement('strong');
-          nameSpan.style.display = 'block';
-          nameSpan.textContent = hosp.name;
-          textDiv.appendChild(nameSpan);
-
-          if (hosp.trust) {
-            const trustSpan = document.createElement('span');
-            trustSpan.style.fontSize = '0.75rem';
-            trustSpan.style.color = '#555';
-            trustSpan.textContent = hosp.trust;
-            textDiv.appendChild(trustSpan);
-          }
-          li.appendChild(textDiv);
-
-          const zoomBtn = document.createElement('button');
-          zoomBtn.type = 'button';
-          zoomBtn.className = 'btn btn-sm btn-light';
-          zoomBtn.textContent = 'Focus';
-          zoomBtn.onclick = () => map.setView([hosp.lat, hosp.lng], 13);
-          li.appendChild(zoomBtn);
-
-          hospListEl.appendChild(li);
-        });
-
-        updateInspectorShortlistBtn();
-
-        const code = rot.orielCode || rot.id;
-        renderStars(userPreferences.ratings[code] || 0);
-        document.getElementById('inspNotes').value = userPreferences.notes[code] || '';
-
-        focusRotationOnMap(rot);
-      }
-
-      function updateInspectorShortlistBtn() {
-        if (!selectedRotation) return;
-        const code = selectedRotation.orielCode || selectedRotation.id;
-        const btn = document.getElementById('inspShortlistBtn');
-        const isShortlisted = userPreferences.shortlist.includes(code);
-
-        btn.textContent = isShortlisted ? '★ Shortlisted' : '☆ Shortlist';
-        btn.className = isShortlisted ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-light';
-      }
-
-      function renderStars(rating) {
-        document.querySelectorAll('#starContainer .star-btn').forEach(btn => {
-          const starVal = parseInt(btn.dataset.star, 10);
-          if (starVal <= rating) {
-            btn.classList.add('active');
-          } else {
-            btn.classList.remove('active');
+        // 1. Sites from dictionary
+        Object.entries(HOSPITALS_DICT).forEach(([k, h]) => {
+          const lat = parseFloat(h.lat);
+          const lng = parseFloat(h.lng);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            uniqueSites.set(h.name || k, { name: h.name || k, trust: h.trust || '', lat, lng });
           }
         });
-      }
 
-      // --- 7. SHORTLIST & RANKING LOGIC ---
-      function toggleShortlist(code) {
-        const idx = userPreferences.shortlist.indexOf(code);
-        if (idx > -1) {
-          userPreferences.shortlist.splice(idx, 1);
-        } else {
-          userPreferences.shortlist.push(code);
-        }
-        safeStorageSet('st4_anaesthetics_prefs', userPreferences);
-        updateShortlistCount();
-        updateInspectorShortlistBtn();
-        renderRankingModal();
-      }
-
-      function moveRanking(code, direction) {
-        const list = userPreferences.shortlist;
-        const idx = list.indexOf(code);
-        if (idx === -1) return;
-
-        const targetIdx = idx + direction;
-        if (targetIdx >= 0 && targetIdx < list.length) {
-          const temp = list[idx];
-          list[idx] = list[targetIdx];
-          list[targetIdx] = temp;
-          safeStorageSet('st4_anaesthetics_prefs', userPreferences);
-          renderRankingModal();
-        }
-      }
-
-      function updateShortlistCount() {
-        document.getElementById('shortlistCount').textContent = userPreferences.shortlist.length;
-      }
-
-      function renderRankingModal() {
-        const container = document.getElementById('rankingListContainer');
-        container.replaceChildren();
-
-        if (userPreferences.shortlist.length === 0) {
-          const empty = document.createElement('li');
-          empty.style.color = '#768692';
-          empty.style.fontSize = '0.85rem';
-          empty.textContent = 'No tracks shortlisted yet. Click "☆ Shortlist" on any rotation to rank it here.';
-          container.appendChild(empty);
-          return;
-        }
-
-        userPreferences.shortlist.forEach((code, i) => {
-          const rot = ROTATIONS.find(r => (r.orielCode || r.id) === code);
-          const li = document.createElement('li');
-          li.className = 'ranking-item';
-
-          const textDiv = document.createElement('div');
-          const rankBold = document.createElement('strong');
-          rankBold.textContent = `#${i + 1} `;
-          textDiv.appendChild(rankBold);
-
-          const titleSpan = document.createElement('span');
-          titleSpan.textContent = rot ? rot.title : code;
-          textDiv.appendChild(titleSpan);
-
-          const controlsDiv = document.createElement('div');
-          controlsDiv.style.display = 'flex';
-          controlsDiv.style.gap = '4px';
-
-          const upBtn = document.createElement('button');
-          upBtn.type = 'button';
-          upBtn.className = 'btn btn-sm btn-light';
-          upBtn.textContent = '▲';
-          upBtn.disabled = i === 0;
-          upBtn.onclick = () => moveRanking(code, -1);
-
-          const downBtn = document.createElement('button');
-          downBtn.type = 'button';
-          downBtn.className = 'btn btn-sm btn-light';
-          downBtn.textContent = '▼';
-          downBtn.disabled = i === userPreferences.shortlist.length - 1;
-          downBtn.onclick = () => moveRanking(code, 1);
-
-          controlsDiv.appendChild(upBtn);
-          controlsDiv.appendChild(downBtn);
-
-          li.appendChild(textDiv);
-          li.appendChild(controlsDiv);
-          container.appendChild(li);
-        });
-      }
-
-      // --- 8. FILTERS & POPULATION ---
-      function setHospitalFilter(hospitalKey, hospitalName) {
-        activeHospitalFilterKey = hospitalKey;
-        const banner = document.getElementById('hospitalFilterBanner');
-        document.getElementById('filterHospitalName').textContent = hospitalName;
-        banner.style.display = 'flex';
-        populateRotationDropdown();
-      }
-
-      function clearHospitalFilter() {
-        activeHospitalFilterKey = null;
-        document.getElementById('hospitalFilterBanner').style.display = 'none';
-        populateRotationDropdown();
-      }
-
-      function populateRotationDropdown() {
-        const regionSelect = document.getElementById('regionFilter');
-        const sortMode = document.getElementById('sortOrder').value;
-        const rotationSelect = document.getElementById('rotationSelect');
-        const selectedRegion = regionSelect.value;
-
-        rotationSelect.replaceChildren();
-
-        const defaultOpt = document.createElement('option');
-        defaultOpt.value = '';
-        defaultOpt.textContent = '-- Choose Rotation to Inspect --';
-        rotationSelect.appendChild(defaultOpt);
-
-        let filtered = ROTATIONS.filter(r => {
-          const matchesRegion = (selectedRegion === 'ALL' || r.region === selectedRegion);
-          const matchesHospital = !activeHospitalFilterKey || (Array.isArray(r.hospitals) && r.hospitals.includes(activeHospitalFilterKey));
-          return matchesRegion && matchesHospital;
-        });
-
-        filtered.sort((a, b) => {
-          const codeA = a.orielCode || a.id;
-          const codeB = b.orielCode || b.id;
-          if (sortMode === 'SPREAD_ASC') return (a.maxSpreadMiles || 0) - (b.maxSpreadMiles || 0);
-          if (sortMode === 'PLACES_DESC') return (b.places || 0) - (a.places || 0);
-          if (sortMode === 'RATING_DESC') {
-            const rA = userPreferences.ratings[codeA] || 0;
-            const rB = userPreferences.ratings[codeB] || 0;
-            return rB - rA;
-          }
-          return 0;
-        });
-
-        filtered.forEach(r => {
-          const opt = document.createElement('option');
-          opt.value = r.orielCode || r.id;
-          const placesText = r.places ? ` [${r.places} posts]` : '';
-          opt.textContent = `${r.title}${placesText}`;
-          rotationSelect.appendChild(opt);
-        });
-
-        if (selectedRotation) {
-          rotationSelect.value = selectedRotation.orielCode || selectedRotation.id;
-        }
-      }
-
-      function setupFilters() {
-        const regionSelect = document.getElementById('regionFilter');
-        const regions = new Set();
-
+        // 2. Sites from rotations
         ROTATIONS.forEach(r => {
-          if (r.region) regions.add(r.region);
-        });
-
-        Array.from(regions).sort().forEach(reg => {
-          const opt = document.createElement('option');
-          opt.value = reg;
-          opt.textContent = reg;
-          regionSelect.appendChild(opt);
-        });
-
-        regionSelect.addEventListener('change', populateRotationDropdown);
-        document.getElementById('sortOrder').addEventListener('change', populateRotationDropdown);
-        document.getElementById('clearHospitalFilterBtn').addEventListener('click', clearHospitalFilter);
-
-        document.getElementById('rotationSelect').addEventListener('change', (e) => {
-          const chosen = ROTATIONS.find(r => (r.orielCode || r.id) === e.target.value);
-          selectRotation(chosen || null);
-        });
-
-        populateRotationDropdown();
-      }
-
-      // --- 9. EVENT LISTENERS & MODALS ---
-      function setupUIHandlers() {
-        document.querySelectorAll('#starContainer .star-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            if (!selectedRotation) return;
-            const rating = parseInt(btn.dataset.star, 10);
-            const code = selectedRotation.orielCode || selectedRotation.id;
-            userPreferences.ratings[code] = rating;
-            safeStorageSet('st4_anaesthetics_prefs', userPreferences);
-            renderStars(rating);
-            showToast('Rating updated');
+          r.hospitals.forEach(h => {
+            if (h.lat !== null && h.lng !== null && !uniqueSites.has(h.name)) {
+              uniqueSites.set(h.name, h);
+            }
           });
         });
 
-        const notesInput = document.getElementById('inspNotes');
-        notesInput.addEventListener('input', () => {
-          if (!selectedRotation) return;
-          const code = selectedRotation.orielCode || selectedRotation.id;
-          userPreferences.notes[code] = notesInput.value;
-          safeStorageSet('st4_anaesthetics_prefs', userPreferences);
-        });
-
-        document.getElementById('inspShortlistBtn').addEventListener('click', () => {
-          if (!selectedRotation) return;
-          toggleShortlist(selectedRotation.orielCode || selectedRotation.id);
-        });
-
-        const shortlistModal = document.getElementById('shortlistModal');
-        const syncModal = document.getElementById('syncModal');
-
-        document.getElementById('openShortlistBtn').onclick = () => {
-          renderRankingModal();
-          shortlistModal.style.display = 'flex';
-        };
-        document.getElementById('closeShortlistModal').onclick = () => {
-          shortlistModal.style.display = 'none';
-          if (map) map.invalidateSize();
-        };
-
-        document.getElementById('openSyncModalBtn').onclick = () => {
-          document.getElementById('syncDataArea').value = encodeSyncPayload(userPreferences);
-          syncModal.style.display = 'flex';
-        };
-        document.getElementById('closeSyncModal').onclick = () => {
-          syncModal.style.display = 'none';
-          if (map) map.invalidateSize();
-        };
-
-        document.getElementById('copySyncBtn').onclick = () => {
-          const area = document.getElementById('syncDataArea');
-          area.select();
-          navigator.clipboard.writeText(area.value);
-          showToast('Sync code copied to clipboard!');
-        };
-
-        document.getElementById('importSyncBtn').onclick = () => {
-          const str = document.getElementById('syncDataArea').value;
-          const imported = decodeSyncPayload(str);
-          if (imported && typeof imported === 'object') {
-            userPreferences = {
-              ratings: Object.assign({}, userPreferences.ratings, imported.ratings || {}),
-              notes: Object.assign({}, userPreferences.notes, imported.notes || {}),
-              shortlist: Array.from(new Set([...(userPreferences.shortlist || []), ...(imported.shortlist || [])]))
-            };
-            safeStorageSet('st4_anaesthetics_prefs', userPreferences);
-            updateShortlistCount();
-            if (selectedRotation) selectRotation(selectedRotation);
-            showToast('Preferences merged successfully');
-            syncModal.style.display = 'none';
-          } else {
-            alert('Invalid sync code. Please check that you copied the complete string.');
-          }
-        };
-
-        window.addEventListener('click', (e) => {
-          if (e.target === shortlistModal) {
-            shortlistModal.style.display = 'none';
-            if (map) map.invalidateSize();
-          }
-          if (e.target === syncModal) {
-            syncModal.style.display = 'none';
-            if (map) map.invalidateSize();
-          }
-        });
-      }
-
-      // Initialisation
-      document.addEventListener('DOMContentLoaded', () => {
-        initMap();
-        setupFilters();
-        setupUIHandlers();
-        updateShortlistCount();
-      });
-    })();
-  </script>
-</body>
-</html>
+        uniqueSites.forEach(site => {
+          const marker = L.circleMarker([site.lat, site.lng], {
+    
