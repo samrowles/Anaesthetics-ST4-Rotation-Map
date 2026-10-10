@@ -5,7 +5,20 @@
   <title>ST4 Anaesthetics National Rotation &amp; Commute Explorer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="description" content="Interactive map of UK ST4 Anaesthetics training rotations with dual-commute living analysis for doctors and partners.">
-  <meta name="theme-color" content="#0284c7">
+  <meta name="theme-color" content="#0284c7" id="metaThemeColor">
+
+  <!-- Early Theme Detection to Prevent FOUC -->
+  <script>
+    (function() {
+      try {
+        var pref = localStorage.getItem('anaesth_theme_pref') || 'auto';
+        var isDark = pref === 'dark' || (pref === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (isDark) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
 
   <!-- Favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🩺</text></svg>">
@@ -34,12 +47,12 @@
 
 <!-- Mobile Mini Summary Bar -->
 <div id="mobileMiniCard" onclick="toggleMobileSidebar(true)">
-  <div style="width:32px; height:4px; background:#cbd5e1; border-radius:999px; margin:0 auto 6px auto;"></div>
+  <div style="width:32px; height:4px; background:var(--border-subtle); border-radius:999px; margin:0 auto 6px auto;"></div>
   <div style="display:flex; justify-content:space-between; align-items:center;">
-    <strong id="miniCardTitle" style="font-size:0.85rem; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70%;">National Overview</strong>
+    <strong id="miniCardTitle" style="font-size:0.85rem; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70%;">National Overview</strong>
     <span id="miniCardSpread" class="badge badge-code" style="font-size:0.7rem;">76 Posts</span>
   </div>
-  <div style="font-size:0.75rem; color:#64748b; margin-top:2px; display:flex; justify-content:space-between;" id="miniCardHub">
+  <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px; display:flex; justify-content:space-between;" id="miniCardHub">
     <span>🌐 Tap any pin on map or open list</span>
     <span style="font-weight:700; color:var(--primary);">Menu &rarr;</span>
   </div>
@@ -51,6 +64,7 @@
     <h1>
       ST4 Explorer
       <div class="header-actions">
+        <button class="btn-top btn-sync" id="btnThemeToggle" onclick="cycleTheme()" title="Switch Theme (Auto / Dark / Light)">🌓 Auto</button>
         <button class="btn-top btn-sync" onclick="openShortlistModal()" title="View and reorder your ranked shortlist">
           ⭐ Shortlist <span id="headerShortlistBadge" style="background:var(--amber); color:#000; border-radius:999px; padding:1px 6px; font-size:0.68rem; font-weight:800; margin-left:2px;">0</span>
         </button>
@@ -213,17 +227,17 @@
         <div class="hospitals-box">
           <div class="hospitals-box-title">
             <span>🏥 Hospital Bases in this Rotation:</span>
-            <span style="font-size:0.7rem; color:var(--slate-600); font-weight:normal;">Click 'Focus' to zoom pin</span>
+            <span style="font-size:0.7rem; color:var(--text-muted); font-weight:normal;">Click 'Focus' to zoom pin</span>
           </div>
           <div id="hospitalsListContainer" class="hospitals-chip-list"></div>
         </div>
 
-        <div style="font-weight: 800; font-size: 0.76rem; margin-bottom: 8px; color: var(--slate-700);">ROTATION TIMELINE:</div>
+        <div style="font-weight: 800; font-size: 0.76rem; margin-bottom: 8px; color: var(--text-muted);">ROTATION TIMELINE:</div>
         <div class="timeline" id="timelineContainer"></div>
 
         <!-- Rating, Tier & Shared Notes Section -->
         <div class="rating-section">
-          <div style="font-weight: 800; font-size: 0.74rem; color: var(--slate-700); margin-bottom: 6px;">ASSIGN PREFERENCE TIER:</div>
+          <div style="font-weight: 800; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 6px;">ASSIGN PREFERENCE TIER:</div>
           <div class="tier-selector-row">
             <button class="tier-btn tier-1" id="tierBtn1" onclick="setTier('TIER1')">🟢 Tier 1 (Top)</button>
             <button class="tier-btn tier-2" id="tierBtn2" onclick="setTier('TIER2')">🟡 Tier 2 (Mid)</button>
@@ -231,14 +245,14 @@
             <button class="tier-btn tier-exclude" id="tierBtnExclude" onclick="setTier('EXCLUDE')">⚪ Exclude</button>
           </div>
 
-          <div style="font-weight: 800; font-size: 0.74rem; color: var(--slate-700); margin-bottom: 4px;">YOUR RATING &amp; NOTES:</div>
+          <div style="font-weight: 800; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 4px;">YOUR RATING &amp; NOTES:</div>
           <div class="star-row" id="starContainer">
             <span class="star" onclick="setRating(1)">★</span>
             <span class="star" onclick="setRating(2)">★</span>
             <span class="star" onclick="setRating(3)">★</span>
             <span class="star" onclick="setRating(4)">★</span>
             <span class="star" onclick="setRating(5)">★</span>
-            <span style="font-size: 0.75rem; color: var(--slate-600); margin-left: 6px;" id="ratingText">(Unrated)</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 6px;" id="ratingText">(Unrated)</span>
           </div>
           <textarea class="notes-input" id="partnerNotes" placeholder="Personal notes (e.g., commute manageable, excellent cardiac block)..."></textarea>
           <button class="btn-save" onclick="saveUserPreferences()">Save Notes &amp; Tier</button>
@@ -248,15 +262,15 @@
 
     <!-- View 3: Overview Map Welcome Banner -->
     <div id="welcomeMessage" style="display: block;">
-      <div class="card" style="text-align: left; background: #f8fafc; border: 1.5px solid var(--slate-200);">
+      <div class="card" style="text-align: left; background: var(--bg-card-subtle); border: 1.5px solid var(--border-color);">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
-          <strong style="font-size: 1rem; color: var(--slate-900);">🌐 National Overview Map</strong>
+          <strong style="font-size: 1rem; color: var(--text-main);">🌐 National Overview Map</strong>
           <span class="badge badge-code" style="font-size: 0.7rem;">76 Rotations</span>
         </div>
-        <p style="font-size: 0.79rem; color: var(--slate-600); line-height: 1.45; margin-bottom: 10px;">
+        <p style="font-size: 0.79rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 10px;">
           Displaying all 60+ NHS hospital trusts colour-coded by region, connected with <b>small dashed rotation route lines</b>.
         </p>
-        <ul style="font-size:0.77rem; color:var(--slate-600); margin-left:18px; margin-bottom:12px; line-height:1.45;">
+        <ul style="font-size:0.77rem; color:var(--text-muted); margin-left:18px; margin-bottom:12px; line-height:1.45;">
           <li><b>Hover / Click any dashed line</b> to preview that rotation footprint.</li>
           <li><b>Click any hospital pin</b> to see every rotation that visits it.</li>
           <li>Filter by region above to inspect individual training networks.</li>
@@ -295,7 +309,7 @@
     </div>
     <div class="modal-body">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:6px;">
-        <span style="font-size:0.78rem; color:var(--slate-600);">Type a rank number or drag cards to reorder your Oriel list:</span>
+        <span style="font-size:0.78rem; color:var(--text-muted);">Type a rank number or drag cards to reorder your Oriel list:</span>
         <button class="btn-top btn-export" onclick="exportShortlistCSV()">Download Shortlist CSV</button>
       </div>
       <div id="shortlistModalBody"></div>
@@ -324,7 +338,7 @@
       <button class="btn-step" onclick="closeModal('customBaseModal')" aria-label="Close modal">✕</button>
     </div>
     <div class="modal-body">
-      <p style="font-size:0.78rem; color:var(--slate-600); margin-bottom:12px; line-height:1.4;">
+      <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:12px; line-height:1.4;">
         Enter your prospective home postcode or town in the UK. We'll calculate personalized commute distances and drive times to every hospital in all rotations.
       </p>
       <div style="display:flex; gap:6px; margin-bottom:10px;">
@@ -336,7 +350,7 @@
         <button class="btn-top btn-sync" onclick="startMapPickBase()">🗺️ Click on Map</button>
         <button class="btn-top btn-sync" onclick="clearCustomHomeBase()" style="color:#b91c1c;">Clear Base</button>
       </div>
-      <div id="customBaseStatusBox" style="font-size:0.76rem; color:var(--slate-700); background:#f8fafc; padding:8px 10px; border-radius:6px; border:1px solid var(--slate-200);">
+      <div id="customBaseStatusBox" style="font-size:0.76rem; color:var(--text-muted); background:var(--bg-card-subtle); padding:8px 10px; border-radius:6px; border:1px solid var(--border-color);">
         Current Base: <b>None set</b> (using suggested programme hubs).
       </div>
     </div>
@@ -356,7 +370,7 @@
         <button class="btn-save" style="margin-top:0; background:var(--emerald); flex:1;" onclick="document.getElementById('backupFileInput').click()">📂 Upload .JSON Backup File</button>
         <input type="file" id="backupFileInput" accept=".json" style="display:none;" onchange="handleBackupFileUpload(event)">
       </div>
-      <p style="font-size:0.78rem; color:var(--slate-600); margin-bottom:8px;">
+      <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:8px;">
         Or copy/paste the sync text code below to share ratings with your partner:
       </p>
       <textarea id="syncJsonArea" style="height:120px; font-family:monospace; font-size:0.74rem;"></textarea>

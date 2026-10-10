@@ -49,25 +49,116 @@ const map = L.map('map', {
 const osmStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
+});
 
 const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, Tiles courtesy of <a href="https://www.hotosm.org/">HOT</a>'
 });
 
+const cartoDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  maxZoom: 20,
+  subdomains: 'abcd',
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+});
+
 const baseLayers = {
   "Standard OSM": osmStandard,
-  "Soft Pastel (HOT)": osmHot
+  "Soft Pastel (HOT)": osmHot,
+  "Dark Canvas": cartoDark
 };
+
+let lastLightLayer = osmStandard;
 // Positioned at top-left underneath zoom controls to avoid collision with top-right action buttons
-L.control.layers(baseLayers, null, { position: 'topleft' }).addTo(map);
+const layerControl = L.control.layers(baseLayers, null, { position: 'topleft' }).addTo(map);
+
+map.on('baselayerchange', (e) => {
+  if (e.layer === osmStandard || e.layer === osmHot) {
+    lastLightLayer = e.layer;
+  }
+});
 
 // Distinct Leaflet Layer Groups for Modular Control
 const overviewLinesGroup = L.layerGroup().addTo(map);
 const backgroundHospitalsGroup = L.layerGroup().addTo(map);
 const activeRouteGroup = L.layerGroup().addTo(map);
 const customBaseLayerGroup = L.layerGroup().addTo(map);
+
+// 4. THEME MANAGEMENT (Auto OS detection with manual override)
+let currentThemeMode = localStorage.getItem('anaesth_theme_pref') || 'auto'; // 'auto', 'dark', 'light'
+
+function getEffectiveTheme() {
+  if (currentThemeMode === 'dark') return 'dark';
+  if (currentThemeMode === 'light') return 'light';
+  return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+}
+
+function updateMapTileTheme(effectiveTheme) {
+  if (effectiveTheme === 'dark') {
+    if (map.hasLayer(osmStandard)) map.removeLayer(osmStandard);
+    if (map.hasLayer(osmHot)) map.removeLayer(osmHot);
+    if (!map.hasLayer(cartoDark)) cartoDark.addTo(map);
+  } else {
+    if (map.hasLayer(cartoDark)) map.removeLayer(cartoDark);
+    if (!map.hasLayer(osmStandard) && !map.hasLayer(osmHot)) {
+      (lastLightLayer || osmStandard).addTo(map);
+    }
+  }
+}
+
+function updateThemeButtonUI() {
+  const btn = document.getElementById('btnThemeToggle');
+  if (!btn) return;
+  if (currentThemeMode === 'auto') {
+    const isDark = getEffectiveTheme() === 'dark';
+    btn.innerHTML = `🌓 Auto`;
+    btn.title = `Theme: Auto (${isDark ? 'Dark' : 'Light'}) - Click to switch`;
+  } else if (currentThemeMode === 'dark') {
+    btn.innerHTML = `🌙 Dark`;
+    btn.title = `Theme: Dark Mode - Click to switch`;
+  } else {
+    btn.innerHTML = `☀️ Light`;
+    btn.title = `Theme: Light Mode - Click to switch`;
+  }
+}
+
+function applyTheme() {
+  const effective = getEffectiveTheme();
+  document.documentElement.setAttribute('data-theme', effective);
+  updateThemeButtonUI();
+  updateMapTileTheme(effective);
+
+  const metaTheme = document.getElementById('metaThemeColor');
+  if (metaTheme) {
+    metaTheme.setAttribute('content', effective === 'dark' ? '#0f172a' : '#0284c7');
+  }
+}
+
+function cycleTheme() {
+  if (currentThemeMode === 'auto') {
+    currentThemeMode = 'dark';
+  } else if (currentThemeMode === 'dark') {
+    currentThemeMode = 'light';
+  } else {
+    currentThemeMode = 'auto';
+  }
+  localStorage.setItem('anaesth_theme_pref', currentThemeMode);
+  applyTheme();
+
+  const label = currentThemeMode === 'auto'
+    ? `Auto (${getEffectiveTheme() === 'dark' ? 'Dark' : 'Light'})`
+    : (currentThemeMode === 'dark' ? 'Dark Mode' : 'Light Mode');
+  showToast(`Theme: ${label}`);
+}
+
+// Real-time system theme preference change listener
+if (window.matchMedia) {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (currentThemeMode === 'auto') {
+      applyTheme();
+    }
+  });
+}
 
 // 4. APPLICATION STATE
 let currentSelectedId = null;
@@ -197,7 +288,7 @@ function renderRotationCardsFeed(list) {
 
   if (!list.length) {
     container.innerHTML = `
-      <div style="text-align:center; padding:40px 15px; color:var(--slate-600);">
+      <div style="text-align:center; padding:40px 15px; color:var(--text-muted);">
         <p style="font-weight:700;">No matching rotations found</p>
         <p style="font-size:0.8rem; margin-top:4px; margin-bottom:12px;">Try adjusting your search query, region, or filters.</p>
         <button class="btn-step" onclick="resetAllFilters()" style="margin:0 auto; padding:6px 14px; color:var(--primary); font-weight:800;">
@@ -259,8 +350,8 @@ function renderRotationCardsFeed(list) {
         <span>${hubEmoji} Base: <b>${escapeHtml(activeHubName)}</b></span>
         <span style="color:var(--amber); font-weight:800; font-size:0.85rem;">${'★'.repeat(userData.rating) || '☆☆☆☆☆'}</span>
       </div>
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:6px; border-top:1px solid #f1f5f9;">
-        <span style="font-size:0.72rem; color:var(--slate-600);">${escapeHtml(r.region)}</span>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:6px; border-top:1px solid var(--border-color);">
+        <span style="font-size:0.72rem; color:var(--text-muted);">${escapeHtml(r.region)}</span>
         <button class="hospital-chip-btn" onclick="openDetailsForRotation('${r.id}')" style="font-size:0.72rem; padding:3px 9px;">Details &amp; Timeline &rarr;</button>
       </div>
     `;
@@ -641,7 +732,7 @@ function selectRotation(id, shouldCloseMobile = false) {
         iconAnchor: [5, 5]
       });
       const bgMarker = L.marker(h.coords, { icon: bgIcon, zIndexOffset: 100 })
-        .bindPopup(`<b>${hName}</b><br><span style="font-size:0.75rem; color:#64748b;">${h.region}</span>`);
+        .bindPopup(`<b>${hName}</b><br><span style="font-size:0.75rem; color:var(--text-muted);">${h.region}</span>`);
       backgroundHospitalsGroup.addLayer(bgMarker);
     }
   });
@@ -672,7 +763,7 @@ function selectRotation(id, shouldCloseMobile = false) {
       iconAnchor: [17, 17]
     });
     const homeMarker = L.marker(activeHubCoords, { icon: homeIcon, zIndexOffset: 2000 })
-      .bindPopup(`<b>Base: ${activeHubName}</b><br><span style="font-size:0.8rem; color:#475569;">${activeHub.desc || 'Custom prospective living base'}</span>`);
+      .bindPopup(`<b>Base: ${activeHubName}</b><br><span style="font-size:0.8rem; color:var(--text-muted);">${activeHub.desc || 'Custom prospective living base'}</span>`);
     activeRouteGroup.addLayer(homeMarker);
 
     const commuteCircle = L.circle(activeHubCoords, {
@@ -701,7 +792,7 @@ function selectRotation(id, shouldCloseMobile = false) {
         iconAnchor: [14, 14]
       });
       const m = L.marker(hData.coords, { icon, zIndexOffset: 1500 })
-        .bindPopup(`<b>Stage ${idx + 1}: ${stg.hosp}</b><br><span style="font-size:0.8rem; color:#64748b;">${stg.stage} - ${stg.desc}</span>`);
+        .bindPopup(`<b>Stage ${idx + 1}: ${stg.hosp}</b><br><span style="font-size:0.8rem; color:var(--text-muted);">${stg.stage} - ${stg.desc}</span>`);
       activeRouteGroup.addLayer(m);
     }
   });
@@ -762,7 +853,8 @@ function renderAllPlacements() {
         polyline.bindTooltip(tooltipContent, { sticky: true });
 
         polyline.on('mouseover', function() {
-          this.setStyle({ weight: 4.5, opacity: 1.0, color: '#0f172a' });
+          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          this.setStyle({ weight: 4.5, opacity: 1.0, color: isDark ? '#38bdf8' : '#0f172a' });
           this.bringToFront();
         });
 
@@ -800,11 +892,11 @@ function renderAllPlacements() {
 
     const linkedHtml = linkedRotations.length ? 
       `<div class="overview-popup-rot-list">
-        <span style="font-size:0.7rem; font-weight:800; color:#475569; text-transform:uppercase;">Click a rotation to view route:</span>
+        <span style="font-size:0.7rem; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Click a rotation to view route:</span>
         ${linkedRotations.map(r => `
           <button class="popup-rotation-btn" onclick="diveInFromPopup('${r.id}')">
             <span>${r.code}</span>
-            <span style="font-size:0.7rem; color:#64748b;">${r.places} pl &rarr;</span>
+            <span style="font-size:0.7rem; color:var(--text-muted);">${r.places} pl &rarr;</span>
           </button>
         `).join('')}
        </div>` : '';
@@ -819,14 +911,15 @@ function renderAllPlacements() {
     const m = L.marker(h.coords, { icon, zIndexOffset: 500 }).bindPopup(`
       <div class="overview-popup-title">🏥 ${hName}</div>
       <div class="overview-popup-reg" style="color:${regColor};">${h.region}</div>
-      <div style="font-size:0.75rem; color:#475569;">Included in <b>${linkedRotations.length}</b> rotation scheme(s).</div>
+      <div style="font-size:0.75rem; color:var(--text-muted);">Included in <b>${linkedRotations.length}</b> rotation scheme(s).</div>
       ${linkedHtml}
     `, { maxWidth: 280 });
 
     m.on('mouseover', function() {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
       const lines = linesByHospital[hName] || [];
       lines.forEach(item => {
-        item.line.setStyle({ weight: 4.5, opacity: 1.0, color: '#0f172a' });
+        item.line.setStyle({ weight: 4.5, opacity: 1.0, color: isDark ? '#38bdf8' : '#0f172a' });
         item.line.bringToFront();
       });
     });
@@ -1046,7 +1139,7 @@ function renderShortlistModal() {
   });
   
   if (!starred.length) {
-    body.innerHTML = `<div style="text-align:center; padding:30px; color:var(--slate-600);"><p style="font-weight:700;">No rotations shortlisted yet!</p><p style="font-size:0.8rem; margin-top:4px;">Give stars, assign a Tier, or add notes to build your shortlist.</p></div>`;
+    body.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted);"><p style="font-weight:700;">No rotations shortlisted yet!</p><p style="font-size:0.8rem; margin-top:4px;">Give stars, assign a Tier, or add notes to build your shortlist.</p></div>`;
     return;
   }
 
@@ -1099,7 +1192,7 @@ function renderShortlistModal() {
       <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
           <span style="cursor:grab;" title="Drag to reorder">☰</span>
-          <span style="font-size:0.75rem; font-weight:800; color:var(--slate-600);">Rank:</span>
+          <span style="font-size:0.75rem; font-weight:800; color:var(--text-muted);">Rank:</span>
           <input type="number" class="rank-input" value="${idx + 1}" min="1" max="${starred.length}" onchange="changeRankInput(${idx}, this.value)">
           <strong style="color:var(--primary); font-size:0.85rem;">${escapeHtml(r.code)}</strong>
           ${tierBadgeHtml}
@@ -1114,8 +1207,8 @@ function renderShortlistModal() {
         </div>
       </div>
       <div style="font-weight:700; font-size:0.9rem; margin:4px 0;">${escapeHtml(r.title)}</div>
-      <div style="font-size:0.75rem; color:var(--slate-600);">🏡 Driving: <b>${escapeHtml(r.hubs.driver.name)}</b> | Transit: <b>${escapeHtml(r.hubs.transit.name)}</b></div>
-      ${data.notes ? `<div style="margin-top:5px; font-size:0.74rem; background:#f8fafc; padding:5px 8px; border-radius:4px; font-style:italic;">"${escapeHtml(data.notes)}"</div>` : ''}
+      <div style="font-size:0.75rem; color:var(--text-muted);">🏡 Driving: <b>${escapeHtml(r.hubs.driver.name)}</b> | Transit: <b>${escapeHtml(r.hubs.transit.name)}</b></div>
+      ${data.notes ? `<div style="margin-top:5px; font-size:0.74rem; background:var(--bg-card-subtle); border:1px solid var(--border-color); color:var(--text-main); padding:5px 8px; border-radius:4px; font-style:italic;">"${escapeHtml(data.notes)}"</div>` : ''}
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
         <button class="btn-step" style="font-size:0.7rem; padding:3px 8px;" onclick="closeModal('shortlistModal'); openDetailsForRotation('${r.id}');">View Details &rarr;</button>
         <button style="border:none; background:none; color:#b91c1c; font-size:0.7rem; cursor:pointer;" onclick="removeShortlistItem('${r.id}')">✕ Remove</button>
@@ -1206,7 +1299,7 @@ function renderCompareModal() {
   const container = document.getElementById('compareModalContent');
   if (!compareList.length) {
     container.innerHTML = `
-      <div style="text-align:center; padding:40px 15px; color:var(--slate-600);">
+      <div style="text-align:center; padding:40px 15px; color:var(--text-muted);">
         <p style="font-weight:700; font-size:1rem;">Your Comparison Tray is Empty</p>
         <p style="font-size:0.8rem; margin-top:6px;">Click <b>'+ Compare'</b> on any rotation card in the list or inspector to compare up to 3 candidate rotations side-by-side.</p>
       </div>
@@ -1236,7 +1329,7 @@ function renderCompareModal() {
           <button style="border:none; background:none; color:#b91c1c; font-size:0.75rem; font-weight:800; cursor:pointer;" onclick="toggleCompare('${r.id}'); renderCompareModal();">✕ Remove</button>
         </div>
         <div class="compare-card-title">${escapeHtml(r.title)}</div>
-        <div style="font-size:0.75rem; color:var(--slate-600);">${escapeHtml(r.region)} • <b>${escapeHtml(r.places)} places</b></div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(r.region)} • <b>${escapeHtml(r.places)} places</b></div>
         
         <div>
           <div class="compare-row-label">Max Commute Spread</div>
@@ -1260,7 +1353,7 @@ function renderCompareModal() {
             <span style="color:var(--amber); font-weight:800;">${'★'.repeat(data.rating) || '☆☆☆☆☆'}</span>
             <span style="margin-left:6px; font-weight:700;">${tierLabel}</span>
           </div>
-          ${data.notes ? `<div style="font-size:0.72rem; color:var(--slate-600); font-style:italic; margin-top:3px;">"${escapeHtml(data.notes)}"</div>` : ''}
+          ${data.notes ? `<div style="font-size:0.72rem; color:var(--text-muted); font-style:italic; margin-top:3px;">"${escapeHtml(data.notes)}"</div>` : ''}
         </div>
 
         <button class="btn-top btn-export" style="margin-top:auto; width:100%; justify-content:center; padding:7px;" onclick="closeModal('compareModal'); openDetailsForRotation('${r.id}');">
@@ -1622,6 +1715,7 @@ map.on('click', () => {
 
 // 21. APPLICATION ENTRY POINT
 window.onload = () => {
+  applyTheme();
   populateRegionDropdown();
   populateDropdown(ROTATIONS_DATA);
   renderRotationCardsFeed(ROTATIONS_DATA);
