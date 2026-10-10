@@ -7,15 +7,11 @@
   <meta name="description" content="Interactive map of UK ST4 Anaesthetics training rotations with dual-commute living analysis for doctors and partners.">
   <meta name="theme-color" content="#0284c7">
 
-  <!-- Favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🩺</text></svg>">
-
-  <!-- OpenGraph Metadata -->
   <meta property="og:title" content="ST4 Anaesthetics Rotation &amp; Commute Explorer">
   <meta property="og:description" content="Explore UK ST4 Anaesthetics rotations, commute radii, hospital bases, and living hubs.">
   <meta property="og:type" content="website">
 
-  <!-- Leaflet Dependencies -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -200,7 +196,7 @@
 
     #map { flex-grow: 1; height: 100%; width: 100%; }
 
-    /* Custom Map Markers */
+    /* Map Markers */
     .numbered-pin { 
       background: #0284c7; 
       color: #ffffff; 
@@ -317,6 +313,8 @@
       #mobileFabOpen { display: flex; position: fixed; top: 14px; left: 14px; z-index: 1500; background: #ffffff; color: var(--slate-900); border: 1px solid var(--slate-200); padding: 8px 14px; border-radius: 999px; font-size: 0.82rem; font-weight: 800; box-shadow: 0 4px 14px rgba(0,0,0,0.18); cursor: pointer; align-items: center; gap: 6px; }
       #mobileMiniCard { display: flex; flex-direction: column; position: fixed; bottom: 14px; left: 14px; right: 14px; background: #ffffff; border: 1px solid var(--slate-200); border-radius: 12px; padding: 10px 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.22); z-index: 1500; cursor: pointer; }
       .leaflet-top { top: 60px !important; }
+      /* Prevent mobile mini card from obstructing Leaflet attribution */
+      .leaflet-bottom.leaflet-right { bottom: 75px !important; }
     }
   </style>
 </head>
@@ -324,8 +322,8 @@
 
 <div id="toast">Saved</div>
 
-<!-- Mobile Floating Trigger -->
-<button id="mobileFabOpen" onclick="toggleMobileSidebar(true)">
+<!-- Mobile Trigger -->
+<button id="mobileFabOpen" onclick="toggleMobileSidebar(true)" aria-label="Open Filters and Rotations Menu">
   ☰ Rotations &amp; Filters
 </button>
 
@@ -347,10 +345,12 @@
     <h1>
       ST4 Explorer
       <div class="header-actions">
-        <button class="btn-top btn-sync" onclick="openShortlistModal()" title="View and reorder your starred shortlist">⭐ Shortlist</button>
+        <button class="btn-top btn-sync" onclick="openShortlistModal()" title="View and reorder your starred shortlist">
+          ⭐ Shortlist <span id="headerShortlistBadge" style="background:var(--amber); color:#000; border-radius:999px; padding:1px 6px; font-size:0.68rem; font-weight:800; margin-left:2px;">0</span>
+        </button>
         <button class="btn-top btn-export" onclick="exportPreferencesCSV()" title="Export CSV for Oriel">Export</button>
         <button class="btn-top btn-sync" onclick="openSyncModal()" title="Backup or transfer ratings">Sync</button>
-        <button class="btn-mobile-nav" onclick="toggleMobileSidebar(false)">🗺️ Map</button>
+        <button class="btn-mobile-nav" onclick="toggleMobileSidebar(false)" aria-label="View Map">🗺️ Map</button>
       </div>
     </h1>
     <p>National Oriel Rotations with Commute &amp; Living Analysis</p>
@@ -366,19 +366,19 @@
 
     <!-- Filter 1: Region Dropdown (Top) -->
     <div class="control-row">
-      <select id="regionFilter" onchange="filterRegion(this.value)">
+      <select id="regionFilter" onchange="filterRegion(this.value)" aria-label="Filter by NHS Region">
         <!-- Populated Dynamically in JS -->
       </select>
     </div>
 
     <!-- Filter 2: Specific Rotation Dropdown & Stepper -->
     <div class="control-row">
-      <select id="prefSelect" onchange="selectRotation(this.value, false); setViewMode('details');">
+      <select id="prefSelect" onchange="selectRotation(this.value, false); setViewMode('details');" aria-label="Select Rotation">
         <option value="">-- Choose Rotation to Inspect --</option>
       </select>
       <div class="nav-stepper">
-        <button class="btn-step" onclick="stepRotation(-1)" title="Previous Rotation (← key)">&larr;</button>
-        <button class="btn-step" onclick="stepRotation(1)" title="Next Rotation (→ key)">&rarr;</button>
+        <button class="btn-step" onclick="stepRotation(-1)" title="Previous Rotation (← key)" aria-label="Previous Rotation">&larr;</button>
+        <button class="btn-step" onclick="stepRotation(1)" title="Next Rotation (→ key)" aria-label="Next Rotation">&rarr;</button>
       </div>
     </div>
 
@@ -393,8 +393,8 @@
 
     <!-- Search Input & Sort Selector -->
     <div class="control-row">
-      <input type="text" id="searchInput" placeholder="Search hospital, city, code..." oninput="handleSearch(this.value)" style="flex:1;">
-      <select id="sortSelect" onchange="handleSortChange(this.value)" style="width:190px;" title="Sort Rotations">
+      <input type="text" id="searchInput" placeholder="Search hospital (e.g. Addenbrooke's, QMC, BCF)..." oninput="handleSearch(this.value)" style="flex:1;">
+      <select id="sortSelect" onchange="handleSortChange(this.value)" style="width:190px;" title="Sort Rotations" aria-label="Sort Rotations">
         <option value="DEFAULT">Sort: Oriel Order</option>
         <option value="SPREAD_ASC">Sort: Lowest Commute First</option>
         <option value="PLACES_DESC">Sort: Most Places</option>
@@ -516,7 +516,7 @@
   <div class="modal-content">
     <div class="modal-header">
       <h2>⭐ My Shortlist &amp; Final Ranking</h2>
-      <button class="btn-step" onclick="closeModal('shortlistModal')">✕</button>
+      <button class="btn-step" onclick="closeModal('shortlistModal')" aria-label="Close modal">✕</button>
     </div>
     <div class="modal-body">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -533,7 +533,7 @@
   <div class="modal-content">
     <div class="modal-header">
       <h2>Backup &amp; Sync Preferences</h2>
-      <button class="btn-step" onclick="closeModal('syncModal')">✕</button>
+      <button class="btn-step" onclick="closeModal('syncModal')" aria-label="Close modal">✕</button>
     </div>
     <div class="modal-body">
       <p style="font-size:0.8rem; color:var(--slate-600); margin-bottom:10px;">
@@ -549,12 +549,12 @@
 </div>
 
 <script>
-// Verify external data loaded safely
+// Defensive Check for external data.js
 if (typeof ROTATIONS_DATA === 'undefined' || typeof HOSPITALS === 'undefined') {
-  alert("Error loading data.js. Please verify that data.js is in the same directory as index.html.");
+  alert("Error: data.js failed to load. Please verify that data.js is in the same directory as index.html.");
 }
 
-// 1. HAVERSINE DISTANCE FORMULA
+// 1. HAVERSINE DISTANCE FORMULA (Miles)
 function calcDistanceMiles(c1, c2) {
   const R = 3958.8;
   const dLat = (c2[0] - c1[0]) * Math.PI / 180;
@@ -563,6 +563,14 @@ function calcDistanceMiles(c1, c2) {
             Math.cos(c1[0] * Math.PI / 180) * Math.cos(c2[0] * Math.PI / 180) *
             Math.sin(dLon/2) * Math.sin(dLon/2);
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+}
+
+// HTML Entity Sanitizer to prevent XSS from imported user notes
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 // 2. MAP SETUP
@@ -615,6 +623,15 @@ function getRotationMaxDistance(rot) {
     }
   }
   return maxDist;
+}
+
+function updateShortlistBadge() {
+  const badge = document.getElementById('headerShortlistBadge');
+  const count = ROTATIONS_DATA.filter(r => {
+    const d = getUserData(r.id);
+    return d.rating > 0 || (d.notes && d.notes.trim() !== "");
+  }).length;
+  badge.textContent = count;
 }
 
 function populateRegionDropdown() {
@@ -670,7 +687,7 @@ function renderRotationCardsFeed(list) {
     return;
   }
 
-  list.forEach((r, idx) => {
+  list.forEach((r) => {
     const userData = getUserData(r.id);
     const maxDist = getRotationMaxDistance(r);
     const estMins = Math.round(maxDist * 1.35);
@@ -737,6 +754,7 @@ function saveUserPreferences() {
     localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
   }
 
+  updateShortlistBadge();
   applyFiltersAndSearch();
   prefSelect.value = currentSelectedId;
   showToast("Saved to browser");
@@ -744,6 +762,7 @@ function saveUserPreferences() {
 
 let currentActiveRating = 0;
 function setRating(val) {
+  // Toggle off if clicking the currently active rating
   if (val === currentActiveRating) {
     val = 0;
   }
@@ -890,7 +909,7 @@ function selectRotation(id, shouldCloseMobile = false) {
   setRating(userData.rating);
   document.getElementById('partnerNotes').value = userData.notes;
 
-  // Populate Hospital Bases Chips
+  // Populate Hospital Bases Chips (XSS safe)
   const uniqueHospBases = getRotationHospitalBases(rot);
   const hospitalsListContainer = document.getElementById('hospitalsListContainer');
   hospitalsListContainer.innerHTML = "";
@@ -937,12 +956,12 @@ function selectRotation(id, shouldCloseMobile = false) {
     step.innerHTML = `
       <div class="timeline-dot">${idx + 1}</div>
       <div class="timeline-content">
-        <div class="timeline-stage">${stg.stage}</div>
+        <div class="timeline-stage">${escapeHtml(stg.stage)}</div>
         <div class="timeline-hosp">
-          <span>${stg.hosp}</span>
+          <span>${escapeHtml(stg.hosp)}</span>
           <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stg.hosp + ', UK')}" target="_blank" style="color:var(--primary); font-size:0.7rem; text-decoration:none;">Map ↗</a>
         </div>
-        <div class="timeline-desc">${stg.desc}</div>
+        <div class="timeline-desc">${escapeHtml(stg.desc)}</div>
       </div>
     `;
     timeline.appendChild(step);
@@ -993,7 +1012,7 @@ function selectRotation(id, shouldCloseMobile = false) {
 
   const allMapPoints = [];
 
-  // Plot Living Base (🏡)
+  // Plot Living Base (🏡) + Visual 25-Mile Commute Buffer
   if (activeHub && activeHub.coords) {
     allMapPoints.push(activeHub.coords);
     const pinClass = currentCommuteMode === 'driver' ? 'home-pin-driver' : 'home-pin-transit';
@@ -1008,6 +1027,18 @@ function selectRotation(id, shouldCloseMobile = false) {
     const homeMarker = L.marker(activeHub.coords, { icon: homeIcon, zIndexOffset: 2000 })
       .bindPopup(`<b>🏡 Suggested Base (${currentCommuteMode.toUpperCase()}): ${activeHub.name}</b><br><span style="font-size:0.8rem; color:#475569;">${activeHub.desc}</span>`);
     activeRouteGroup.addLayer(homeMarker);
+
+    // 25-Mile Buffer Circle around the living hub
+    const commuteCircle = L.circle(activeHub.coords, {
+      radius: 40233.6, // 25 miles in metres
+      color: currentCommuteMode === 'driver' ? '#16a34a' : '#7c3aed',
+      fillColor: currentCommuteMode === 'driver' ? '#16a34a' : '#7c3aed',
+      fillOpacity: 0.04,
+      weight: 1.5,
+      dashArray: '5, 5',
+      interactive: false
+    });
+    activeRouteGroup.addLayer(commuteCircle);
   }
 
   // Plot Active Hospital Bases
@@ -1048,7 +1079,7 @@ function selectRotation(id, shouldCloseMobile = false) {
   }
 }
 
-// 4. ALL UK PLACEMENTS VIEW
+// 4. ALL UK PLACEMENTS VIEW (National Overview Map with Regional Zoom Sync)
 function renderAllPlacements() {
   activeRouteGroup.clearLayers();
   backgroundHospitalsGroup.clearLayers();
@@ -1061,6 +1092,7 @@ function renderAllPlacements() {
   Object.keys(HOSPITALS).forEach(hName => {
     const h = HOSPITALS[hName];
 
+    // If a region filter is active, only show hospitals in that region
     if (activeRegionFilter !== "ALL" && h.region !== activeRegionFilter) {
       const linkedInRegion = ROTATIONS_DATA.filter(r => r.region === activeRegionFilter && r.stages.some(s => s.hosp === hName));
       if (!linkedInRegion.length) return;
@@ -1166,7 +1198,7 @@ function applyFiltersAndSearch() {
     list = list.filter(r => getRotationMaxDistance(r) <= 30);
   }
 
-  // Search Filter
+  // Search Filter with Common Acronym Support
   if (currentSearchTerm) {
     list = list.filter(r => 
       r.title.toLowerCase().includes(currentSearchTerm) ||
@@ -1174,7 +1206,7 @@ function applyFiltersAndSearch() {
       r.hubs.driver.name.toLowerCase().includes(currentSearchTerm) ||
       r.hubs.transit.name.toLowerCase().includes(currentSearchTerm) ||
       getUserData(r.id).notes.toLowerCase().includes(currentSearchTerm) ||
-      r.stages.some(s => s.hosp.toLowerCase().includes(currentSearchTerm))
+      r.stages.some(s => s.hosp.toLowerCase().includes(currentSearchTerm) || s.desc.toLowerCase().includes(currentSearchTerm))
     );
   }
 
@@ -1242,20 +1274,20 @@ function renderShortlistModal() {
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="background:var(--slate-900); color:white; font-size:0.75rem; font-weight:800; border-radius:4px; padding:2px 6px;">Rank #${idx + 1}</span>
-          <strong style="color:var(--primary); font-size:0.85rem;">${r.code}</strong>
+          <strong style="color:var(--primary); font-size:0.85rem;">${escapeHtml(r.code)}</strong>
           <span class="badge ${maxDist <= 25 ? 'badge-spread-low' : (maxDist <= 45 ? 'badge-spread-med' : 'badge-spread-high')}" style="font-size:0.65rem;">${maxDist} mi</span>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="color:var(--amber); font-weight:800; font-size:0.9rem;">${'★'.repeat(data.rating)}</span>
           <div style="display:flex; gap:2px;">
-            <button class="btn-step" style="padding:2px 6px; font-size:0.7rem;" onclick="moveShortlistItem(${idx}, -1)">▲</button>
-            <button class="btn-step" style="padding:2px 6px; font-size:0.7rem;" onclick="moveShortlistItem(${idx}, 1)">▼</button>
+            <button class="btn-step" style="padding:2px 6px; font-size:0.7rem;" onclick="moveShortlistItem(${idx}, -1)" aria-label="Move item up">▲</button>
+            <button class="btn-step" style="padding:2px 6px; font-size:0.7rem;" onclick="moveShortlistItem(${idx}, 1)" aria-label="Move item down">▼</button>
           </div>
         </div>
       </div>
-      <div style="font-weight:700; font-size:0.95rem; margin:4px 0;">${r.title}</div>
-      <div style="font-size:0.78rem; color:var(--slate-600);">🏡 Driving: <b>${r.hubs.driver.name}</b> | Transit: <b>${r.hubs.transit.name}</b></div>
-      ${data.notes ? `<div style="margin-top:6px; font-size:0.75rem; background:#f8fafc; padding:6px; border-radius:4px; font-style:italic;">"${data.notes}"</div>` : ''}
+      <div style="font-weight:700; font-size:0.95rem; margin:4px 0;">${escapeHtml(r.title)}</div>
+      <div style="font-size:0.78rem; color:var(--slate-600);">🏡 Driving: <b>${escapeHtml(r.hubs.driver.name)}</b> | Transit: <b>${escapeHtml(r.hubs.transit.name)}</b></div>
+      ${data.notes ? `<div style="margin-top:6px; font-size:0.75rem; background:#f8fafc; padding:6px; border-radius:4px; font-style:italic;">"${escapeHtml(data.notes)}"</div>` : ''}
       <button class="btn-step" style="margin-top:8px; font-size:0.72rem; padding:4px 8px;" onclick="closeModal('shortlistModal'); openDetailsForRotation('${r.id}');">View Details &rarr;</button>
     `;
     body.appendChild(div);
@@ -1311,6 +1343,7 @@ function importSyncData() {
       shortlistOrder = parsed.shortlistOrder;
       localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
     }
+    updateShortlistBadge();
     showToast("Preferences imported successfully!");
     closeModal('syncModal');
     applyFiltersAndSearch();
@@ -1319,7 +1352,7 @@ function importSyncData() {
   }
 }
 
-// 7. EXPORT CSV
+// 7. EXPORT CSV (With UTF-8 BOM for Windows Excel compatibility)
 function exportPreferencesCSV() {
   let csv = "OrielCode,TrackTitle,Region,PlacesAvailable,DriverLivingHub,TransitLivingHub,HospitalBases,RatingStars,PersonalNotes\n";
   ROTATIONS_DATA.forEach(r => {
@@ -1351,7 +1384,8 @@ function exportShortlistCSV() {
 }
 
 function downloadBlob(content, filename) {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  // Prepend \uFEFF Byte Order Mark for full Excel character compatibility
+  const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -1401,6 +1435,7 @@ window.onload = () => {
   populateRegionDropdown();
   populateDropdown(ROTATIONS_DATA);
   renderRotationCardsFeed(ROTATIONS_DATA);
+  updateShortlistBadge();
 
   const hashId = window.location.hash.replace('#', '');
   if (hashId && ROTATIONS_DATA.some(r => r.id === hashId)) {
