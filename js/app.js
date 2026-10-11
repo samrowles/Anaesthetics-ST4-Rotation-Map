@@ -85,10 +85,13 @@ function calcDrivingTimeMinutes(straightDistMiles, region = '', timing = '0730')
  * HTML entity sanitizer to prevent XSS from imported user notes or titles.
  */
 function escapeHtml(str) {
-  if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 // 3. LEAFLET MAP INITIALIZATION & LAYER GROUPS
@@ -229,9 +232,9 @@ function showToast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
-// Shortlist membership: a rotation is shortlisted once it has a rating, any tier, or notes.
+// Shortlist membership: a rotation is shortlisted once it has a rating, any preference tier (excluding EXCLUDE), or notes.
 function isShortlisted(d) {
-  return !!d && (d.rating > 0 || (d.tier && d.tier !== 'UNSET') || (d.notes && d.notes.trim() !== ''));
+  return !!d && d.tier !== 'EXCLUDE' && (d.rating > 0 || (d.tier && d.tier !== 'UNSET') || (d.notes && d.notes.trim() !== ''));
 }
 
 /**
@@ -769,7 +772,10 @@ function selectRotation(id, shouldCloseMobile = false) {
 
   const gmapsLink = document.getElementById('hubDirectionsLink');
   if (gmapsLink) {
-    gmapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeHubName + ', UK')}`;
+    const hubQuery = (activeHubCoords && Array.isArray(activeHubCoords))
+      ? `${activeHubCoords[0]},${activeHubCoords[1]}`
+      : encodeURIComponent(activeHubName + ', UK');
+    gmapsLink.href = `https://www.google.com/maps/search/?api=1&query=${hubQuery}`;
   }
   
   if (activeHub.alert && currentCommuteMode !== 'custom') {
@@ -838,6 +844,13 @@ function selectRotation(id, shouldCloseMobile = false) {
       if (activeMins > 50) timeClass = 'time-red';
       else if (activeMins > 35) timeClass = 'time-amber';
 
+      const originParam = (activeHubCoords && Array.isArray(activeHubCoords))
+        ? `${activeHubCoords[0]},${activeHubCoords[1]}`
+        : encodeURIComponent(activeHubName + ', UK');
+      const destParam = (hData.coords && Array.isArray(hData.coords))
+        ? `${hData.coords[0]},${hData.coords[1]}`
+        : encodeURIComponent(hName + ', UK');
+
       const row = document.createElement('div');
       row.className = "commute-matrix-item";
       row.innerHTML = `
@@ -846,7 +859,7 @@ function selectRotation(id, shouldCloseMobile = false) {
           <span class="commute-time-pill ${timeClass}" title="07:30 handover arrival: ~${mornMins}m | 18:00 evening rush departure: ~${eveMins}m">
             ${dist} mi (🌅 ~${mornMins}m · 🌆 ~${eveMins}m)
           </span>
-          <a href="https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(activeHubName + ', UK')}&destination=${encodeURIComponent(hName + ', UK')}&travelmode=driving" target="_blank" style="font-size:0.68rem; color:var(--primary); text-decoration:none;" title="Verify route and live traffic in Google Maps">Directions ↗</a>
+          <a href="https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=driving" target="_blank" style="font-size:0.68rem; color:var(--primary); text-decoration:none;" title="Verify route and live traffic in Google Maps">Directions ↗</a>
         </div>
       `;
       matrixContainer.appendChild(row);
@@ -856,7 +869,6 @@ function selectRotation(id, shouldCloseMobile = false) {
   // Render Placement Timeline
   const timeline = document.getElementById('timelineContainer');
   timeline.innerHTML = "";
-  const hospitalCoords = [];
 
   rot.stages.forEach((stg, idx) => {
     const step = document.createElement('div');
@@ -878,21 +890,24 @@ function selectRotation(id, shouldCloseMobile = false) {
         }
       }
     };
+
+    const h = HOSPITALS[stg.hosp];
+    const hospMapQuery = (h && h.coords && Array.isArray(h.coords))
+      ? `${h.coords[0]},${h.coords[1]}`
+      : encodeURIComponent(stg.hosp + ', UK');
+
     step.innerHTML = `
       <div class="timeline-dot">${idx + 1}</div>
       <div class="timeline-content">
         <div class="timeline-stage">${escapeHtml(stg.stage)}</div>
         <div class="timeline-hosp">
           <span>${escapeHtml(stg.hosp)}</span>
-          <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stg.hosp + ', UK')}" target="_blank" style="color:var(--primary); font-size:0.7rem; text-decoration:none;">Map ↗</a>
+          <a href="https://www.google.com/maps/search/?api=1&query=${hospMapQuery}" target="_blank" style="color:var(--primary); font-size:0.7rem; text-decoration:none;">Map ↗</a>
         </div>
         <div class="timeline-desc">${escapeHtml(stg.desc)}</div>
       </div>
     `;
     timeline.appendChild(step);
-
-    const hData = HOSPITALS[stg.hosp];
-    if (hData) hospitalCoords.push(hData.coords);
   });
 
   const commute = getRotationCommuteSummary(rot);
@@ -2038,6 +2053,9 @@ function importSyncData() {
   try {
     const area = document.getElementById('syncJsonArea');
     const parsed = JSON.parse(area.value);
+    if (!confirm("Importing this backup will overwrite your current ratings, notes, and shortlist ranking. Do you want to proceed?")) {
+      return;
+    }
     applyParsedBackup(parsed);
     closeModal('syncModal');
   } catch(e) {
@@ -2058,6 +2076,9 @@ function handleBackupFileUpload(event) {
   reader.onload = (e) => {
     try {
       const parsed = JSON.parse(e.target.result);
+      if (!confirm(`Importing backup "${file.name}" will overwrite your current ratings, notes, and shortlist ranking. Do you want to proceed?`)) {
+        return;
+      }
       applyParsedBackup(parsed);
       closeModal('syncModal');
       showToast("Backup file imported successfully!");
@@ -2101,15 +2122,38 @@ function applyParsedBackup(parsed) {
   showToast("Preferences restored!");
 }
 
+function formatCsvCell(val) {
+  if (val === null || val === undefined) return '""';
+  let str = String(val);
+  // Mitigate CSV Formula Injection: prefix formula-triggering characters with a single quote
+  if (/^[=\+\-@\t\r]/.test(str)) {
+    str = "'" + str;
+  }
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
 function exportPreferencesCSV() {
   let csv = "OrielCode,TrackTitle,Region,PlacesAvailable,TierPreference,DriverLivingHub,TransitLivingHub,HospitalBases,RatingStars,MorningDriveMins_0730,EveningDriveMins_1800,PersonalNotes\n";
   ROTATIONS_DATA.forEach(r => {
     const data = getUserData(r.id);
-    const cleanNotes = `"${(data.notes || "").replace(/"/g, '""')}"`;
-    const basesStr = `"${getRotationHospitalBases(r).join('; ')}"`;
     const tierStr = data.tier || "UNSET";
     const commute = getRotationCommuteSummary(r);
-    csv += `"${r.code}","${r.title}","${r.region}","${r.places}","${tierStr}","${r.hubs.driver.name}","${r.hubs.transit.name}",${basesStr},${data.rating},${commute.mornMins},${commute.eveMins},${cleanNotes}\n`;
+    const basesStr = getRotationHospitalBases(r).join('; ');
+    const row = [
+      formatCsvCell(r.code),
+      formatCsvCell(r.title),
+      formatCsvCell(r.region),
+      formatCsvCell(r.places),
+      formatCsvCell(tierStr),
+      formatCsvCell(r.hubs.driver.name),
+      formatCsvCell(r.hubs.transit.name),
+      formatCsvCell(basesStr),
+      data.rating ?? 0,
+      commute.mornMins ?? 0,
+      commute.eveMins ?? 0,
+      formatCsvCell(data.notes || "")
+    ];
+    csv += row.join(",") + "\n";
   });
   downloadBlob(csv, "ST4_Anaesthetics_All_Rotations.csv", "text/csv;charset=utf-8;");
 }
@@ -2125,12 +2169,27 @@ function exportShortlistCSV() {
     const r = ROTATIONS_DATA.find(x => x.id === id);
     if (r) {
       const data = getUserData(r.id);
-      const cleanNotes = `"${(data.notes || "").replace(/"/g, '""')}"`;
-      const basesStr = `"${getRotationHospitalBases(r).join('; ')}"`;
       const tierStr = data.tier || "UNSET";
       const commute = getRotationCommuteSummary(r);
+      const basesStr = getRotationHospitalBases(r).join('; ');
       const isEntered = orielCheckedSet.has(id) ? "YES" : "NO";
-      csv += `${idx + 1},"${isEntered}","${r.code}","${r.title}","${r.region}","${r.places}","${tierStr}","${r.hubs.driver.name}","${r.hubs.transit.name}",${basesStr},${data.rating},${commute.mornMins},${commute.eveMins},${cleanNotes}\n`;
+      const row = [
+        idx + 1,
+        formatCsvCell(isEntered),
+        formatCsvCell(r.code),
+        formatCsvCell(r.title),
+        formatCsvCell(r.region),
+        formatCsvCell(r.places),
+        formatCsvCell(tierStr),
+        formatCsvCell(r.hubs.driver.name),
+        formatCsvCell(r.hubs.transit.name),
+        formatCsvCell(basesStr),
+        data.rating ?? 0,
+        commute.mornMins ?? 0,
+        commute.eveMins ?? 0,
+        formatCsvCell(data.notes || "")
+      ];
+      csv += row.join(",") + "\n";
     }
   });
   downloadBlob(csv, "ST4_Anaesthetics_MyShortlist_Ranked.csv", "text/csv;charset=utf-8;");
