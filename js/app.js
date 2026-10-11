@@ -192,10 +192,9 @@ if (window.matchMedia) {
 let currentSelectedId = null;
 let currentCommuteMode = 'driver'; // 'driver', 'transit', or 'custom'
 let currentShiftTiming = localStorage.getItem('anaesth_shift_timing') || '0730'; // '0730' (Arrive 07:30), '1800' (Leave 18:00), or 'offpeak'
-let currentViewMode = 'all';        // 'all', 'list', or 'details'
+let currentViewMode = 'list';       // 'list' (feed + national map) or 'details' (inspector)
 let activeQuickFilter = 'ALL';
 let activeRegionFilter = 'ALL';
-let activeSpreadFilter = 'ALL';
 let currentSortMode = 'DEFAULT';
 let currentSearchTerm = '';
 let currentFilteredList = [...ROTATIONS_DATA];
@@ -220,12 +219,33 @@ let customHomeBase = safeGetStorageJson('anaesth_custom_home', null);
 let orielCheckedSet = new Set(safeGetStorageJson('anaesth_oriel_checked', []));
 
 // 5. TOAST NOTIFICATIONS
+let toastTimer = null;
 function showToast(msg) {
   const t = document.getElementById('toast');
   if (!t) return;
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2400);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// Shortlist membership: a rotation is shortlisted once it has a rating, any tier, or notes.
+function isShortlisted(d) {
+  return !!d && (d.rating > 0 || (d.tier && d.tier !== 'UNSET') || (d.notes && d.notes.trim() !== ''));
+}
+
+/**
+ * Reconciles the saved rank order with the current shortlist: drops rotations that
+ * are no longer shortlisted and appends newly shortlisted ones at the end.
+ */
+function syncShortlistOrder() {
+  const active = ROTATIONS_DATA.filter(r => isShortlisted(getUserData(r.id))).map(r => r.id);
+  const activeSet = new Set(active);
+  const ordered = (Array.isArray(shortlistOrder) ? shortlistOrder : []).filter((id, i, arr) => activeSet.has(id) && arr.indexOf(id) === i);
+  active.forEach(id => { if (!ordered.includes(id)) ordered.push(id); });
+  shortlistOrder = ordered;
+  localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
+  return shortlistOrder;
 }
 
 // 6. ROTATION METRICS & DATA HELPERS
@@ -293,10 +313,7 @@ function getRotationHospitalBases(rot) {
 function updateShortlistBadge() {
   const badge = document.getElementById('headerShortlistBadge');
   if (!badge) return;
-  const count = ROTATIONS_DATA.filter(r => {
-    const d = getUserData(r.id);
-    return d.rating > 0 || (d.tier && d.tier !== 'UNSET') || (d.notes && d.notes.trim() !== "");
-  }).length;
+  const count = ROTATIONS_DATA.filter(r => isShortlisted(getUserData(r.id))).length;
   badge.textContent = count;
 }
 
@@ -471,11 +488,7 @@ function setTier(tierVal) {
   const current = getUserData(currentSelectedId);
   current.tier = (current.tier === tierVal) ? 'UNSET' : tierVal;
   localStorage.setItem(`anaesth_pref_${currentSelectedId}`, JSON.stringify(current));
-
-  if (current.tier !== 'UNSET' && current.tier !== 'EXCLUDE' && !shortlistOrder.includes(currentSelectedId)) {
-    shortlistOrder.push(currentSelectedId);
-    localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
-  }
+  syncShortlistOrder();
 
   updateTierButtons(current.tier);
   updateShortlistBadge();
@@ -508,16 +521,11 @@ function saveUserPreferences() {
   current.rating = currentActiveRating;
   current.notes = notes;
   localStorage.setItem(`anaesth_pref_${currentSelectedId}`, JSON.stringify(current));
-
-  const isShortlisted = current.rating > 0 || (current.tier && current.tier !== 'UNSET' && current.tier !== 'EXCLUDE') || (current.notes && current.notes.trim() !== "");
-  if (isShortlisted && !shortlistOrder.includes(currentSelectedId)) {
-    shortlistOrder.push(currentSelectedId);
-    localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
-  }
+  syncShortlistOrder();
 
   updateShortlistBadge();
   applyFiltersAndSearch();
-  prefSelect.value = currentSelectedId;
+  if (prefSelect) prefSelect.value = currentSelectedId;
   showToast("Saved to browser");
 }
 
@@ -541,6 +549,11 @@ function showListView() {
   if (listView) listView.style.display = 'block';
   if (inspectorCard) inspectorCard.style.display = 'none';
 
+  // Drop the #rotation-id from the URL so a reload returns to the list (Back still returns to the rotation)
+  if (window.location.hash) {
+    history.pushState(null, '', window.location.pathname + window.location.search);
+  }
+
   renderRotationCardsFeed(currentFilteredList);
   if (currentSelectedId) {
     setTimeout(() => {
@@ -548,12 +561,8 @@ function showListView() {
       if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 50);
   }
-  renderAllPlacements();
+  renderAllPlacements({ fitView: true });
   setTimeout(() => { map.invalidateSize(); }, 120);
-}
-
-function backToList() {
-  showListView();
 }
 
 function dismissTipBanner() {
@@ -1080,27 +1089,23 @@ function selectRotation(id, shouldCloseMobile = false) {
   }
 }
 
-// 11. NATIONAL OVERVIEW MAP VIEW (With Checked Rotation Network Lines)
-function renderAllPlacements() {
+// 11. NATIONAL OVERVIEW MAP VIEW (Route lines mirror the currently filtered feed)
+function renderAllPlacements({ fitView = true } = {}) {
   activeRouteGroup.clearLayers();
   backgroundHospitalsGroup.clearLayers();
   overviewLinesGroup.clearLayers();
+  activeHospitalMarkers = {};
 
   document.getElementById('miniCardTitle').textContent = `All UK Placement Sites (${Object.keys(HOSPITALS).length} Bases)`;
-  document.getElementById('miniCardSpread').textContent = `All Regions`;
+  document.getElementById('miniCardSpread').textContent = `${currentFilteredList.length} Rotations`;
   document.getElementById('miniCardHub').innerHTML = `<span>National Map View</span> <span style="font-weight:700; color:var(--primary);">Menu &rarr;</span>`;
 
   const allPoints = [];
   const linesByHospital = {};
 
-  // 11a. Plot Checked / Dashed Lines for All Rotations
+  // 11a. Dashed route lines for every rotation in the filtered feed (region, pills, search)
   if (showOverviewLines) {
-    let rotListForLines = ROTATIONS_DATA;
-    if (activeRegionFilter !== "ALL") {
-      rotListForLines = rotListForLines.filter(r => r.region === activeRegionFilter);
-    }
-
-    rotListForLines.forEach(rot => {
+    currentFilteredList.forEach(rot => {
       const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
       if (coords.length > 1) {
         const regColor = REGION_COLORS[rot.region] || "#0284c7";
@@ -1198,66 +1203,69 @@ function renderAllPlacements() {
     backgroundHospitalsGroup.addLayer(m);
   });
 
-  if (allPoints.length > 0) {
+  if (fitView && allPoints.length > 0) {
     if (activeRegionFilter === "ALL") {
       map.setView([52.8, -1.8], 6);
     } else {
       map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50], maxZoom: 10 });
     }
   }
-
-  if (window.innerWidth <= 768) {
-    toggleMobileSidebar(false);
-  }
 }
 
 function toggleOverviewLines() {
   showOverviewLines = !showOverviewLines;
-  const btnOverview = document.getElementById('btnToggleLinesOverview');
   const btnMap = document.getElementById('btnMapLinesToggle');
-
-  const text = showOverviewLines ? '🔀 Lines: ON' : '🔀 Lines: OFF';
-  if (btnOverview) btnOverview.textContent = text;
   if (btnMap) {
-    btnMap.textContent = text;
+    btnMap.textContent = showOverviewLines ? '🔀 Lines: ON' : '🔀 Lines: OFF';
     btnMap.classList.toggle('active-btn', showOverviewLines);
   }
 
-  if (currentViewMode === 'all') {
-    renderAllPlacements();
+  if (currentViewMode === 'list') {
+    renderAllPlacements({ fitView: false });
   }
   showToast(`Rotation network lines: ${showOverviewLines ? 'Visible' : 'Hidden'}`);
 }
 
 function diveInFromPopup(id) {
   map.closePopup();
-  if (prefSelect) prefSelect.value = id;
-  selectRotation(id, false);
-  setViewMode('details');
-  if (window.innerWidth <= 768) {
-    toggleMobileSidebar(true);
-  }
-  showToast("Loaded rotation details & route");
+  openDetailsForRotation(id);
 }
 
 // 12. FILTER, SEARCH & SORT ENGINE
+/**
+ * Called after any user-driven filter/search/sort change. Re-filters the feed and,
+ * if a rotation was being inspected, returns to the feed so the new results are visible.
+ */
+function refreshAfterFilterChange(fitView = false) {
+  if (currentViewMode === 'details') {
+    applyFiltersAndSearch();
+    showListView();
+  } else {
+    applyFiltersAndSearch({ fitView });
+  }
+}
+
+const QUICK_FILTER_PILLS = {
+  ALL: 'pillAll', STARRED: 'pillStarred', TIER1: 'pillTier1',
+  TIER2: 'pillTier2', TIER3: 'pillTier3', LOW_SPREAD: 'pillLowSpread'
+};
+
+function updateQuickFilterPills() {
+  Object.entries(QUICK_FILTER_PILLS).forEach(([key, elId]) => {
+    const el = document.getElementById(elId);
+    if (el) el.classList.toggle('active', activeQuickFilter === key);
+  });
+}
+
 function setQuickFilter(filterType) {
   activeQuickFilter = filterType;
-  document.getElementById('pillAll').classList.toggle('active', filterType === 'ALL');
-  document.getElementById('pillStarred').classList.toggle('active', filterType === 'STARRED');
-  document.getElementById('pillTier1').classList.toggle('active', filterType === 'TIER1');
-  document.getElementById('pillTier2').classList.toggle('active', filterType === 'TIER2');
-  document.getElementById('pillTier3').classList.toggle('active', filterType === 'TIER3');
-  document.getElementById('pillLowSpread').classList.toggle('active', filterType === 'LOW_SPREAD');
-  applyFiltersAndSearch();
+  updateQuickFilterPills();
+  refreshAfterFilterChange();
 }
 
 function filterRegion(reg) {
   activeRegionFilter = reg;
-  applyFiltersAndSearch();
-  if (currentViewMode === 'all') {
-    renderAllPlacements();
-  }
+  refreshAfterFilterChange(true);
 }
 
 function handleSearch(term) {
@@ -1266,10 +1274,9 @@ function handleSearch(term) {
   if (clearBtn) {
     clearBtn.style.display = term ? 'block' : 'none';
   }
-  // 120ms debounce for butter-smooth typing
   searchDebounceTimer = setTimeout(() => {
     currentSearchTerm = term.toLowerCase().trim();
-    applyFiltersAndSearch();
+    refreshAfterFilterChange();
   }, 120);
 }
 
@@ -1279,32 +1286,24 @@ function clearSearch() {
   if (searchInput) searchInput.value = '';
   if (clearBtn) clearBtn.style.display = 'none';
   currentSearchTerm = '';
-  applyFiltersAndSearch();
+  refreshAfterFilterChange();
   if (searchInput) searchInput.focus();
 }
 
 function handleSortChange(sortVal) {
   currentSortMode = sortVal;
-  applyFiltersAndSearch();
-}
-
-function handleSpreadFilterChange(spreadVal) {
-  activeSpreadFilter = spreadVal;
-  applyFiltersAndSearch();
+  refreshAfterFilterChange();
 }
 
 function resetAllFilters() {
   activeRegionFilter = 'ALL';
   activeQuickFilter = 'ALL';
-  activeSpreadFilter = 'ALL';
   currentSortMode = 'DEFAULT';
   currentSearchTerm = '';
+  clearTimeout(searchDebounceTimer);
 
   const regSelect = document.getElementById('regionFilter');
   if (regSelect) regSelect.value = 'ALL';
-
-  const spreadSelect = document.getElementById('spreadFilterSelect');
-  if (spreadSelect) spreadSelect.value = 'ALL';
 
   const sortSelect = document.getElementById('sortSelect');
   if (sortSelect) sortSelect.value = 'DEFAULT';
@@ -1314,21 +1313,12 @@ function resetAllFilters() {
   const clearBtn = document.getElementById('btnSearchClear');
   if (clearBtn) clearBtn.style.display = 'none';
 
-  document.getElementById('pillAll').classList.add('active');
-  document.getElementById('pillStarred').classList.remove('active');
-  document.getElementById('pillTier1').classList.remove('active');
-  document.getElementById('pillTier2').classList.remove('active');
-  document.getElementById('pillTier3').classList.remove('active');
-  document.getElementById('pillLowSpread').classList.remove('active');
-
-  applyFiltersAndSearch();
-  if (currentViewMode === 'all') {
-    renderAllPlacements();
-  }
+  updateQuickFilterPills();
+  refreshAfterFilterChange(true);
   showToast("All filters reset");
 }
 
-function applyFiltersAndSearch() {
+function applyFiltersAndSearch({ fitView = false } = {}) {
   let list = [...ROTATIONS_DATA];
 
   // Region Filter
@@ -1349,21 +1339,16 @@ function applyFiltersAndSearch() {
     list = list.filter(r => getRotationMaxDistance(r) <= 25);
   }
 
-  // Spread Radius Dropdown Filter
-  if (activeSpreadFilter !== "ALL") {
-    const maxLimit = parseInt(activeSpreadFilter, 10);
-    list = list.filter(r => getRotationMaxDistance(r) <= maxLimit);
-  }
-
   // Search Filter
   if (currentSearchTerm) {
-    list = list.filter(r => 
-      r.title.toLowerCase().includes(currentSearchTerm) ||
-      r.code.toLowerCase().includes(currentSearchTerm) ||
-      r.hubs.driver.name.toLowerCase().includes(currentSearchTerm) ||
-      r.hubs.transit.name.toLowerCase().includes(currentSearchTerm) ||
-      getUserData(r.id).notes.toLowerCase().includes(currentSearchTerm) ||
-      r.stages.some(s => s.hosp.toLowerCase().includes(currentSearchTerm) || s.desc.toLowerCase().includes(currentSearchTerm))
+    const q = currentSearchTerm;
+    list = list.filter(r =>
+      r.title.toLowerCase().includes(q) ||
+      r.code.toLowerCase().includes(q) ||
+      r.hubs.driver.name.toLowerCase().includes(q) ||
+      r.hubs.transit.name.toLowerCase().includes(q) ||
+      getUserData(r.id).notes.toLowerCase().includes(q) ||
+      r.stages.some(s => (s.hosp || '').toLowerCase().includes(q) || (s.desc || '').toLowerCase().includes(q))
     );
   }
 
@@ -1377,19 +1362,15 @@ function applyFiltersAndSearch() {
   }
 
   currentFilteredList = list;
-  document.getElementById('listCountBadge').textContent = list.length;
+  const countBadge = document.getElementById('listCountBadge');
+  if (countBadge) countBadge.textContent = list.length;
 
   populateDropdown(list);
   renderRotationCardsFeed(list);
 
-  if (list.length > 0) {
-    if (currentViewMode === 'details' && !list.some(r => r.id === currentSelectedId)) {
-      selectRotation(list[0].id, false);
-      prefSelect.value = list[0].id;
-    }
-  } else {
-    activeRouteGroup.clearLayers();
-    document.getElementById('inspectorCard').style.display = 'none';
+  // Keep the national map's route lines in step with the feed
+  if (currentViewMode === 'list') {
+    renderAllPlacements({ fitView });
   }
 }
 
@@ -1482,6 +1463,7 @@ function fallbackCopyText(text, successMsg) {
 }
 
 function copyShortlistPlainText() {
+  syncShortlistOrder();
   if (!shortlistOrder.length) {
     showToast("No rotations in shortlist to copy.");
     return;
@@ -1492,7 +1474,7 @@ function copyShortlistPlainText() {
     const r = ROTATIONS_DATA.find(x => x.id === id);
     if (r) {
       const d = getUserData(id);
-      const tierStr = d.tier && d.tier !== 'UNSET' ? `[${d.tier}] ` : '';
+      const tierStr = d.tier && d.tier !== 'UNSET' ? ` [${d.tier}]` : '';
       const notesStr = d.notes ? ` (Notes: ${d.notes})` : '';
       lines.push(`${idx + 1}. [${r.code}] ${r.title} — ${r.region} (${r.places})${tierStr}${notesStr}`);
     }
@@ -1511,6 +1493,7 @@ function copyShortlistPlainText() {
 }
 
 function printShortlistReport() {
+  syncShortlistOrder();
   if (!shortlistOrder.length) {
     showToast("No rotations in shortlist to print.");
     return;
@@ -1628,27 +1611,15 @@ function renderShortlistModal() {
   const body = document.getElementById('shortlistModalBody');
   body.innerHTML = "";
 
-  let starred = ROTATIONS_DATA.filter(r => {
-    const d = getUserData(r.id);
-    return d.rating > 0 || (d.tier && d.tier !== 'UNSET') || d.notes.trim() !== "";
-  });
-  
+  const starred = syncShortlistOrder()
+    .map(id => ROTATIONS_DATA.find(r => r.id === id))
+    .filter(Boolean);
+
   if (!starred.length) {
     body.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted);"><p style="font-weight:700;">No rotations shortlisted yet!</p><p style="font-size:0.8rem; margin-top:4px;">Give stars, assign a Tier, or add notes to build your shortlist.</p></div>`;
     updateOrielProgressBar();
     return;
   }
-
-  starred.sort((a, b) => {
-    let idxA = shortlistOrder.indexOf(a.id);
-    let idxB = shortlistOrder.indexOf(b.id);
-    if (idxA === -1) idxA = 999;
-    if (idxB === -1) idxB = 999;
-    return idxA - idxB;
-  });
-
-  shortlistOrder = starred.map(r => r.id);
-  localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
 
   starred.forEach((r, idx) => {
     const data = getUserData(r.id);
@@ -1753,6 +1724,10 @@ function moveShortlistItem(index, dir) {
 }
 
 function removeShortlistItem(id) {
+  const r = ROTATIONS_DATA.find(x => x.id === id);
+  const label = r ? r.code : 'this rotation';
+  if (!confirm(`Remove ${label} from your shortlist?\n\nThis clears its star rating, tier and notes.`)) return;
+
   shortlistOrder = shortlistOrder.filter(x => x !== id);
   localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
   orielCheckedSet.delete(id);
@@ -1764,6 +1739,9 @@ function removeShortlistItem(id) {
   localStorage.setItem(`anaesth_pref_${id}`, JSON.stringify(d));
   updateShortlistBadge();
   applyFiltersAndSearch();
+  if (currentViewMode === 'details' && currentSelectedId === id) {
+    selectRotation(id, false);
+  }
   renderShortlistModal();
   showToast("Removed from shortlist");
 }
@@ -1948,6 +1926,7 @@ function useGpsForCustomBase() {
 
 function startMapPickBase() {
   closeModal('customBaseModal');
+  if (window.innerWidth <= 768) toggleMobileSidebar(false);
   showToast("Click anywhere on the map to set your home base");
   map.once('click', (e) => {
     saveCustomHomeBase("Custom Map Pin", [e.latlng.lat, e.latlng.lng]);
@@ -2010,23 +1989,26 @@ function locateUserOnMap() {
 }
 
 // 17. BACKUP, RESTORE & CSV EXPORT
+function buildBackupObject() {
+  const ratings = {};
+  ROTATIONS_DATA.forEach(r => {
+    const d = getUserData(r.id);
+    if (isShortlisted(d)) ratings[r.id] = d;
+  });
+  return {
+    version: 1,
+    exportDate: new Date().toISOString(),
+    ratings,
+    shortlistOrder: syncShortlistOrder(),
+    orielChecked: [...orielCheckedSet],
+    customHomeBase
+  };
+}
+
 function openSyncModal() {
   const modal = document.getElementById('syncModal');
   const area = document.getElementById('syncJsonArea');
-  
-  const syncObj = {
-    ratings: {},
-    shortlistOrder: shortlistOrder,
-    orielChecked: [...orielCheckedSet],
-    customHomeBase: customHomeBase
-  };
-  ROTATIONS_DATA.forEach(r => {
-    const d = getUserData(r.id);
-    if (d.rating > 0 || (d.tier && d.tier !== 'UNSET') || (d.notes && d.notes.trim() !== "")) {
-      syncObj.ratings[r.id] = d;
-    }
-  });
-  area.value = JSON.stringify(syncObj, null, 2);
+  area.value = JSON.stringify(buildBackupObject(), null, 2);
   modal.style.display = 'flex';
 }
 
@@ -2064,20 +2046,7 @@ function importSyncData() {
 }
 
 function downloadJsonBackup() {
-  const syncObj = {
-    ratings: {},
-    shortlistOrder: shortlistOrder,
-    orielChecked: [...orielCheckedSet],
-    customHomeBase: customHomeBase,
-    exportDate: new Date().toISOString()
-  };
-  ROTATIONS_DATA.forEach(r => {
-    const d = getUserData(r.id);
-    if (d.rating > 0 || (d.tier && d.tier !== 'UNSET') || (d.notes && d.notes.trim() !== "")) {
-      syncObj.ratings[r.id] = d;
-    }
-  });
-  const jsonStr = JSON.stringify(syncObj, null, 2);
+  const jsonStr = JSON.stringify(buildBackupObject(), null, 2);
   downloadBlob(jsonStr, "ST4_Anaesthetics_Preferences_Backup.json", "application/json");
   showToast("Backup JSON file downloaded!");
 }
@@ -2110,10 +2079,11 @@ function applyParsedBackup(parsed) {
       localStorage.setItem(`anaesth_pref_${k}`, JSON.stringify(parsed.ratings[k]));
     });
   }
-  if (parsed.shortlistOrder) {
+  if (Array.isArray(parsed.shortlistOrder)) {
     shortlistOrder = parsed.shortlistOrder;
-    localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
   }
+  syncShortlistOrder();
+
   if (parsed.orielChecked && Array.isArray(parsed.orielChecked)) {
     orielCheckedSet = new Set(parsed.orielChecked);
     localStorage.setItem('anaesth_oriel_checked', JSON.stringify([...orielCheckedSet]));
@@ -2145,20 +2115,13 @@ function exportPreferencesCSV() {
 }
 
 function exportShortlistCSV() {
-  const activeStarred = ROTATIONS_DATA.filter(r => {
-    const d = getUserData(r.id);
-    return d.rating > 0 || (d.tier && d.tier !== 'UNSET') || (d.notes && d.notes.trim() !== "");
-  }).map(r => r.id);
-
-  // Sync shortlist order cleanly
-  shortlistOrder = shortlistOrder.filter(id => activeStarred.includes(id));
-  activeStarred.forEach(id => {
-    if (!shortlistOrder.includes(id)) shortlistOrder.push(id);
-  });
-  localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
-
+  const orderedIds = syncShortlistOrder();
+  if (!orderedIds.length) {
+    showToast("No rotations in shortlist to export.");
+    return;
+  }
   let csv = "AssignedRank,EnteredInOriel,OrielCode,TrackTitle,Region,PlacesAvailable,TierPreference,DriverLivingHub,TransitLivingHub,HospitalBases,RatingStars,MorningDriveMins_0730,EveningDriveMins_1800,PersonalNotes\n";
-  shortlistOrder.forEach((id, idx) => {
+  orderedIds.forEach((id, idx) => {
     const r = ROTATIONS_DATA.find(x => x.id === id);
     if (r) {
       const data = getUserData(r.id);
