@@ -67,7 +67,6 @@ L.control.layers(baseLayers, null, { position: 'topleft' }).addTo(map);
 const overviewLinesGroup = L.layerGroup().addTo(map);
 const backgroundHospitalsGroup = L.layerGroup().addTo(map);
 const activeRouteGroup = L.layerGroup().addTo(map);
-const customBaseLayerGroup = L.layerGroup().addTo(map);
 
 // 4. THEME MANAGEMENT (Auto OS detection with manual override)
 let currentThemeMode = localStorage.getItem('anaesth_theme_pref') || 'auto'; // 'auto', 'dark', 'light'
@@ -144,6 +143,7 @@ let currentFilteredList = [...ROTATIONS_DATA];
 let showOverviewLines = true;
 let currentActiveRating = 0;
 let searchDebounceTimer = null;
+let currentUserLocationMarker = null;
 
 // Safe Local Storage Deserialization
 function safeGetStorageJson(key, defaultVal) {
@@ -322,7 +322,6 @@ function renderRotationCardsFeed(list) {
     card.onclick = (e) => {
       if (e.target.closest('button')) return;
       selectRotation(r.id, false);
-      renderRotationCardsFeed(currentFilteredList);
     };
 
     card.innerHTML = `
@@ -423,8 +422,8 @@ function saveUserPreferences() {
   showToast("Saved to browser");
 }
 
-function setRating(val) {
-  if (val === currentActiveRating) {
+function setRating(val, isClick = false) {
+  if (isClick && val === currentActiveRating) {
     val = 0;
   }
   currentActiveRating = val;
@@ -548,6 +547,7 @@ function selectRotation(id, shouldCloseMobile = false) {
   }
 
   document.getElementById('welcomeMessage').style.display = 'none';
+  document.getElementById('listViewContainer').style.display = 'none';
   document.getElementById('inspectorCard').style.display = 'block';
 
   const rot = ROTATIONS_DATA.find(r => r.id === id);
@@ -609,7 +609,7 @@ function selectRotation(id, shouldCloseMobile = false) {
   }
 
   const userData = getUserData(id);
-  setRating(userData.rating);
+  setRating(userData.rating, false);
   updateTierButtons(userData.tier);
   document.getElementById('partnerNotes').value = userData.notes;
 
@@ -724,7 +724,7 @@ function selectRotation(id, shouldCloseMobile = false) {
   document.getElementById('miniCardTitle').textContent = `${rot.title} (${rot.code})`;
   document.getElementById('miniCardSpread').textContent = `${maxDist} mi`;
   document.getElementById('miniCardSpread').className = maxDist <= 25 ? 'badge badge-spread-low' : (maxDist <= 45 ? 'badge badge-spread-med' : 'badge badge-spread-high');
-  document.getElementById('miniCardHub').innerHTML = `<span>${modeEmoji} <b>${activeHubName}</b> (${uniqueHospBases.length} Bases)</span> <span style="font-weight:700; color:var(--primary);">Details &rarr;</span>`;
+  document.getElementById('miniCardHub').innerHTML = `<span>${modeEmoji} <b>${escapeHtml(activeHubName)}</b> (${uniqueHospBases.length} Bases)</span> <span style="font-weight:700; color:var(--primary);">Details &rarr;</span>`;
 
   // Background subtle markers for other hospitals
   Object.keys(HOSPITALS).forEach(hName => {
@@ -1059,6 +1059,9 @@ function resetAllFilters() {
   document.getElementById('pillLowSpread').classList.remove('active');
 
   applyFiltersAndSearch();
+  if (currentViewMode === 'all') {
+    renderAllPlacements();
+  }
   showToast("All filters reset");
 }
 
@@ -1251,6 +1254,7 @@ function removeShortlistItem(id) {
   const d = getUserData(id);
   d.rating = 0;
   d.tier = 'UNSET';
+  d.notes = "";
   localStorage.setItem(`anaesth_pref_${id}`, JSON.stringify(d));
   updateShortlistBadge();
   applyFiltersAndSearch();
@@ -1482,7 +1486,10 @@ function locateUserOnMap() {
     (pos) => {
       const latlng = [pos.coords.latitude, pos.coords.longitude];
       map.flyTo(latlng, 12);
-      const userMarker = L.circleMarker(latlng, {
+      if (currentUserLocationMarker) {
+        map.removeLayer(currentUserLocationMarker);
+      }
+      currentUserLocationMarker = L.circleMarker(latlng, {
         radius: 8,
         fillColor: '#0284c7',
         color: '#ffffff',
@@ -1490,7 +1497,7 @@ function locateUserOnMap() {
         opacity: 1,
         fillOpacity: 0.9
       }).bindPopup("<b>📍 Your Current Location</b>").addTo(map);
-      userMarker.openPopup();
+      currentUserLocationMarker.openPopup();
       if (window.innerWidth <= 768) toggleMobileSidebar(false);
     },
     () => showToast("Unable to access GPS location.")
@@ -1587,7 +1594,11 @@ function handleBackupFileUpload(event) {
 }
 
 function applyParsedBackup(parsed) {
-  if (parsed.ratings) {
+  if (!parsed || typeof parsed !== 'object') {
+    showToast("Invalid backup format");
+    return;
+  }
+  if (parsed.ratings && typeof parsed.ratings === 'object') {
     Object.keys(parsed.ratings).forEach(k => {
       localStorage.setItem(`anaesth_pref_${k}`, JSON.stringify(parsed.ratings[k]));
     });
@@ -1655,7 +1666,9 @@ function downloadBlob(content, filename, mimeType) {
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
