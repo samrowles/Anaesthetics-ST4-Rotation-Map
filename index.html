@@ -71,7 +71,7 @@
         <button class="btn-top btn-compare-top" onclick="openCompareModal()" title="Compare candidate rotations side-by-side">
           ⚖️ Compare <span id="headerCompareBadge" style="background:#7c3aed; color:white; border-radius:999px; padding:1px 6px; font-size:0.68rem; font-weight:800; margin-left:2px;">0</span>
         </button>
-        <button class="btn-top btn-export" onclick="exportPreferencesCSV()" title="Export CSV for Oriel">Export</button>
+        <button class="btn-top btn-export" onclick="exportPreferencesCSV()" title="Export spreadsheet backup (CSV) for personal records / Excel">Export CSV</button>
         <button class="btn-top btn-sync" onclick="openSyncModal()" title="Backup or transfer ratings">Backup</button>
         <button class="btn-mobile-nav" onclick="toggleMobileSidebar(false)" aria-label="View Map">🗺️ Map</button>
       </div>
@@ -313,18 +313,43 @@
   </div>
 </div>
 
-<!-- Modal 1: Starred Shortlist & Reordering View -->
+<!-- Modal 1: Starred Shortlist, Oriel Ranking & Submission Companion -->
 <div class="modal-overlay" id="shortlistModal">
-  <div class="modal-content">
+  <div class="modal-content modal-content-wide">
     <div class="modal-header">
-      <h2>⭐ My Shortlist &amp; Final Ranking</h2>
+      <h2>⭐ My Shortlist &amp; Oriel Preferencing Companion</h2>
       <button class="btn-step" onclick="closeModal('shortlistModal')" aria-label="Close modal">✕</button>
     </div>
     <div class="modal-body">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:6px;">
-        <span style="font-size:0.78rem; color:var(--text-muted);">Type a rank number or drag cards to reorder your Oriel list:</span>
-        <button class="btn-top btn-export" onclick="exportShortlistCSV()">Download Shortlist CSV</button>
+      <!-- Oriel Submission Companion Banner -->
+      <div class="oriel-companion-banner">
+        <div style="flex:1; min-width:260px;">
+          <div style="font-weight:800; font-size:0.85rem; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+            <span>🎯 Oriel Submission Assistant</span>
+            <span style="font-size:0.68rem; font-weight:normal; color:var(--text-muted);">(Manual Oriel Entry Helper)</span>
+          </div>
+          <div style="font-size:0.74rem; color:var(--text-muted); margin-top:2px; line-height:1.35;">
+            Oriel requires manual entry (no CSV import). Use this checklist to copy codes, track what you've entered, or print a desk cheat sheet.
+          </div>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+          <button class="btn-top btn-export" onclick="copyShortlistPlainText()" title="Copy numbered preference list to clipboard">📋 Copy Text List</button>
+          <button class="btn-top btn-export" onclick="printShortlistReport()" title="Print A4 submission checklist or save as PDF">🖨️ Print Cheat Sheet</button>
+          <button class="btn-top btn-export" onclick="exportShortlistCSV()" title="Download CSV spreadsheet backup for Excel / Google Sheets">📊 CSV Backup</button>
+        </div>
       </div>
+
+      <!-- Live Oriel Progress Tracker -->
+      <div id="orielProgressContainer" class="oriel-progress-container">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; margin-bottom:4px;">
+          <span id="orielProgressText" style="font-weight:700;">Entered in Oriel: 0 of 0 (0%)</span>
+          <button onclick="resetOrielChecks()" style="font-size:0.7rem; color:var(--text-muted); cursor:pointer; background:none; border:none; text-decoration:underline;">↺ Reset Checks</button>
+        </div>
+        <div class="oriel-progress-track">
+          <div id="orielProgressBar" class="oriel-progress-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+
       <div id="shortlistModalBody"></div>
     </div>
   </div>
@@ -394,6 +419,9 @@
     </div>
   </div>
 </div>
+
+<!-- Hidden Print-Only Container for Clean A4 Shortlist Cheat Sheet -->
+<div id="printableShortlist" class="print-only"></div>
 
 <!-- Scripts (Synchronous Data Loading + Modular Application Engine) -->
 <script src="data.js"></script>

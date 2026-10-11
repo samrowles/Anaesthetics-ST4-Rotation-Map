@@ -215,6 +215,7 @@ function safeGetStorageJson(key, defaultVal) {
 let compareList = safeGetStorageJson('anaesth_compare_list', []);
 let shortlistOrder = safeGetStorageJson('anaesth_shortlist_order', []);
 let customHomeBase = safeGetStorageJson('anaesth_custom_home', null);
+let orielCheckedSet = new Set(safeGetStorageJson('anaesth_oriel_checked', []));
 
 // 5. TOAST NOTIFICATIONS
 function showToast(msg) {
@@ -1231,10 +1232,237 @@ function applyFiltersAndSearch() {
   }
 }
 
-// 13. SHORTLIST & REORDERING
+// 13. SHORTLIST, REORDERING & ORIEL SUBMISSION COMPANION
 function openShortlistModal() {
   renderShortlistModal();
   document.getElementById('shortlistModal').style.display = 'flex';
+}
+
+function updateOrielProgressBar() {
+  const container = document.getElementById('orielProgressContainer');
+  if (!container) return;
+  const total = shortlistOrder.length;
+  if (!total) {
+    container.style.display = 'none';
+    return;
+  }
+  container.style.display = 'block';
+  let enteredCount = 0;
+  shortlistOrder.forEach(id => {
+    if (orielCheckedSet.has(id)) enteredCount++;
+  });
+  const pct = Math.round((enteredCount / total) * 100);
+  const textEl = document.getElementById('orielProgressText');
+  const barEl = document.getElementById('orielProgressBar');
+  if (textEl) {
+    textEl.innerHTML = `<b>🎯 Entered in Oriel:</b> ${enteredCount} of ${total} (${pct}%)`;
+    if (enteredCount === total && total > 0) {
+      textEl.innerHTML += ` <span style="color:var(--emerald); font-weight:800; margin-left:6px;">🎉 All Preferences Entered!</span>`;
+    }
+  }
+  if (barEl) {
+    barEl.style.width = `${pct}%`;
+    barEl.style.backgroundColor = enteredCount === total ? 'var(--emerald)' : 'var(--primary)';
+  }
+}
+
+function toggleOrielEntered(id) {
+  if (orielCheckedSet.has(id)) {
+    orielCheckedSet.delete(id);
+  } else {
+    orielCheckedSet.add(id);
+  }
+  localStorage.setItem('anaesth_oriel_checked', JSON.stringify([...orielCheckedSet]));
+  updateOrielProgressBar();
+
+  const card = document.getElementById(`shortlist-card-${id}`);
+  if (card) {
+    const isChecked = orielCheckedSet.has(id);
+    card.classList.toggle('oriel-entered', isChecked);
+    const labelSpan = card.querySelector('.oriel-check-label span');
+    if (labelSpan) {
+      labelSpan.textContent = isChecked ? '✓ Entered on Oriel' : 'Mark Entered';
+    }
+  }
+}
+
+function resetOrielChecks() {
+  if (!orielCheckedSet.size) {
+    showToast("No checkmarks to reset.");
+    return;
+  }
+  if (confirm("Reset all 'Entered in Oriel' checkboxes?")) {
+    orielCheckedSet.clear();
+    localStorage.removeItem('anaesth_oriel_checked');
+    renderShortlistModal();
+    showToast("Oriel checkmarks reset");
+  }
+}
+
+function copyOrielCode(code) {
+  if (!code) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code)
+      .then(() => showToast(`Copied code: "${code}"`))
+      .catch(() => fallbackCopyText(code, `Copied code: "${code}"`));
+  } else {
+    fallbackCopyText(code, `Copied code: "${code}"`);
+  }
+}
+
+function fallbackCopyText(text, successMsg) {
+  const el = document.createElement('textarea');
+  el.value = text;
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand('copy');
+  document.body.removeChild(el);
+  showToast(successMsg);
+}
+
+function copyShortlistPlainText() {
+  if (!shortlistOrder.length) {
+    showToast("No rotations in shortlist to copy.");
+    return;
+  }
+  let lines = ["ST4 Anaesthetics — Ranked Preferencing List for Oriel:"];
+  lines.push("=".repeat(50));
+  shortlistOrder.forEach((id, idx) => {
+    const r = ROTATIONS_DATA.find(x => x.id === id);
+    if (r) {
+      const d = getUserData(id);
+      const tierStr = d.tier && d.tier !== 'UNSET' ? `[${d.tier}] ` : '';
+      const notesStr = d.notes ? ` (Notes: ${d.notes})` : '';
+      lines.push(`${idx + 1}. [${r.code}] ${r.title} — ${r.region} (${r.places})${tierStr}${notesStr}`);
+    }
+  });
+  lines.push("=".repeat(50));
+  lines.push("Generated via ST4 Rotation Explorer (for personal records / Oriel entry)");
+
+  const fullText = lines.join("\n");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(fullText)
+      .then(() => showToast(`Copied ${shortlistOrder.length} ranked preferences to clipboard!`))
+      .catch(() => fallbackCopyText(fullText, `Copied ${shortlistOrder.length} preferences!`));
+  } else {
+    fallbackCopyText(fullText, `Copied ${shortlistOrder.length} preferences!`);
+  }
+}
+
+function printShortlistReport() {
+  if (!shortlistOrder.length) {
+    showToast("No rotations in shortlist to print.");
+    return;
+  }
+  let printContainer = document.getElementById('printableShortlist');
+  if (!printContainer) {
+    printContainer = document.createElement('div');
+    printContainer.id = 'printableShortlist';
+    printContainer.className = 'print-only';
+    document.body.appendChild(printContainer);
+  }
+
+  const nowStr = new Date().toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  let totalPlaces = 0;
+  let rowsHtml = '';
+
+  shortlistOrder.forEach((id, idx) => {
+    const r = ROTATIONS_DATA.find(x => x.id === id);
+    if (!r) return;
+    const d = getUserData(id);
+    const maxDist = getRotationMaxDistance(r);
+    const mornMins = calcDrivingTimeMinutes(maxDist, r.region, '0730');
+    const eveMins = calcDrivingTimeMinutes(maxDist, r.region, '1800');
+    const bases = getRotationHospitalBases(r).join(', ');
+    const isChecked = orielCheckedSet.has(id);
+
+    const plMatch = r.places.match(/\d+/);
+    if (plMatch) totalPlaces += parseInt(plMatch[0], 10);
+
+    let tierLabel = '—';
+    if (d.tier === 'TIER1') tierLabel = 'Tier 1';
+    else if (d.tier === 'TIER2') tierLabel = 'Tier 2';
+    else if (d.tier === 'TIER3') tierLabel = 'Tier 3';
+    else if (d.tier === 'EXCLUDE') tierLabel = 'Excl';
+
+    rowsHtml += `
+      <tr>
+        <td style="text-align:center; font-weight:bold; font-size:1.05rem; width:45px;">#${idx + 1}</td>
+        <td style="text-align:center; width:50px;">
+          <div style="width:16px; height:16px; border:2px solid #333; margin:0 auto; font-size:12px; line-height:16px; font-weight:bold;">
+            ${isChecked ? '✓' : ''}
+          </div>
+        </td>
+        <td style="font-weight:bold; font-family:monospace; font-size:0.9rem; width:150px;">${escapeHtml(r.code)}</td>
+        <td>
+          <div style="font-weight:bold;">${escapeHtml(r.title)}</div>
+          <div style="font-size:0.75rem; color:#444;">${escapeHtml(r.region)} • <b>${escapeHtml(r.places)}</b></div>
+        </td>
+        <td style="font-size:0.75rem;">
+          <div><b>Base:</b> ${escapeHtml(r.hubs.driver.name)}</div>
+          <div style="color:#555;">${escapeHtml(bases)}</div>
+        </td>
+        <td style="font-size:0.75rem; text-align:center; white-space:nowrap; width:95px;">
+          <b>${maxDist} mi</b><br>
+          🌅 ~${mornMins}m<br>
+          🌆 ~${eveMins}m
+        </td>
+        <td style="font-size:0.75rem; width:130px;">
+          <div><b>${tierLabel}</b> ${'★'.repeat(d.rating)}</div>
+          ${d.notes ? `<div style="font-style:italic; font-size:0.72rem; color:#333; margin-top:2px;">"${escapeHtml(d.notes)}"</div>` : ''}
+        </td>
+      </tr>
+    `;
+  });
+
+  printContainer.innerHTML = `
+    <div style="padding:10px 0 8px 0; border-bottom:2px solid #000; margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+        <div>
+          <h1 style="margin:0; font-size:1.4rem; color:#000;">ST4 Anaesthetics — Oriel Preferencing Checklist</h1>
+          <div style="font-size:0.8rem; color:#444; margin-top:2px;">Personal Ranking &amp; Manual Entry Cheat Sheet • Printed ${nowStr}</div>
+        </div>
+        <div style="text-align:right; font-size:0.8rem; font-weight:bold;">
+          <div>Shortlisted: ${shortlistOrder.length} Posts</div>
+          <div>Total Places: ~${totalPlaces}</div>
+        </div>
+      </div>
+      <div style="margin-top:6px; font-size:0.72rem; color:#666; font-style:italic;">
+        Note: Oriel requires manual entry (no CSV import). Mark [✓] in the check column as you enter each post into Oriel.
+      </div>
+    </div>
+
+    <table class="print-table">
+      <thead>
+        <tr style="background:#f2f2f2; border-bottom:2px solid #000; text-align:left;">
+          <th style="padding:6px; text-align:center;">Rank</th>
+          <th style="padding:6px; text-align:center;">Oriel ✓</th>
+          <th style="padding:6px;">Oriel Code</th>
+          <th style="padding:6px;">Programme &amp; Region</th>
+          <th style="padding:6px;">Living Base &amp; Hospitals</th>
+          <th style="padding:6px; text-align:center;">Commute</th>
+          <th style="padding:6px;">Your Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+
+    <div style="margin-top:14px; padding-top:6px; border-top:1px solid #ccc; font-size:0.72rem; color:#666; display:flex; justify-content:space-between;">
+      <span>Generated by ST4 Anaesthetics National Rotation &amp; Commute Explorer</span>
+      <span>Double check all codes and click Save in Oriel before the deadline!</span>
+    </div>
+  `;
+
+  window.print();
 }
 
 function renderShortlistModal() {
@@ -1248,6 +1476,7 @@ function renderShortlistModal() {
   
   if (!starred.length) {
     body.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted);"><p style="font-weight:700;">No rotations shortlisted yet!</p><p style="font-size:0.8rem; margin-top:4px;">Give stars, assign a Tier, or add notes to build your shortlist.</p></div>`;
+    updateOrielProgressBar();
     return;
   }
 
@@ -1265,6 +1494,9 @@ function renderShortlistModal() {
   starred.forEach((r, idx) => {
     const data = getUserData(r.id);
     const maxDist = getRotationMaxDistance(r);
+    const mornMins = calcDrivingTimeMinutes(maxDist, r.region, '0730');
+    const eveMins = calcDrivingTimeMinutes(maxDist, r.region, '1800');
+    const isEntered = orielCheckedSet.has(r.id);
 
     let tierBadgeHtml = '';
     if (data.tier === 'TIER1') tierBadgeHtml = '<span class="badge badge-tier-1">🟢 Tier 1</span>';
@@ -1273,7 +1505,8 @@ function renderShortlistModal() {
     else if (data.tier === 'EXCLUDE') tierBadgeHtml = '<span class="badge badge-tier-exclude">⚪ Excluded</span>';
 
     const div = document.createElement('div');
-    div.className = 'shortlist-item';
+    div.className = `shortlist-item ${isEntered ? 'oriel-entered' : ''}`;
+    div.id = `shortlist-card-${r.id}`;
     div.draggable = true;
     div.dataset.index = idx;
 
@@ -1297,16 +1530,23 @@ function renderShortlistModal() {
     };
 
     div.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap;">
         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-          <span style="cursor:grab;" title="Drag to reorder">☰</span>
+          <span style="cursor:grab; font-size:1.05rem;" title="Drag card to reorder rank">☰</span>
           <span style="font-size:0.75rem; font-weight:800; color:var(--text-muted);">Rank:</span>
-          <input type="number" class="rank-input" value="${idx + 1}" min="1" max="${starred.length}" onchange="changeRankInput(${idx}, this.value)">
-          <strong style="color:var(--primary); font-size:0.85rem;">${escapeHtml(r.code)}</strong>
+          <input type="number" class="rank-input" value="${idx + 1}" min="1" max="${starred.length}" onchange="changeRankInput(${idx}, this.value)" title="Change rank number">
+          <strong class="oriel-code-badge" title="Oriel Track Code">${escapeHtml(r.code)}</strong>
+          <button class="btn-copy-code" onclick="copyOrielCode('${escapeHtml(r.code)}')" title="Copy exact Oriel code to clipboard">📋 Copy</button>
           ${tierBadgeHtml}
-          <span class="badge ${maxDist <= 25 ? 'badge-spread-low' : (maxDist <= 45 ? 'badge-spread-med' : 'badge-spread-high')}" style="font-size:0.65rem;">${maxDist} mi</span>
+          <span class="badge badge-spread-low" style="font-size:0.68rem;" title="Peak commute estimates">
+            ${maxDist} mi (🌅 ~${mornMins}m · 🌆 ~${eveMins}m)
+          </span>
         </div>
-        <div style="display:flex; align-items:center; gap:6px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label class="oriel-check-label" title="Mark as entered into Oriel portal">
+            <input type="checkbox" ${isEntered ? 'checked' : ''} onchange="toggleOrielEntered('${r.id}')">
+            <span>${isEntered ? '✓ Entered on Oriel' : 'Mark Entered'}</span>
+          </label>
           <span style="color:var(--amber); font-weight:800; font-size:0.85rem;">${'★'.repeat(data.rating)}</span>
           <div style="display:flex; gap:2px;">
             <button class="btn-step" style="padding:2px 6px; font-size:0.7rem;" onclick="moveShortlistItem(${idx}, -1)" aria-label="Move item up">▲</button>
@@ -1314,16 +1554,22 @@ function renderShortlistModal() {
           </div>
         </div>
       </div>
-      <div style="font-weight:700; font-size:0.9rem; margin:4px 0;">${escapeHtml(r.title)}</div>
-      <div style="font-size:0.75rem; color:var(--text-muted);">🏡 Driving: <b>${escapeHtml(r.hubs.driver.name)}</b> | Transit: <b>${escapeHtml(r.hubs.transit.name)}</b></div>
-      ${data.notes ? `<div style="margin-top:5px; font-size:0.74rem; background:var(--bg-card-subtle); border:1px solid var(--border-color); color:var(--text-main); padding:5px 8px; border-radius:4px; font-style:italic;">"${escapeHtml(data.notes)}"</div>` : ''}
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
-        <button class="btn-step" style="font-size:0.7rem; padding:3px 8px;" onclick="closeModal('shortlistModal'); openDetailsForRotation('${r.id}');">View Details &rarr;</button>
-        <button style="border:none; background:none; color:#b91c1c; font-size:0.7rem; cursor:pointer;" onclick="removeShortlistItem('${r.id}')">✕ Remove</button>
+      <div style="font-weight:700; font-size:0.9rem; margin:6px 0 3px 0;">${escapeHtml(r.title)}</div>
+      <div style="font-size:0.75rem; color:var(--text-muted);">
+        <span>🏡 Driving Base: <b>${escapeHtml(r.hubs.driver.name)}</b></span> • 
+        <span>Region: <b>${escapeHtml(r.region)}</b></span> • 
+        <span>Places: <b>${escapeHtml(r.places)}</b></span>
+      </div>
+      ${data.notes ? `<div style="margin-top:6px; font-size:0.74rem; background:var(--bg-card-subtle); border:1px solid var(--border-color); color:var(--text-main); padding:6px 9px; border-radius:4px; font-style:italic;">"${escapeHtml(data.notes)}"</div>` : ''}
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:6px; border-top:1px solid var(--border-color);">
+        <button class="btn-step" style="font-size:0.7rem; padding:3px 8px;" onclick="closeModal('shortlistModal'); openDetailsForRotation('${r.id}');">View Details &amp; Hospitals &rarr;</button>
+        <button style="border:none; background:none; color:#b91c1c; font-size:0.72rem; font-weight:700; cursor:pointer;" onclick="removeShortlistItem('${r.id}')">✕ Remove from Shortlist</button>
       </div>
     `;
     body.appendChild(div);
   });
+
+  updateOrielProgressBar();
 }
 
 function changeRankInput(fromIdx, newRankVal) {
@@ -1352,6 +1598,8 @@ function moveShortlistItem(index, dir) {
 function removeShortlistItem(id) {
   shortlistOrder = shortlistOrder.filter(x => x !== id);
   localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
+  orielCheckedSet.delete(id);
+  localStorage.setItem('anaesth_oriel_checked', JSON.stringify([...orielCheckedSet]));
   const d = getUserData(id);
   d.rating = 0;
   d.tier = 'UNSET';
@@ -1614,6 +1862,7 @@ function openSyncModal() {
   const syncObj = {
     ratings: {},
     shortlistOrder: shortlistOrder,
+    orielChecked: [...orielCheckedSet],
     customHomeBase: customHomeBase
   };
   ROTATIONS_DATA.forEach(r => {
@@ -1663,6 +1912,7 @@ function downloadJsonBackup() {
   const syncObj = {
     ratings: {},
     shortlistOrder: shortlistOrder,
+    orielChecked: [...orielCheckedSet],
     customHomeBase: customHomeBase,
     exportDate: new Date().toISOString()
   };
@@ -1708,6 +1958,10 @@ function applyParsedBackup(parsed) {
   if (parsed.shortlistOrder) {
     shortlistOrder = parsed.shortlistOrder;
     localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
+  }
+  if (parsed.orielChecked && Array.isArray(parsed.orielChecked)) {
+    orielCheckedSet = new Set(parsed.orielChecked);
+    localStorage.setItem('anaesth_oriel_checked', JSON.stringify([...orielCheckedSet]));
   }
   if (parsed.customHomeBase) {
     customHomeBase = parsed.customHomeBase;

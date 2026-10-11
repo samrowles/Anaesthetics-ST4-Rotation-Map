@@ -1194,6 +1194,112 @@ select:focus, input:focus, textarea:focus {
   border: 1px solid var(--border-subtle);
 }
 
+/* Oriel Submission Assistant & Progress Tracker */
+.oriel-companion-banner {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.oriel-progress-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.oriel-progress-track {
+  background: var(--border-color);
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 5px;
+}
+
+.oriel-progress-fill {
+  background: var(--primary);
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.25s ease, background-color 0.25s ease;
+}
+
+.oriel-code-badge {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--primary);
+  background: var(--bg-card-subtle);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+  letter-spacing: -0.01em;
+}
+
+.btn-copy-code {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 2px 7px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.15s ease;
+}
+.btn-copy-code:hover {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.oriel-check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  padding: 3px 8px;
+  border-radius: 6px;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+.oriel-check-label:hover {
+  border-color: var(--primary);
+  color: var(--text-main);
+}
+.oriel-check-label input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--emerald);
+  margin: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.shortlist-item.oriel-entered {
+  border-left: 5px solid var(--emerald);
+  background: var(--bg-card);
+}
+.shortlist-item.oriel-entered .oriel-check-label {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: var(--emerald);
+}
+
 /* --------------------------------------------------------------------------
    Mobile Responsive Rules
    -------------------------------------------------------------------------- */
@@ -1276,3 +1382,55 @@ select:focus, input:focus, textarea:focus {
   .leaflet-bottom.leaflet-right { bottom: 75px !important; }
   .map-floating-overlay { top: 60px; right: 10px; }
 }
+
+/* --------------------------------------------------------------------------
+   Print Stylesheet for A4 Preferencing Cheat Sheet
+   -------------------------------------------------------------------------- */
+.print-only {
+  display: none !important;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+    font-size: 10pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+  
+  #sidebar, 
+  #map, 
+  .modal-overlay, 
+  #toast, 
+  .leaflet-control-container, 
+  #mobileFabOpen, 
+  #mobileMiniCard, 
+  #btnThemeToggle {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+    padding: 10px !important;
+  }
+
+  .print-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 10px !important;
+  }
+  .print-table th, .print-table td {
+    border: 1px solid #d1d5db !important;
+    padding: 6px 8px !important;
+    font-size: 8.5pt !important;
+    color: #111827 !important;
+    page-break-inside: avoid !important;
+  }
+  .print-table th {
+    background: #f3f4f6 !important;
+    font-weight: 800 !important;
+  }
+}
+
