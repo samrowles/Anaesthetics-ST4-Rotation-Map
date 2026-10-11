@@ -342,6 +342,104 @@ select:focus, input:focus, textarea:focus {
 #btnTimingEvening.active { color: #9333ea !important; }
 #btnTimingOffPeak.active { color: #0284c7 !important; }
 
+/* Compact Commute Strip */
+.compact-commute-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: var(--bg-card-subtle);
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.strip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.strip-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  min-width: 36px;
+  flex-shrink: 0;
+}
+
+.strip-toggle {
+  flex: 1;
+  min-width: 0;
+}
+
+.strip-sort {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-main);
+  cursor: pointer;
+  max-width: 105px;
+  flex-shrink: 0;
+}
+
+.btn-link-action {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.btn-link-action:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Tip Banner */
+.app-tip-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 7px 10px;
+  margin-bottom: 10px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+/* Inspector Top Navigation Bar */
+.inspector-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.inspector-stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .nav-stepper { 
   display: flex; 
   gap: 4px; 
@@ -552,18 +650,23 @@ select:focus, input:focus, textarea:focus {
 }
 
 .btn-back-to-list { 
-  background: var(--border-color); 
-  border: 1px solid var(--border-color); 
-  padding: 4px 10px; 
-  border-radius: 5px; 
-  font-size: 0.74rem; 
+  background: var(--bg-card-subtle); 
+  border: 1.5px solid var(--border-color); 
+  padding: 5px 12px; 
+  border-radius: 6px; 
+  font-size: 0.76rem; 
   font-weight: 800; 
   color: var(--text-main); 
   cursor: pointer; 
-  transition: background 0.15s;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .btn-back-to-list:hover { 
-  background: var(--border-subtle); 
+  background: var(--border-color); 
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .btn-compare-action {

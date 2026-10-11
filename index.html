@@ -71,8 +71,7 @@
         <button class="btn-top btn-compare-top" onclick="openCompareModal()" title="Compare candidate rotations side-by-side">
           ⚖️ Compare <span id="headerCompareBadge" style="background:#7c3aed; color:white; border-radius:999px; padding:1px 6px; font-size:0.68rem; font-weight:800; margin-left:2px;">0</span>
         </button>
-        <button class="btn-top btn-export" onclick="exportPreferencesCSV()" title="Export spreadsheet backup (CSV) for personal records / Excel">Export CSV</button>
-        <button class="btn-top btn-sync" onclick="openSyncModal()" title="Backup or transfer ratings">Backup</button>
+        <button class="btn-top btn-sync" onclick="openSyncModal()" title="Backup preferences or export CSV spreadsheet">💾 Data</button>
         <button class="btn-mobile-nav" onclick="toggleMobileSidebar(false)" aria-label="View Map">🗺️ Map</button>
       </div>
     </h1>
@@ -80,119 +79,99 @@
   </div>
 
   <div id="controls">
-    <!-- View Mode Switcher -->
-    <div class="view-toggle">
-      <button class="view-btn active" id="btnModeAll" onclick="setViewMode('all')">🌐 Overview</button>
-      <button class="view-btn" id="btnModeList" onclick="setViewMode('list')">📋 List (<span id="listCountBadge">76</span>)</button>
-      <button class="view-btn" id="btnModeDetails" onclick="setViewMode('details')">🔍 Details</button>
-    </div>
-
-    <!-- Filter 1: NHS Region Dropdown -->
+    <!-- Row 1: Search Input & NHS Region Filter -->
     <div class="control-row">
-      <select id="regionFilter" onchange="filterRegion(this.value)" aria-label="Filter by NHS Region">
+      <div class="search-wrapper" style="flex:1;">
+        <input type="text" id="searchInput" placeholder="Search hospital, code or keyword..." oninput="handleSearch(this.value)">
+        <button class="btn-search-clear" id="btnSearchClear" onclick="clearSearch()" title="Clear search">✕</button>
+      </div>
+      <select id="regionFilter" onchange="filterRegion(this.value)" aria-label="Filter by NHS Region" style="flex:1; max-width:185px;">
         <!-- Populated Dynamically in JS -->
       </select>
     </div>
 
-    <!-- Filter 2: Rotation Selector & Stepper -->
-    <div class="control-row">
-      <select id="prefSelect" onchange="selectRotation(this.value, false); setViewMode('details');" aria-label="Select Rotation">
-        <option value="">-- Choose Rotation to Inspect --</option>
-      </select>
-      <div class="nav-stepper">
-        <button class="btn-step" onclick="stepRotation(-1)" title="Previous Rotation (← key)" aria-label="Previous Rotation">&larr;</button>
-        <button class="btn-step" onclick="stepRotation(1)" title="Next Rotation (→ key)" aria-label="Next Rotation">&rarr;</button>
-      </div>
-    </div>
-
-    <!-- Commute Base Toggle (Driver, Transit, or Custom Base) -->
-    <div class="mode-toggle-group">
-      <div class="mode-label">
-        <span>Commuting Base / Hub:</span>
-        <button onclick="openCustomBaseModal()" style="border:none; background:none; color:var(--primary); font-size:0.68rem; font-weight:800; cursor:pointer; text-decoration:underline;">
-          <span id="customBasePillText">📍 Set My Postcode</span>
+    <!-- Row 2: Compact Commute Base & Shift Timing Strip -->
+    <div class="compact-commute-strip">
+      <div class="strip-row">
+        <span class="strip-label">Base:</span>
+        <div class="transport-toggle strip-toggle">
+          <button class="transport-btn active" id="btnModeDriver" onclick="setCommuteMode('driver')">🚗 Driver</button>
+          <button class="transport-btn" id="btnModeTransit" onclick="setCommuteMode('transit')">🚆 Transit</button>
+          <button class="transport-btn" id="btnModeCustom" onclick="setCommuteMode('custom')">📍 My Base</button>
+        </div>
+        <button class="btn-link-action" onclick="openCustomBaseModal()" title="Set your prospective home postcode">
+          <span id="customBasePillText">📍 Postcode</span>
         </button>
       </div>
-      <div class="transport-toggle">
-        <button class="transport-btn active" id="btnModeDriver" onclick="setCommuteMode('driver')">🚗 Suggested Driver</button>
-        <button class="transport-btn" id="btnModeTransit" onclick="setCommuteMode('transit')">🚆 Public Transit</button>
-        <button class="transport-btn" id="btnModeCustom" onclick="setCommuteMode('custom')">📍 My Base</button>
+      <div class="strip-row">
+        <span class="strip-label">Shift:</span>
+        <div class="transport-toggle strip-toggle">
+          <button class="transport-btn active" id="btnTimingMorning" onclick="setShiftTiming('0730')" title="Arrive 07:30 handover">🌅 07:30</button>
+          <button class="transport-btn" id="btnTimingEvening" onclick="setShiftTiming('1800')" title="Leave 18:00 rush">🌆 18:00</button>
+          <button class="transport-btn" id="btnTimingOffPeak" onclick="setShiftTiming('offpeak')" title="Free-flow off-peak">⚡ Off-Peak</button>
+        </div>
+        <select id="sortSelect" onchange="handleSortChange(this.value)" class="strip-sort" title="Sort Rotations" aria-label="Sort Rotations">
+          <option value="DEFAULT">Sort: Oriel</option>
+          <option value="SPREAD_ASC">Spread ↑</option>
+          <option value="PLACES_DESC">Places ↓</option>
+          <option value="RATING_DESC">Rating ↓</option>
+        </select>
       </div>
     </div>
 
-    <!-- Shift Traffic Timing Profile Toggle -->
-    <div class="mode-toggle-group">
-      <div class="mode-label">
-        <span>Commute Traffic Profile:</span>
-        <span style="font-size:0.65rem; color:var(--text-muted); font-weight:normal;" id="shiftTimingLabel">🌅 Arrive 07:30 (Handover)</span>
-      </div>
-      <div class="transport-toggle">
-        <button class="transport-btn active" id="btnTimingMorning" onclick="setShiftTiming('0730')" title="Morning handover arrival at 07:30">🌅 Arrive 07:30</button>
-        <button class="transport-btn" id="btnTimingEvening" onclick="setShiftTiming('1800')" title="Evening rush hour departure at 18:00">🌆 Leave 18:00</button>
-        <button class="transport-btn" id="btnTimingOffPeak" onclick="setShiftTiming('offpeak')" title="Free-flow off-peak baseline drive">⚡ Off-Peak</button>
-      </div>
-    </div>
-
-    <!-- Search Input & Sort Selector -->
-    <div class="control-row">
-      <div class="search-wrapper">
-        <input type="text" id="searchInput" placeholder="Search hospital (e.g. Addenbrooke's, QMC)..." oninput="handleSearch(this.value)">
-        <button class="btn-search-clear" id="btnSearchClear" onclick="clearSearch()" title="Clear search">✕</button>
-      </div>
-      <select id="sortSelect" onchange="handleSortChange(this.value)" style="width:175px;" title="Sort Rotations" aria-label="Sort Rotations">
-        <option value="DEFAULT">Sort: Oriel Order</option>
-        <option value="SPREAD_ASC">Sort: Lowest Spread First</option>
-        <option value="PLACES_DESC">Sort: Most Places</option>
-        <option value="RATING_DESC">Sort: Highest Rating</option>
-      </select>
-    </div>
-
-    <!-- Commute Spread Range Radius Filter -->
-    <div class="control-row">
-      <select id="spreadFilterSelect" onchange="handleSpreadFilterChange(this.value)" aria-label="Filter by Max Spread Radius">
-        <option value="ALL">Max Spread: Any Radius</option>
-        <option value="25">Max Spread: ≤ 25 miles (Tight footprint)</option>
-        <option value="35">Max Spread: ≤ 35 miles</option>
-        <option value="50">Max Spread: ≤ 50 miles</option>
-      </select>
-    </div>
-
-    <!-- Quick Filter Pills & Reset Button -->
+    <!-- Row 3: Quick Filter Pills -->
     <div class="filter-pills-row">
       <div class="filter-pills">
-        <button class="filter-pill-btn active" id="pillAll" onclick="setQuickFilter('ALL')">All Posts</button>
+        <button class="filter-pill-btn active" id="pillAll" onclick="setQuickFilter('ALL')">All (<span id="listCountBadge">76</span>)</button>
         <button class="filter-pill-btn" id="pillStarred" onclick="setQuickFilter('STARRED')">⭐ Starred</button>
         <button class="filter-pill-btn" id="pillTier1" onclick="setQuickFilter('TIER1')">🟢 Tier 1</button>
         <button class="filter-pill-btn" id="pillTier2" onclick="setQuickFilter('TIER2')">🟡 Tier 2</button>
         <button class="filter-pill-btn" id="pillTier3" onclick="setQuickFilter('TIER3')">🔴 Tier 3</button>
-        <button class="filter-pill-btn" id="pillLowSpread" onclick="setQuickFilter('LOW_SPREAD')">&lt;30mi</button>
+        <button class="filter-pill-btn" id="pillLowSpread" onclick="setQuickFilter('LOW_SPREAD')">&le;25mi</button>
       </div>
-      <button class="btn-reset-filters" onclick="resetAllFilters()" title="Reset all search queries and filters">↺ Reset</button>
+      <button class="btn-reset-filters" onclick="resetAllFilters()" title="Reset all search queries and filters">↺</button>
     </div>
   </div>
 
   <div id="content-pane">
-    <!-- View 1: Scrollable Feed of Rotation Cards -->
-    <div id="listViewContainer" style="display: none;">
+    <!-- View 1: Scrollable Feed of Rotation Cards (Default View) -->
+    <div id="listViewContainer">
+      <div class="app-tip-banner" id="appTipBanner">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span>💡</span>
+          <span>Click any card to inspect route &amp; commute, or tap hospital pins on the map.</span>
+        </div>
+        <button onclick="dismissTipBanner()" style="border:none; background:none; color:var(--text-muted); font-size:0.8rem; cursor:pointer;" title="Dismiss tip">✕</button>
+      </div>
       <div id="rotationCardsFeed"></div>
     </div>
 
-    <!-- View 2: Detailed Inspector Card -->
+    <!-- View 2: Detailed Inspector Card (Focus Mode) -->
     <div id="inspectorCard" style="display: none;">
       <div class="card">
+        <div class="inspector-top-bar">
+          <button class="btn-back-to-list" onclick="showListView()">
+            &larr; Back to List
+          </button>
+          <div class="inspector-stepper">
+            <button class="btn-step" onclick="stepRotation(-1)" title="Previous rotation (← key)" aria-label="Previous rotation">&larr;</button>
+            <select id="prefSelect" onchange="selectRotation(this.value, false)" aria-label="Select Rotation" style="max-width:160px; font-size:0.74rem; padding:3px 6px;">
+              <option value="">Jump to...</option>
+            </select>
+            <button class="btn-step" onclick="stepRotation(1)" title="Next rotation (→ key)" aria-label="Next rotation">&rarr;</button>
+          </div>
+        </div>
+
         <button class="btn-view-map-card" onclick="toggleMobileSidebar(false)">
           🗺️ View Rotation Route on Map &rarr;
         </button>
 
         <div class="card-actions-row">
           <div style="display:flex; gap:6px;">
-            <button class="btn-back-to-list" onclick="setViewMode('list')">&larr; List</button>
-            <button class="btn-back-to-list" onclick="setViewMode('all')">🌐 Overview Map</button>
-          </div>
-          <div style="display:flex; gap:6px;">
+            <button class="btn-step" onclick="showListView()">&larr; Feed</button>
             <button id="cardCompareBtn" class="btn-compare-action" onclick="toggleCompareFromCard()">⚖️ Compare</button>
-            <button class="btn-share-link" onclick="copyDirectShareLink()" title="Copy direct link to this rotation">🔗 Link</button>
           </div>
+          <button class="btn-share-link" onclick="copyDirectShareLink()" title="Copy direct link to this rotation">🔗 Link</button>
         </div>
 
         <div class="badge-container">
@@ -269,28 +248,6 @@
           </div>
           <textarea class="notes-input" id="partnerNotes" placeholder="Personal notes (e.g., commute manageable, excellent cardiac block)..."></textarea>
           <button class="btn-save" onclick="saveUserPreferences()">Save Notes &amp; Tier</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- View 3: Overview Map Welcome Banner -->
-    <div id="welcomeMessage" style="display: block;">
-      <div class="card" style="text-align: left; background: var(--bg-card-subtle); border: 1.5px solid var(--border-color);">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
-          <strong style="font-size: 1rem; color: var(--text-main);">🌐 National Overview Map</strong>
-          <span class="badge badge-code" style="font-size: 0.7rem;">76 Rotations</span>
-        </div>
-        <p style="font-size: 0.79rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 10px;">
-          Displaying all 60+ NHS hospital trusts colour-coded by region, connected with <b>small dashed rotation route lines</b>.
-        </p>
-        <ul style="font-size:0.77rem; color:var(--text-muted); margin-left:18px; margin-bottom:12px; line-height:1.45;">
-          <li><b>Hover / Click any dashed line</b> to preview that rotation footprint.</li>
-          <li><b>Click any hospital pin</b> to see every rotation that visits it.</li>
-          <li>Filter by region above to inspect individual training networks.</li>
-        </ul>
-        <div style="display:flex; gap:6px; flex-wrap:wrap;">
-          <button class="btn-top btn-export" onclick="setViewMode('list')" style="font-size:0.78rem; padding:6px 12px;">📋 Browse Rotations List &rarr;</button>
-          <button class="btn-top btn-sync" onclick="toggleOverviewLines()" id="btnToggleLinesOverview">🔀 Rotation Lines: ON</button>
         </div>
       </div>
     </div>
@@ -399,22 +356,37 @@
 <div class="modal-overlay" id="syncModal">
   <div class="modal-content">
     <div class="modal-header">
-      <h2>Backup &amp; Restore Preferences</h2>
+      <h2>💾 Data Management &amp; Backup</h2>
       <button class="btn-step" onclick="closeModal('syncModal')" aria-label="Close modal">✕</button>
     </div>
     <div class="modal-body">
-      <div style="display:flex; gap:8px; margin-bottom:14px;">
-        <button class="btn-save" style="margin-top:0; flex:1;" onclick="downloadJsonBackup()">💾 Download .JSON Backup File</button>
-        <button class="btn-save" style="margin-top:0; background:var(--emerald); flex:1;" onclick="document.getElementById('backupFileInput').click()">📂 Upload .JSON Backup File</button>
-        <input type="file" id="backupFileInput" accept=".json" style="display:none;" onchange="handleBackupFileUpload(event)">
+      <div style="margin-bottom:16px;">
+        <h4 style="margin:0 0 8px 0; font-size:0.85rem;">📊 Spreadsheet Export (Excel / CSV)</h4>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-top btn-export" style="flex:1; justify-content:center; padding:7px;" onclick="exportShortlistCSV()">⭐ Export Shortlist CSV</button>
+          <button class="btn-top btn-sync" style="flex:1; justify-content:center; padding:7px;" onclick="exportPreferencesCSV()">📋 Export All Rotations CSV</button>
+        </div>
       </div>
-      <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:8px;">
-        Or copy/paste the sync text code below to share ratings with your partner:
-      </p>
-      <textarea id="syncJsonArea" style="height:120px; font-family:monospace; font-size:0.74rem;"></textarea>
-      <div style="display:flex; gap:8px; margin-top:10px;">
-        <button class="btn-save" style="margin-top:0;" onclick="copySyncData()">📋 Copy Code</button>
-        <button class="btn-save" style="margin-top:0; background:var(--emerald);" onclick="importSyncData()">📥 Import Code</button>
+
+      <div style="margin-bottom:16px; border-top:1px solid var(--border-color); padding-top:12px;">
+        <h4 style="margin:0 0 8px 0; font-size:0.85rem;">💾 JSON Backup &amp; Restore</h4>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-save" style="margin-top:0; flex:1;" onclick="downloadJsonBackup()">💾 Download JSON File</button>
+          <button class="btn-save" style="margin-top:0; background:var(--emerald); flex:1;" onclick="document.getElementById('backupFileInput').click()">📂 Upload JSON File</button>
+          <input type="file" id="backupFileInput" accept=".json" style="display:none;" onchange="handleBackupFileUpload(event)">
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--border-color); padding-top:12px;">
+        <h4 style="margin:0 0 8px 0; font-size:0.85rem;">🔄 Share or Sync with Partner</h4>
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:8px;">
+          Copy/paste the text code below to transfer your ratings and notes between devices:
+        </p>
+        <textarea id="syncJsonArea" style="height:90px; font-family:monospace; font-size:0.74rem;"></textarea>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="btn-save" style="margin-top:0;" onclick="copySyncData()">📋 Copy Code</button>
+          <button class="btn-save" style="margin-top:0; background:var(--emerald);" onclick="importSyncData()">📥 Import Code</button>
+        </div>
       </div>
     </div>
   </div>

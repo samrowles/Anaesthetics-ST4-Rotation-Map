@@ -258,6 +258,24 @@ function getRotationMaxDistance(rot) {
 }
 
 /**
+ * Consolidated commute summary for any rotation.
+ * Computes max distance spread, morning rush commute (07:30), evening commute (18:00),
+ * active shift time based on selected timing, badge styling class, and short timing label.
+ */
+function getRotationCommuteSummary(rot, timing = currentShiftTiming) {
+  if (!rot) return { maxDist: 0, mornMins: 0, eveMins: 0, activeMins: 0, badgeClass: 'badge-spread-low', timingShort: '07:30' };
+  const maxDist = getRotationMaxDistance(rot);
+  const mornMins = calcDrivingTimeMinutes(maxDist, rot.region, '0730');
+  const eveMins = calcDrivingTimeMinutes(maxDist, rot.region, '1800');
+  const activeMins = timing === '1800' ? eveMins : (timing === 'offpeak' ? calcDrivingTimeMinutes(maxDist, rot.region, 'offpeak') : mornMins);
+  const timingShort = timing === '1800' ? '18:00' : (timing === '0730' ? '07:30' : 'off-peak');
+  let badgeClass = 'badge-spread-low';
+  if (activeMins > 50) badgeClass = 'badge-spread-high';
+  else if (activeMins > 35) badgeClass = 'badge-spread-med';
+  return { maxDist, mornMins, eveMins, activeMins, badgeClass, timingShort };
+}
+
+/**
  * Returns a deduplicated array of hospital base names visited by a rotation.
  */
 function getRotationHospitalBases(rot) {
@@ -322,7 +340,7 @@ function populateRegionDropdown() {
 const prefSelect = document.getElementById('prefSelect');
 function populateDropdown(list) {
   if (!prefSelect) return;
-  prefSelect.innerHTML = '<option value="">-- Choose Rotation to Inspect --</option>';
+  prefSelect.innerHTML = '<option value="">Jump to rotation...</option>';
   
   const groups = {};
   list.forEach(r => {
@@ -369,9 +387,7 @@ function renderRotationCardsFeed(list) {
 
   list.forEach((r) => {
     const userData = getUserData(r.id);
-    const maxDist = getRotationMaxDistance(r);
-    const estMins = calcDrivingTimeMinutes(maxDist, r.region, currentShiftTiming);
-    const timingShort = currentShiftTiming === '1800' ? '18:00' : (currentShiftTiming === '0730' ? '07:30' : 'off-peak');
+    const commute = getRotationCommuteSummary(r);
     const isSelected = r.id === currentSelectedId;
     const isComparing = compareList.includes(r.id);
 
@@ -381,10 +397,6 @@ function renderRotationCardsFeed(list) {
       activeHubName = customHomeBase.name;
       hubEmoji = '📍';
     }
-
-    let spreadBadgeClass = 'badge-spread-low';
-    if (estMins > 50) spreadBadgeClass = 'badge-spread-high';
-    else if (estMins > 35) spreadBadgeClass = 'badge-spread-med';
 
     let tierBadgeHtml = '';
     if (userData.tier === 'TIER1') tierBadgeHtml = '<span class="badge badge-tier-1">🟢 T1</span>';
@@ -397,7 +409,7 @@ function renderRotationCardsFeed(list) {
     card.id = `feed-card-${r.id}`;
     card.onclick = (e) => {
       if (e.target.closest('button')) return;
-      selectRotation(r.id, false);
+      openDetailsForRotation(r.id);
     };
 
     card.innerHTML = `
@@ -411,7 +423,7 @@ function renderRotationCardsFeed(list) {
           <button class="btn-compare-action ${isComparing ? 'in-compare' : ''}" onclick="toggleCompareCard(event, '${r.id}')" title="Compare rotation">
             ${isComparing ? '✓ Comparing' : '+ Compare'}
           </button>
-          <span class="badge ${spreadBadgeClass}" title="Estimated drive time at ${timingShort}">${maxDist} mi (~${estMins}m @ ${timingShort})</span>
+          <span class="badge ${commute.badgeClass}" title="Estimated drive time at ${commute.timingShort}">${commute.maxDist} mi (~${commute.activeMins}m @ ${commute.timingShort})</span>
         </div>
       </div>
       <div class="card-list-title">${escapeHtml(r.title)}</div>
@@ -521,43 +533,60 @@ function setRating(val, isClick = false) {
 }
 
 // 9. VIEW MODE & COMMUTE MODE SWITCHING
-function setViewMode(mode) {
-  currentViewMode = mode;
-  document.getElementById('btnModeList').classList.toggle('active', mode === 'list');
-  document.getElementById('btnModeDetails').classList.toggle('active', mode === 'details');
-  document.getElementById('btnModeAll').classList.toggle('active', mode === 'all');
-
+function showListView() {
+  currentViewMode = 'list';
   const listView = document.getElementById('listViewContainer');
   const inspectorCard = document.getElementById('inspectorCard');
-  const welcomeMessage = document.getElementById('welcomeMessage');
+  if (listView) listView.style.display = 'block';
+  if (inspectorCard) inspectorCard.style.display = 'none';
 
-  if (mode === 'list') {
-    listView.style.display = 'block';
-    inspectorCard.style.display = 'none';
-    welcomeMessage.style.display = 'none';
-    renderRotationCardsFeed(currentFilteredList);
-    // Smooth scroll active card into view
-    if (currentSelectedId) {
-      setTimeout(() => {
-        const card = document.getElementById(`feed-card-${currentSelectedId}`);
-        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }, 50);
-    }
-  } else if (mode === 'details') {
-    listView.style.display = 'none';
-    inspectorCard.style.display = 'block';
-    welcomeMessage.style.display = 'none';
-    if (!currentSelectedId) {
-      selectRotation(prefSelect.value || ROTATIONS_DATA[0].id, false);
-    }
-  } else if (mode === 'all') {
-    listView.style.display = 'none';
-    inspectorCard.style.display = 'none';
-    welcomeMessage.style.display = 'block';
-    renderAllPlacements();
+  renderRotationCardsFeed(currentFilteredList);
+  if (currentSelectedId) {
+    setTimeout(() => {
+      const card = document.getElementById(`feed-card-${currentSelectedId}`);
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
   }
+  renderAllPlacements();
+  setTimeout(() => { map.invalidateSize(); }, 120);
+}
 
-  // Ensure map tiles redraw smoothly
+function backToList() {
+  showListView();
+}
+
+function dismissTipBanner() {
+  const banner = document.getElementById('appTipBanner');
+  if (banner) banner.style.display = 'none';
+  try {
+    localStorage.setItem('anaesth_tip_dismissed', 'true');
+  } catch (e) {}
+}
+
+function checkTipBannerStatus() {
+  try {
+    if (localStorage.getItem('anaesth_tip_dismissed') === 'true') {
+      const banner = document.getElementById('appTipBanner');
+      if (banner) banner.style.display = 'none';
+    }
+  } catch (e) {}
+}
+
+function setViewMode(mode) {
+  if (mode === 'details') {
+    currentViewMode = 'details';
+    const listView = document.getElementById('listViewContainer');
+    const inspectorCard = document.getElementById('inspectorCard');
+    if (listView) listView.style.display = 'none';
+    if (inspectorCard) inspectorCard.style.display = 'block';
+    if (!currentSelectedId) {
+      const prefSelect = document.getElementById('prefSelect');
+      const firstId = (prefSelect && prefSelect.value) || (ROTATIONS_DATA[0] && ROTATIONS_DATA[0].id);
+      if (firstId) selectRotation(firstId, false);
+    }
+  } else {
+    showListView();
+  }
   setTimeout(() => { map.invalidateSize(); }, 120);
 }
 
@@ -624,7 +653,8 @@ function stepRotation(direction) {
     if (currentIndex >= currentFilteredList.length) currentIndex = 0;
   }
   const nextId = currentFilteredList[currentIndex].id;
-  prefSelect.value = nextId;
+  const prefSel = document.getElementById('prefSelect');
+  if (prefSel) prefSel.value = nextId;
   selectRotation(nextId, false);
   renderRotationCardsFeed(currentFilteredList);
 }
@@ -659,17 +689,22 @@ function selectRotation(id, shouldCloseMobile = false) {
 
   currentSelectedId = id;
   currentViewMode = 'details';
-  document.getElementById('btnModeDetails').classList.add('active');
-  document.getElementById('btnModeList').classList.remove('active');
-  document.getElementById('btnModeAll').classList.remove('active');
+
+  const prefSel = document.getElementById('prefSelect');
+  if (prefSel && prefSel.value !== id) {
+    prefSel.value = id;
+  }
   
   if (window.location.hash !== '#' + id) {
     window.location.hash = id;
   }
 
-  document.getElementById('welcomeMessage').style.display = 'none';
-  document.getElementById('listViewContainer').style.display = 'none';
-  document.getElementById('inspectorCard').style.display = 'block';
+  const welcomeMessage = document.getElementById('welcomeMessage');
+  if (welcomeMessage) welcomeMessage.style.display = 'none';
+  const listView = document.getElementById('listViewContainer');
+  if (listView) listView.style.display = 'none';
+  const inspectorCard = document.getElementById('inspectorCard');
+  if (inspectorCard) inspectorCard.style.display = 'block';
 
   const rot = ROTATIONS_DATA.find(r => r.id === id);
   if (!rot) return;
@@ -828,31 +863,28 @@ function selectRotation(id, shouldCloseMobile = false) {
     if (hData) hospitalCoords.push(hData.coords);
   });
 
-  const maxDist = getRotationMaxDistance(rot);
-  const mornMins = calcDrivingTimeMinutes(maxDist, rot.region, '0730');
-  const eveMins = calcDrivingTimeMinutes(maxDist, rot.region, '1800');
-  const activeMins = currentShiftTiming === '1800' ? eveMins : (currentShiftTiming === 'offpeak' ? calcDrivingTimeMinutes(maxDist, rot.region, 'offpeak') : mornMins);
+  const commute = getRotationCommuteSummary(rot);
 
   document.getElementById('metricSites').textContent = uniqueHospBases.length;
-  document.getElementById('metricDistance').textContent = `${maxDist} mi`;
+  document.getElementById('metricDistance').textContent = `${commute.maxDist} mi`;
 
   const spreadBadge = document.getElementById('cardSpreadBadge');
-  spreadBadge.textContent = `Max: ${maxDist} mi`;
-  if (activeMins <= 35) {
+  spreadBadge.textContent = `Max: ${commute.maxDist} mi`;
+  if (commute.activeMins <= 35) {
     spreadBadge.className = 'badge badge-spread-low';
-    spreadBadge.textContent = `🟢 Low Spread: ${maxDist} mi (🌅 ~${mornMins}m · 🌆 ~${eveMins}m)`;
-  } else if (activeMins <= 50) {
+    spreadBadge.textContent = `🟢 Low Spread: ${commute.maxDist} mi (🌅 ~${commute.mornMins}m · 🌆 ~${commute.eveMins}m)`;
+  } else if (commute.activeMins <= 50) {
     spreadBadge.className = 'badge badge-spread-med';
-    spreadBadge.textContent = `🟡 Moderate: ${maxDist} mi (🌅 ~${mornMins}m · 🌆 ~${eveMins}m)`;
+    spreadBadge.textContent = `🟡 Moderate: ${commute.maxDist} mi (🌅 ~${commute.mornMins}m · 🌆 ~${commute.eveMins}m)`;
   } else {
     spreadBadge.className = 'badge badge-spread-high';
-    spreadBadge.textContent = `🔴 High Spread: ${maxDist} mi (🌅 ~${mornMins}m · 🌆 ~${eveMins}m)`;
+    spreadBadge.textContent = `🔴 High Spread: ${commute.maxDist} mi (🌅 ~${commute.mornMins}m · 🌆 ~${commute.eveMins}m)`;
   }
 
   const modeEmoji = currentCommuteMode === 'transit' ? '🚆' : (currentCommuteMode === 'custom' ? '📍' : '🚗');
   document.getElementById('miniCardTitle').textContent = `${rot.title} (${rot.code})`;
-  document.getElementById('miniCardSpread').textContent = `${maxDist} mi (~${activeMins}m)`;
-  document.getElementById('miniCardSpread').className = activeMins <= 35 ? 'badge badge-spread-low' : (activeMins <= 50 ? 'badge badge-spread-med' : 'badge badge-spread-high');
+  document.getElementById('miniCardSpread').textContent = `${commute.maxDist} mi (~${commute.activeMins}m)`;
+  document.getElementById('miniCardSpread').className = `badge ${commute.badgeClass}`;
   document.getElementById('miniCardHub').innerHTML = `<span>${modeEmoji} <b>${escapeHtml(activeHubName)}</b> (${uniqueHospBases.length} Bases)</span> <span style="font-weight:700; color:var(--primary);">Details &rarr;</span>`;
 
   // Background subtle markers for other hospitals
@@ -1216,7 +1248,7 @@ function applyFiltersAndSearch() {
   } else if (activeQuickFilter === 'TIER3') {
     list = list.filter(r => getUserData(r.id).tier === 'TIER3');
   } else if (activeQuickFilter === 'LOW_SPREAD') {
-    list = list.filter(r => getRotationMaxDistance(r) <= 30);
+    list = list.filter(r => getRotationMaxDistance(r) <= 25);
   }
 
   // Spread Radius Dropdown Filter
@@ -1408,9 +1440,7 @@ function printShortlistReport() {
     const r = ROTATIONS_DATA.find(x => x.id === id);
     if (!r) return;
     const d = getUserData(id);
-    const maxDist = getRotationMaxDistance(r);
-    const mornMins = calcDrivingTimeMinutes(maxDist, r.region, '0730');
-    const eveMins = calcDrivingTimeMinutes(maxDist, r.region, '1800');
+    const commute = getRotationCommuteSummary(r);
     const bases = getRotationHospitalBases(r).join(', ');
     const isChecked = orielCheckedSet.has(id);
 
@@ -1441,9 +1471,9 @@ function printShortlistReport() {
           <div style="color:#555;">${escapeHtml(bases)}</div>
         </td>
         <td style="font-size:0.75rem; text-align:center; white-space:nowrap; width:95px;">
-          <b>${maxDist} mi</b><br>
-          🌅 ~${mornMins}m<br>
-          🌆 ~${eveMins}m
+          <b>${commute.maxDist} mi</b><br>
+          🌅 ~${commute.mornMins}m<br>
+          🌆 ~${commute.eveMins}m
         </td>
         <td style="font-size:0.75rem; width:130px;">
           <div><b>${tierLabel}</b> ${'★'.repeat(d.rating)}</div>
@@ -1524,9 +1554,7 @@ function renderShortlistModal() {
 
   starred.forEach((r, idx) => {
     const data = getUserData(r.id);
-    const maxDist = getRotationMaxDistance(r);
-    const mornMins = calcDrivingTimeMinutes(maxDist, r.region, '0730');
-    const eveMins = calcDrivingTimeMinutes(maxDist, r.region, '1800');
+    const commute = getRotationCommuteSummary(r);
     const isEntered = orielCheckedSet.has(r.id);
 
     let tierBadgeHtml = '';
@@ -1569,8 +1597,8 @@ function renderShortlistModal() {
           <strong class="oriel-code-badge" title="Oriel Track Code">${escapeHtml(r.code)}</strong>
           <button class="btn-copy-code" onclick="copyOrielCode('${escapeHtml(r.code)}')" title="Copy exact Oriel code to clipboard">📋 Copy</button>
           ${tierBadgeHtml}
-          <span class="badge badge-spread-low" style="font-size:0.68rem;" title="Peak commute estimates">
-            ${maxDist} mi (🌅 ~${mornMins}m · 🌆 ~${eveMins}m)
+          <span class="badge ${commute.badgeClass}" style="font-size:0.68rem;" title="Peak commute estimates">
+            ${commute.maxDist} mi (🌅 ~${commute.mornMins}m · 🌆 ~${commute.eveMins}m)
           </span>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
@@ -1700,9 +1728,7 @@ function renderCompareModal() {
     const r = ROTATIONS_DATA.find(x => x.id === id);
     if (!r) return;
     const data = getUserData(id);
-    const maxDist = getRotationMaxDistance(r);
-    const mornMins = calcDrivingTimeMinutes(maxDist, r.region, '0730');
-    const eveMins = calcDrivingTimeMinutes(maxDist, r.region, '1800');
+    const commute = getRotationCommuteSummary(r);
     const bases = getRotationHospitalBases(r);
 
     let tierLabel = 'None';
@@ -1722,7 +1748,7 @@ function renderCompareModal() {
         
         <div>
           <div class="compare-row-label">Max Commute Spread (Peak Traffic)</div>
-          <div class="compare-row-val"><b>${maxDist} mi</b> (🌅 ~${mornMins}m @ 07:30 · 🌆 ~${eveMins}m @ 18:00)</div>
+          <div class="compare-row-val"><b>${commute.maxDist} mi</b> (🌅 ~${commute.mornMins}m @ 07:30 · 🌆 ~${commute.eveMins}m @ 18:00)</div>
         </div>
 
         <div>
@@ -2014,10 +2040,8 @@ function exportPreferencesCSV() {
     const cleanNotes = `"${(data.notes || "").replace(/"/g, '""')}"`;
     const basesStr = `"${getRotationHospitalBases(r).join('; ')}"`;
     const tierStr = data.tier || "UNSET";
-    const maxDist = getRotationMaxDistance(r);
-    const mornMins = calcDrivingTimeMinutes(maxDist, r.region, '0730');
-    const eveMins = calcDrivingTimeMinutes(maxDist, r.region, '1800');
-    csv += `"${r.code}","${r.title}","${r.region}","${r.places}","${tierStr}","${r.hubs.driver.name}","${r.hubs.transit.name}",${basesStr},${data.rating},${mornMins},${eveMins},${cleanNotes}\n`;
+    const commute = getRotationCommuteSummary(r);
+    csv += `"${r.code}","${r.title}","${r.region}","${r.places}","${tierStr}","${r.hubs.driver.name}","${r.hubs.transit.name}",${basesStr},${data.rating},${commute.mornMins},${commute.eveMins},${cleanNotes}\n`;
   });
   downloadBlob(csv, "ST4_Anaesthetics_All_Rotations.csv", "text/csv;charset=utf-8;");
 }
@@ -2043,11 +2067,9 @@ function exportShortlistCSV() {
       const cleanNotes = `"${(data.notes || "").replace(/"/g, '""')}"`;
       const basesStr = `"${getRotationHospitalBases(r).join('; ')}"`;
       const tierStr = data.tier || "UNSET";
-      const maxDist = getRotationMaxDistance(r);
-      const mornMins = calcDrivingTimeMinutes(maxDist, r.region, '0730');
-      const eveMins = calcDrivingTimeMinutes(maxDist, r.region, '1800');
+      const commute = getRotationCommuteSummary(r);
       const isEntered = orielCheckedSet.has(id) ? "YES" : "NO";
-      csv += `${idx + 1},"${isEntered}","${r.code}","${r.title}","${r.region}","${r.places}","${tierStr}","${r.hubs.driver.name}","${r.hubs.transit.name}",${basesStr},${data.rating},${mornMins},${eveMins},${cleanNotes}\n`;
+      csv += `${idx + 1},"${isEntered}","${r.code}","${r.title}","${r.region}","${r.places}","${tierStr}","${r.hubs.driver.name}","${r.hubs.transit.name}",${basesStr},${data.rating},${commute.mornMins},${commute.eveMins},${cleanNotes}\n`;
     }
   });
   downloadBlob(csv, "ST4_Anaesthetics_MyShortlist_Ranked.csv", "text/csv;charset=utf-8;");
@@ -2107,11 +2129,12 @@ function setupModalBackdrops() {
 window.addEventListener('hashchange', () => {
   const hashId = window.location.hash.replace('#', '');
   if (hashId && hashId !== currentSelectedId && ROTATIONS_DATA.some(r => r.id === hashId)) {
-    prefSelect.value = hashId;
+    const prefSel = document.getElementById('prefSelect');
+    if (prefSel) prefSel.value = hashId;
     selectRotation(hashId, false);
     setViewMode('details');
   } else if (!hashId) {
-    setViewMode('all');
+    showListView();
   }
 });
 
@@ -2149,14 +2172,16 @@ window.onload = () => {
   updateCompareBadge();
   updateCustomBaseUI();
   setupModalBackdrops();
+  checkTipBannerStatus();
 
   const hashId = window.location.hash.replace('#', '');
   if (hashId && ROTATIONS_DATA.some(r => r.id === hashId)) {
-    prefSelect.value = hashId;
+    const prefSel = document.getElementById('prefSelect');
+    if (prefSel) prefSel.value = hashId;
     selectRotation(hashId, false);
     setViewMode('details');
   } else {
-    setViewMode('all');
+    showListView();
   }
 
   if (window.innerWidth <= 768) {
