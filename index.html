@@ -120,6 +120,19 @@
       </div>
     </div>
 
+    <!-- Shift Traffic Timing Profile Toggle -->
+    <div class="mode-toggle-group">
+      <div class="mode-label">
+        <span>Commute Traffic Profile:</span>
+        <span style="font-size:0.65rem; color:var(--text-muted); font-weight:normal;" id="shiftTimingLabel">🌅 Arrive 07:30 (Handover)</span>
+      </div>
+      <div class="transport-toggle">
+        <button class="transport-btn active" id="btnTimingMorning" onclick="setShiftTiming('0730')" title="Morning handover arrival at 07:30">🌅 Arrive 07:30</button>
+        <button class="transport-btn" id="btnTimingEvening" onclick="setShiftTiming('1800')" title="Evening rush hour departure at 18:00">🌆 Leave 18:00</button>
+        <button class="transport-btn" id="btnTimingOffPeak" onclick="setShiftTiming('offpeak')" title="Free-flow off-peak baseline drive">⚡ Off-Peak</button>
+      </div>
+    </div>
+
     <!-- Search Input & Sort Selector -->
     <div class="control-row">
       <div class="search-wrapper">

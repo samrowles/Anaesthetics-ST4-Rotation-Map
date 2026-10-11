@@ -338,6 +338,10 @@ select:focus, input:focus, textarea:focus {
 #btnModeTransit.active { color: #7c3aed !important; }
 #btnModeCustom.active { color: #d97706 !important; }
 
+#btnTimingMorning.active { color: #d97706 !important; }
+#btnTimingEvening.active { color: #9333ea !important; }
+#btnTimingOffPeak.active { color: #0284c7 !important; }
+
 .nav-stepper { 
   display: flex; 
   gap: 4px; 

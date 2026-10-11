@@ -25,6 +25,62 @@ function calcDistanceMiles(c1, c2) {
 }
 
 /**
+ * Calibrated UK Commute Driving Time Model.
+ * Estimates realistic UK driving commute duration based on road circuity factor (1.25x - 1.35x),
+ * regional rush-hour congestion speeds (London vs Provincial vs Rural), and a 5-minute hospital
+ * site access, parking barrier queue, and hospital walk buffer.
+ *
+ * @param {number} straightDistMiles - Haversine straight-line distance in miles.
+ * @param {string} region - NHS training region (determines traffic & road congestion profile).
+ * @param {string} timing - '0730' (Arrive 07:30 handover), '1800' (Leave 18:00 evening rush), or 'offpeak'.
+ * @returns {number} Estimated one-way driving commute in minutes.
+ */
+function calcDrivingTimeMinutes(straightDistMiles, region = '', timing = '0730') {
+  if (!straightDistMiles || straightDistMiles <= 0) return 0;
+
+  const regStr = String(region || '');
+  const isLondon = regStr.startsWith('London');
+  const isRural = regStr === 'South West - Peninsula' || regStr === 'Wales';
+
+  // Road network circuity multiplier: driven road miles vs straight-line miles
+  const circuityFactor = isRural ? 1.35 : (isLondon ? 1.28 : 1.25);
+  const roadMiles = straightDistMiles * circuityFactor;
+
+  // Minutes-per-mile pace & hospital perimeter/parking barrier queue buffer
+  let minPerMile;
+  const siteBufferMins = 5;
+
+  if (isLondon) {
+    if (timing === '1800') {
+      minPerMile = 4.25; // ~14 mph (heavy London evening rush)
+    } else if (timing === '0730') {
+      minPerMile = 3.00; // ~20 mph (morning shoulder build-up)
+    } else {
+      minPerMile = 2.20; // ~27 mph (off-peak)
+    }
+  } else if (isRural) {
+    if (timing === '1800') {
+      minPerMile = 2.40; // ~25 mph (winding single-carriageway A-roads, evening freight)
+    } else if (timing === '0730') {
+      minPerMile = 2.00; // ~30 mph (early morning rural routes)
+    } else {
+      minPerMile = 1.60; // ~37 mph (off-peak)
+    }
+  } else {
+    // Standard Provincial UK (Motorways, dual carriageways, bypasses)
+    if (timing === '1800') {
+      minPerMile = 2.15; // ~28 mph (prime evening UK rush hour)
+    } else if (timing === '0730') {
+      minPerMile = 1.75; // ~34 mph (morning pre-peak shift start)
+    } else {
+      minPerMile = 1.35; // ~44 mph (uncongested off-peak baseline)
+    }
+  }
+
+  return Math.max(5, Math.round(roadMiles * minPerMile + siteBufferMins));
+}
+
+/**
  * HTML entity sanitizer to prevent XSS from imported user notes or titles.
  */
 function escapeHtml(str) {
@@ -133,6 +189,7 @@ if (window.matchMedia) {
 // 4. APPLICATION STATE
 let currentSelectedId = null;
 let currentCommuteMode = 'driver'; // 'driver', 'transit', or 'custom'
+let currentShiftTiming = localStorage.getItem('anaesth_shift_timing') || '0730'; // '0730' (Arrive 07:30), '1800' (Leave 18:00), or 'offpeak'
 let currentViewMode = 'all';        // 'all', 'list', or 'details'
 let activeQuickFilter = 'ALL';
 let activeRegionFilter = 'ALL';
@@ -295,7 +352,8 @@ function renderRotationCardsFeed(list) {
   list.forEach((r) => {
     const userData = getUserData(r.id);
     const maxDist = getRotationMaxDistance(r);
-    const estMins = Math.round(maxDist * 1.35);
+    const estMins = calcDrivingTimeMinutes(maxDist, r.region, currentShiftTiming);
+    const timingShort = currentShiftTiming === '1800' ? '18:00' : (currentShiftTiming === '0730' ? '07:30' : 'off-peak');
     const isSelected = r.id === currentSelectedId;
     const isComparing = compareList.includes(r.id);
 
@@ -307,8 +365,8 @@ function renderRotationCardsFeed(list) {
     }
 
     let spreadBadgeClass = 'badge-spread-low';
-    if (maxDist > 45) spreadBadgeClass = 'badge-spread-high';
-    else if (maxDist > 25) spreadBadgeClass = 'badge-spread-med';
+    if (estMins > 50) spreadBadgeClass = 'badge-spread-high';
+    else if (estMins > 35) spreadBadgeClass = 'badge-spread-med';
 
     let tierBadgeHtml = '';
     if (userData.tier === 'TIER1') tierBadgeHtml = '<span class="badge badge-tier-1">🟢 T1</span>';
@@ -335,7 +393,7 @@ function renderRotationCardsFeed(list) {
           <button class="btn-compare-action ${isComparing ? 'in-compare' : ''}" onclick="toggleCompareCard(event, '${r.id}')" title="Compare rotation">
             ${isComparing ? '✓ Comparing' : '+ Compare'}
           </button>
-          <span class="badge ${spreadBadgeClass}">${maxDist} mi (~${estMins}m)</span>
+          <span class="badge ${spreadBadgeClass}" title="Estimated drive time at ${timingShort}">${maxDist} mi (~${estMins}m @ ${timingShort})</span>
         </div>
       </div>
       <div class="card-list-title">${escapeHtml(r.title)}</div>
@@ -489,6 +547,41 @@ function setCommuteMode(mode) {
 
   if (currentSelectedId && currentViewMode === 'details') {
     selectRotation(currentSelectedId, false);
+  }
+}
+
+function setShiftTiming(timing, showFeedback = true) {
+  currentShiftTiming = timing || '0730';
+  localStorage.setItem('anaesth_shift_timing', currentShiftTiming);
+
+  const btnMorn = document.getElementById('btnTimingMorning');
+  const btnEve = document.getElementById('btnTimingEvening');
+  const btnOff = document.getElementById('btnTimingOffPeak');
+  const lbl = document.getElementById('shiftTimingLabel');
+
+  if (btnMorn) btnMorn.classList.toggle('active', currentShiftTiming === '0730');
+  if (btnEve) btnEve.classList.toggle('active', currentShiftTiming === '1800');
+  if (btnOff) btnOff.classList.toggle('active', currentShiftTiming === 'offpeak');
+
+  let labelText = '🌅 Arrive 07:30 (Handover)';
+  let toastText = 'Commute model: Arrive by 07:30 (Morning Handover)';
+  if (currentShiftTiming === '1800') {
+    labelText = '🌆 Leave 18:00 (Evening Rush)';
+    toastText = 'Commute model: Depart at 18:00 (Evening Rush Hour)';
+  } else if (currentShiftTiming === 'offpeak') {
+    labelText = '⚡ Off-Peak Baseline';
+    toastText = 'Commute model: Off-Peak Baseline Drive';
+  }
+  if (lbl) lbl.textContent = labelText;
+
+  renderRotationCardsFeed(currentFilteredList);
+
+  if (currentSelectedId && currentViewMode === 'details') {
+    selectRotation(currentSelectedId, false);
+  }
+
+  if (showFeedback) {
+    showToast(toastText);
   }
 }
 
@@ -658,18 +751,24 @@ function selectRotation(id, shouldCloseMobile = false) {
     const hData = HOSPITALS[hName];
     if (hData && activeHubCoords) {
       const dist = calcDistanceMiles(activeHubCoords, hData.coords);
-      const mins = Math.round(dist * 1.35);
+      const reg = rot.region || (hData ? hData.region : '');
+      const mornMins = calcDrivingTimeMinutes(dist, reg, '0730');
+      const eveMins = calcDrivingTimeMinutes(dist, reg, '1800');
+      const activeMins = currentShiftTiming === '1800' ? eveMins : (currentShiftTiming === 'offpeak' ? calcDrivingTimeMinutes(dist, reg, 'offpeak') : mornMins);
+      
       let timeClass = 'time-green';
-      if (dist > 40) timeClass = 'time-red';
-      else if (dist > 25) timeClass = 'time-amber';
+      if (activeMins > 50) timeClass = 'time-red';
+      else if (activeMins > 35) timeClass = 'time-amber';
 
       const row = document.createElement('div');
       row.className = "commute-matrix-item";
       row.innerHTML = `
         <span class="commute-hosp-label">🏥 ${escapeHtml(hName)}</span>
         <div style="display:flex; align-items:center; gap:6px;">
-          <span class="commute-time-pill ${timeClass}">${dist} mi (~${mins}m)</span>
-          <a href="https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(activeHubName + ', UK')}&destination=${encodeURIComponent(hName + ', UK')}" target="_blank" style="font-size:0.68rem; color:var(--primary); text-decoration:none;" title="Get directions">Directions ↗</a>
+          <span class="commute-time-pill ${timeClass}" title="07:30 handover arrival: ~${mornMins}m | 18:00 evening rush departure: ~${eveMins}m">
+            ${dist} mi (🌅 ~${mornMins}m · 🌆 ~${eveMins}m)
+          </span>
+          <a href="https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(activeHubName + ', UK')}&destination=${encodeURIComponent(hName + ', UK')}&travelmode=driving" target="_blank" style="font-size:0.68rem; color:var(--primary); text-decoration:none;" title="Verify route and live traffic in Google Maps">Directions ↗</a>
         </div>
       `;
       matrixContainer.appendChild(row);
@@ -702,28 +801,30 @@ function selectRotation(id, shouldCloseMobile = false) {
   });
 
   const maxDist = getRotationMaxDistance(rot);
-  const estMins = Math.round(maxDist * 1.35);
+  const mornMins = calcDrivingTimeMinutes(maxDist, rot.region, '0730');
+  const eveMins = calcDrivingTimeMinutes(maxDist, rot.region, '1800');
+  const activeMins = currentShiftTiming === '1800' ? eveMins : (currentShiftTiming === 'offpeak' ? calcDrivingTimeMinutes(maxDist, rot.region, 'offpeak') : mornMins);
 
   document.getElementById('metricSites').textContent = uniqueHospBases.length;
   document.getElementById('metricDistance').textContent = `${maxDist} mi`;
 
   const spreadBadge = document.getElementById('cardSpreadBadge');
   spreadBadge.textContent = `Max: ${maxDist} mi`;
-  if (maxDist <= 25) {
+  if (activeMins <= 35) {
     spreadBadge.className = 'badge badge-spread-low';
-    spreadBadge.textContent = `🟢 Low Spread: ${maxDist} mi (~${Math.max(15, estMins)}m)`;
-  } else if (maxDist <= 45) {
+    spreadBadge.textContent = `🟢 Low Spread: ${maxDist} mi (🌅 ~${mornMins}m · 🌆 ~${eveMins}m)`;
+  } else if (activeMins <= 50) {
     spreadBadge.className = 'badge badge-spread-med';
-    spreadBadge.textContent = `🟡 Moderate: ${maxDist} mi (~${estMins}m)`;
+    spreadBadge.textContent = `🟡 Moderate: ${maxDist} mi (🌅 ~${mornMins}m · 🌆 ~${eveMins}m)`;
   } else {
     spreadBadge.className = 'badge badge-spread-high';
-    spreadBadge.textContent = `🔴 High Spread: ${maxDist} mi (~${Math.round(estMins/60)}h+)`;
+    spreadBadge.textContent = `🔴 High Spread: ${maxDist} mi (🌅 ~${mornMins}m · 🌆 ~${eveMins}m)`;
   }
 
   const modeEmoji = currentCommuteMode === 'transit' ? '🚆' : (currentCommuteMode === 'custom' ? '📍' : '🚗');
   document.getElementById('miniCardTitle').textContent = `${rot.title} (${rot.code})`;
-  document.getElementById('miniCardSpread').textContent = `${maxDist} mi`;
-  document.getElementById('miniCardSpread').className = maxDist <= 25 ? 'badge badge-spread-low' : (maxDist <= 45 ? 'badge badge-spread-med' : 'badge badge-spread-high');
+  document.getElementById('miniCardSpread').textContent = `${maxDist} mi (~${activeMins}m)`;
+  document.getElementById('miniCardSpread').className = activeMins <= 35 ? 'badge badge-spread-low' : (activeMins <= 50 ? 'badge badge-spread-med' : 'badge badge-spread-high');
   document.getElementById('miniCardHub').innerHTML = `<span>${modeEmoji} <b>${escapeHtml(activeHubName)}</b> (${uniqueHospBases.length} Bases)</span> <span style="font-weight:700; color:var(--primary);">Details &rarr;</span>`;
 
   // Background subtle markers for other hospitals
@@ -1321,7 +1422,8 @@ function renderCompareModal() {
     if (!r) return;
     const data = getUserData(id);
     const maxDist = getRotationMaxDistance(r);
-    const estMins = Math.round(maxDist * 1.35);
+    const mornMins = calcDrivingTimeMinutes(maxDist, r.region, '0730');
+    const eveMins = calcDrivingTimeMinutes(maxDist, r.region, '1800');
     const bases = getRotationHospitalBases(r);
 
     let tierLabel = 'None';
@@ -1340,8 +1442,8 @@ function renderCompareModal() {
         <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(r.region)} • <b>${escapeHtml(r.places)} places</b></div>
         
         <div>
-          <div class="compare-row-label">Max Commute Spread</div>
-          <div class="compare-row-val"><b>${maxDist} mi</b> (~${estMins}m drive)</div>
+          <div class="compare-row-label">Max Commute Spread (Peak Traffic)</div>
+          <div class="compare-row-val"><b>${maxDist} mi</b> (🌅 ~${mornMins}m @ 07:30 · 🌆 ~${eveMins}m @ 18:00)</div>
         </div>
 
         <div>
@@ -1621,13 +1723,16 @@ function applyParsedBackup(parsed) {
 }
 
 function exportPreferencesCSV() {
-  let csv = "OrielCode,TrackTitle,Region,PlacesAvailable,TierPreference,DriverLivingHub,TransitLivingHub,HospitalBases,RatingStars,PersonalNotes\n";
+  let csv = "OrielCode,TrackTitle,Region,PlacesAvailable,TierPreference,DriverLivingHub,TransitLivingHub,HospitalBases,RatingStars,MorningDriveMins_0730,EveningDriveMins_1800,PersonalNotes\n";
   ROTATIONS_DATA.forEach(r => {
     const data = getUserData(r.id);
     const cleanNotes = `"${(data.notes || "").replace(/"/g, '""')}"`;
     const basesStr = `"${getRotationHospitalBases(r).join('; ')}"`;
     const tierStr = data.tier || "UNSET";
-    csv += `"${r.code}","${r.title}","${r.region}","${r.places}","${tierStr}","${r.hubs.driver.name}","${r.hubs.transit.name}",${basesStr},${data.rating},${cleanNotes}\n`;
+    const maxDist = getRotationMaxDistance(r);
+    const mornMins = calcDrivingTimeMinutes(maxDist, r.region, '0730');
+    const eveMins = calcDrivingTimeMinutes(maxDist, r.region, '1800');
+    csv += `"${r.code}","${r.title}","${r.region}","${r.places}","${tierStr}","${r.hubs.driver.name}","${r.hubs.transit.name}",${basesStr},${data.rating},${mornMins},${eveMins},${cleanNotes}\n`;
   });
   downloadBlob(csv, "ST4_Anaesthetics_All_Rotations.csv", "text/csv;charset=utf-8;");
 }
@@ -1645,7 +1750,7 @@ function exportShortlistCSV() {
   });
   localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
 
-  let csv = "AssignedRank,OrielCode,TrackTitle,Region,PlacesAvailable,TierPreference,DriverLivingHub,TransitLivingHub,HospitalBases,RatingStars,PersonalNotes\n";
+  let csv = "AssignedRank,OrielCode,TrackTitle,Region,PlacesAvailable,TierPreference,DriverLivingHub,TransitLivingHub,HospitalBases,RatingStars,MorningDriveMins_0730,EveningDriveMins_1800,PersonalNotes\n";
   shortlistOrder.forEach((id, idx) => {
     const r = ROTATIONS_DATA.find(x => x.id === id);
     if (r) {
@@ -1653,7 +1758,10 @@ function exportShortlistCSV() {
       const cleanNotes = `"${(data.notes || "").replace(/"/g, '""')}"`;
       const basesStr = `"${getRotationHospitalBases(r).join('; ')}"`;
       const tierStr = data.tier || "UNSET";
-      csv += `${idx + 1},"${r.code}","${r.title}","${r.region}","${r.places}","${tierStr}","${r.hubs.driver.name}","${r.hubs.transit.name}",${basesStr},${data.rating},${cleanNotes}\n`;
+      const maxDist = getRotationMaxDistance(r);
+      const mornMins = calcDrivingTimeMinutes(maxDist, r.region, '0730');
+      const eveMins = calcDrivingTimeMinutes(maxDist, r.region, '1800');
+      csv += `${idx + 1},"${r.code}","${r.title}","${r.region}","${r.places}","${tierStr}","${r.hubs.driver.name}","${r.hubs.transit.name}",${basesStr},${data.rating},${mornMins},${eveMins},${cleanNotes}\n`;
     }
   });
   downloadBlob(csv, "ST4_Anaesthetics_MyShortlist_Ranked.csv", "text/csv;charset=utf-8;");
@@ -1750,7 +1858,7 @@ window.onload = () => {
   applyTheme();
   populateRegionDropdown();
   populateDropdown(ROTATIONS_DATA);
-  renderRotationCardsFeed(ROTATIONS_DATA);
+  setShiftTiming(currentShiftTiming, false);
   updateShortlistBadge();
   updateCompareBadge();
   updateCustomBaseUI();
