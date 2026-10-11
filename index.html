@@ -20,8 +20,9 @@
     })();
   </script>
 
-  <!-- Favicon -->
+  <!-- Favicon & PWA Manifest -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🩺</text></svg>">
+  <link rel="manifest" href="manifest.json">
 
   <!-- OpenGraph Metadata -->
   <meta property="og:title" content="ST4 Anaesthetics Rotation &amp; Commute Explorer">
@@ -71,6 +72,7 @@
         <button class="btn-top btn-compare-top" onclick="openCompareModal()" title="Compare candidate rotations side-by-side">
           ⚖️ Compare <span id="headerCompareBadge" style="background:#7c3aed; color:white; border-radius:999px; padding:1px 6px; font-size:0.68rem; font-weight:800; margin-left:2px;">0</span>
         </button>
+        <button class="btn-top btn-sync" onclick="generatePartnerShareLink()" title="Copy one-click share link for partner">🔗 Share</button>
         <button class="btn-top btn-sync" onclick="openSyncModal()" title="Backup preferences or export CSV spreadsheet">💾 Data</button>
         <button class="btn-mobile-nav" onclick="toggleMobileSidebar(false)" aria-label="View Map">🗺️ Map</button>
       </div>
@@ -203,6 +205,18 @@
           <div class="metric-item">
             <div class="metric-value" id="metricDistance">0 mi</div>
             <div class="metric-label">Max Spread</div>
+          </div>
+        </div>
+
+        <!-- Training Balance Split: Tertiary Teaching vs DGH -->
+        <div class="split-bar-box">
+          <div class="split-bar-header">
+            <span class="split-label-tertiary">🏛️ Tertiary / Teaching: <b id="splitTertiaryText">50%</b></span>
+            <span class="split-label-dgh">🏥 DGH: <b id="splitDghText">50%</b></span>
+          </div>
+          <div class="split-bar-track" title="Rotation Training Split">
+            <div id="splitTertiaryFill" class="split-fill-tertiary" style="width: 50%;"></div>
+            <div id="splitDghFill" class="split-fill-dgh" style="width: 50%;"></div>
           </div>
         </div>
 
@@ -361,10 +375,13 @@
     </div>
     <div class="modal-body">
       <div style="margin-bottom:16px;">
-        <h4 style="margin:0 0 8px 0; font-size:0.85rem;">📊 Spreadsheet Export (Excel / CSV)</h4>
+        <h4 style="margin:0 0 4px 0; font-size:0.85rem;">📊 Export Hard Copy / Reference Sheet (Excel / CSV)</h4>
+        <p style="font-size:0.73rem; color:var(--text-muted); margin:0 0 8px 0; line-height:1.35;">
+          Note: Oriel does not support direct CSV upload. Export as a hard copy for future reference, paper submission checking, or spreadsheet analysis.
+        </p>
         <div style="display:flex; gap:8px;">
-          <button class="btn-top btn-export" style="flex:1; justify-content:center; padding:7px;" onclick="exportShortlistCSV()">⭐ Export Shortlist CSV</button>
-          <button class="btn-top btn-sync" style="flex:1; justify-content:center; padding:7px;" onclick="exportPreferencesCSV()">📋 Export All Rotations CSV</button>
+          <button class="btn-top btn-export" style="flex:1; justify-content:center; padding:7px;" onclick="exportShortlistCSV()">⭐ Export Shortlist Reference</button>
+          <button class="btn-top btn-sync" style="flex:1; justify-content:center; padding:7px;" onclick="exportPreferencesCSV()">📋 Export All Reference CSV</button>
         </div>
       </div>
 
@@ -378,9 +395,17 @@
       </div>
 
       <div style="border-top:1px solid var(--border-color); padding-top:12px;">
-        <h4 style="margin:0 0 8px 0; font-size:0.85rem;">🔄 Share or Sync with Partner</h4>
+        <h4 style="margin:0 0 8px 0; font-size:0.85rem;">🔄 Share with Partner</h4>
+        <div style="background:var(--bg-card-subtle); border:1px solid var(--border-color); border-radius:6px; padding:10px; margin-bottom:12px; text-align:center;">
+          <div style="font-size:0.8rem; font-weight:800; color:var(--text-main); margin-bottom:2px;">🔗 Instant 1-Click Share Link</div>
+          <p style="font-size:0.74rem; color:var(--text-muted); margin-bottom:8px;">
+            Send a single URL with your shortlisted ranks, custom base, and notes. No file download needed.
+          </p>
+          <button class="btn-top btn-sync" style="margin:0 auto; padding:6px 14px; font-weight:700;" onclick="generatePartnerShareLink()">📋 Copy Partner Link</button>
+        </div>
+
         <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:8px;">
-          Copy/paste the text code below to transfer your ratings and notes between devices:
+          Or copy/paste the sync text code below:
         </p>
         <textarea id="syncJsonArea" style="height:90px; font-family:monospace; font-size:0.74rem;"></textarea>
         <div style="display:flex; gap:8px; margin-top:10px;">
@@ -392,11 +417,36 @@
   </div>
 </div>
 
+<!-- Modal 5: Hospital Ground Truth Profile Modal -->
+<div class="modal-overlay" id="hospitalProfileModal">
+  <div class="modal-content" style="max-width:540px;">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:1.3rem;" id="modalHospTypeIcon">🏛️</span>
+        <div>
+          <h2 id="modalHospName" style="font-size:1.05rem; margin:0;">Hospital Name</h2>
+          <span id="modalHospRegionBadge" class="badge badge-code" style="font-size:0.68rem; margin-top:2px;">Region</span>
+        </div>
+      </div>
+      <button class="btn-step" onclick="closeModal('hospitalProfileModal')" aria-label="Close modal">✕</button>
+    </div>
+    <div class="modal-body" id="modalHospBody" style="padding-top:8px;"></div>
+  </div>
+</div>
+
 <!-- Hidden Print-Only Container for Clean A4 Shortlist Cheat Sheet -->
 <div id="printableShortlist" class="print-only"></div>
 
 <!-- Scripts (Synchronous Data Loading + Modular Application Engine) -->
 <script src="data.js"></script>
 <script src="js/app.js"></script>
+<script>
+  // Progressive Web App - Service Worker Registration
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+</script>
 </body>
 </html>

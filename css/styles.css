@@ -1569,3 +1569,205 @@ select:focus, input:focus, textarea:focus {
   }
 }
 
+/* --------------------------------------------------------------------------
+   Training Split Bar (Tertiary Teaching vs DGH)
+   -------------------------------------------------------------------------- */
+.split-bar-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px 11px;
+  margin-bottom: 12px;
+}
+.split-bar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.split-label-tertiary { color: #0284c7; }
+.split-label-dgh { color: #0d9488; }
+[data-theme="dark"] .split-label-tertiary { color: #38bdf8; }
+[data-theme="dark"] .split-label-dgh { color: #2dd4bf; }
+
+.split-bar-track {
+  width: 100%;
+  height: 8px;
+  background: var(--border-color);
+  border-radius: 999px;
+  overflow: hidden;
+  display: flex;
+}
+.split-fill-tertiary {
+  background: #0284c7;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+.split-fill-dgh {
+  background: #0d9488;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+.badge-split {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+/* --------------------------------------------------------------------------
+   Hospital Ground Truth Profile Modal & Intel Cards
+   -------------------------------------------------------------------------- */
+.hosp-profile-summary {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  line-height: 1.45;
+}
+.hosp-intel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+@media (max-width: 520px) {
+  .hosp-intel-grid { grid-template-columns: 1fr; }
+}
+.hosp-intel-card {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px;
+}
+.hosp-intel-card-header {
+  font-size: 0.71rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.hosp-intel-card-body {
+  font-size: 0.76rem;
+  color: var(--text-main);
+  line-height: 1.35;
+  font-weight: 600;
+}
+.hosp-rotations-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px;
+}
+.hosp-rotations-title {
+  font-size: 0.73rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.hosp-rot-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.hosp-rot-btn {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--primary);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+.hosp-rot-btn:hover {
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+.popup-intel-btn {
+  display: block;
+  margin-top: 8px;
+  padding: 5px 8px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  width: 100%;
+  text-decoration: none;
+}
+.popup-intel-btn:hover {
+  background: var(--primary-dark);
+}
+
+/* --------------------------------------------------------------------------
+   Side-by-Side Comparison Matrix Table
+   -------------------------------------------------------------------------- */
+.compare-matrix-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-card);
+}
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.77rem;
+  min-width: 520px;
+}
+.compare-table th, .compare-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  vertical-align: top;
+}
+.compare-table tr:last-child td {
+  border-bottom: none;
+}
+.compare-table th:last-child, .compare-table td:last-child {
+  border-right: none;
+}
+.compare-label-th {
+  background: var(--bg-card-subtle);
+  font-weight: 800;
+  color: var(--text-muted);
+  width: 150px;
+  min-width: 150px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+.compare-col-header {
+  background: var(--bg-card-subtle);
+  text-align: left;
+  font-weight: 800;
+  font-size: 0.84rem;
+  color: var(--text-main);
+}
+.compare-best-badge {
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 800;
+  margin-left: 4px;
+}
+[data-theme="dark"] .compare-best-badge {
+  background: #14532d;
+  color: #86efac;
+}
+
+
