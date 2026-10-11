@@ -36,7 +36,8 @@ function calcDistanceMiles(c1, c2) {
  * @returns {number} Estimated one-way driving commute in minutes.
  */
 function calcDrivingTimeMinutes(straightDistMiles, region = '', timing = '0730') {
-  if (!straightDistMiles || straightDistMiles <= 0) return 0;
+  if (straightDistMiles === undefined || straightDistMiles === null || straightDistMiles < 0) return 0;
+  if (straightDistMiles === 0) return 5;
 
   const regStr = String(region || '');
   const isLondon = regStr.startsWith('London');
@@ -237,6 +238,22 @@ function getRotationMaxDistance(rot) {
       if (d > maxDist) maxDist = d;
     }
   }
+  // Single-site scheme fallback: calculate commute distance to living base
+  if (maxDist === 0 && coords.length > 0) {
+    let hubCoords = null;
+    if (currentCommuteMode === 'custom' && customHomeBase && customHomeBase.coords) {
+      hubCoords = customHomeBase.coords;
+    } else if (currentCommuteMode === 'transit' && rot.hubs && rot.hubs.transit && rot.hubs.transit.coords) {
+      hubCoords = rot.hubs.transit.coords;
+    } else if (rot.hubs && rot.hubs.driver && rot.hubs.driver.coords) {
+      hubCoords = rot.hubs.driver.coords;
+    }
+    if (hubCoords) {
+      maxDist = Math.max(1, calcDistanceMiles(hubCoords, coords[0]));
+    } else {
+      maxDist = 1;
+    }
+  }
   return maxDist;
 }
 
@@ -415,6 +432,9 @@ function openDetailsForRotation(id) {
   if (prefSelect) prefSelect.value = id;
   selectRotation(id, false);
   setViewMode('details');
+  if (window.innerWidth <= 768) {
+    toggleMobileSidebar(true);
+  }
 }
 
 // 8. PREFERENCES, TIERS & RATINGS
@@ -438,6 +458,12 @@ function setTier(tierVal) {
   const current = getUserData(currentSelectedId);
   current.tier = (current.tier === tierVal) ? 'UNSET' : tierVal;
   localStorage.setItem(`anaesth_pref_${currentSelectedId}`, JSON.stringify(current));
+
+  if (current.tier !== 'UNSET' && current.tier !== 'EXCLUDE' && !shortlistOrder.includes(currentSelectedId)) {
+    shortlistOrder.push(currentSelectedId);
+    localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
+  }
+
   updateTierButtons(current.tier);
   updateShortlistBadge();
   applyFiltersAndSearch();
@@ -470,7 +496,8 @@ function saveUserPreferences() {
   current.notes = notes;
   localStorage.setItem(`anaesth_pref_${currentSelectedId}`, JSON.stringify(current));
 
-  if ((current.rating > 0 || current.tier === 'TIER1' || current.tier === 'TIER2') && !shortlistOrder.includes(currentSelectedId)) {
+  const isShortlisted = current.rating > 0 || (current.tier && current.tier !== 'UNSET' && current.tier !== 'EXCLUDE') || (current.notes && current.notes.trim() !== "");
+  if (isShortlisted && !shortlistOrder.includes(currentSelectedId)) {
     shortlistOrder.push(currentSelectedId);
     localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
   }
@@ -868,8 +895,9 @@ function selectRotation(id, shouldCloseMobile = false) {
       iconSize: [34, 34],
       iconAnchor: [17, 17]
     });
+    const hubDescText = currentCommuteMode === 'custom' ? 'Custom prospective living base' : (activeHub.desc || '');
     const homeMarker = L.marker(activeHubCoords, { icon: homeIcon, zIndexOffset: 2000 })
-      .bindPopup(`<b>Base: ${activeHubName}</b><br><span style="font-size:0.8rem; color:var(--text-muted);">${activeHub.desc || 'Custom prospective living base'}</span>`);
+      .bindPopup(`<b>Base: ${escapeHtml(activeHubName)}</b><br><span style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(hubDescText)}</span>`);
     activeRouteGroup.addLayer(homeMarker);
 
     const commuteCircle = L.circle(activeHubCoords, {
@@ -1076,6 +1104,9 @@ function diveInFromPopup(id) {
   if (prefSelect) prefSelect.value = id;
   selectRotation(id, false);
   setViewMode('details');
+  if (window.innerWidth <= 768) {
+    toggleMobileSidebar(true);
+  }
   showToast("Loaded rotation details & route");
 }
 
@@ -2004,7 +2035,7 @@ function exportShortlistCSV() {
   });
   localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
 
-  let csv = "AssignedRank,OrielCode,TrackTitle,Region,PlacesAvailable,TierPreference,DriverLivingHub,TransitLivingHub,HospitalBases,RatingStars,MorningDriveMins_0730,EveningDriveMins_1800,PersonalNotes\n";
+  let csv = "AssignedRank,EnteredInOriel,OrielCode,TrackTitle,Region,PlacesAvailable,TierPreference,DriverLivingHub,TransitLivingHub,HospitalBases,RatingStars,MorningDriveMins_0730,EveningDriveMins_1800,PersonalNotes\n";
   shortlistOrder.forEach((id, idx) => {
     const r = ROTATIONS_DATA.find(x => x.id === id);
     if (r) {
@@ -2015,7 +2046,8 @@ function exportShortlistCSV() {
       const maxDist = getRotationMaxDistance(r);
       const mornMins = calcDrivingTimeMinutes(maxDist, r.region, '0730');
       const eveMins = calcDrivingTimeMinutes(maxDist, r.region, '1800');
-      csv += `${idx + 1},"${r.code}","${r.title}","${r.region}","${r.places}","${tierStr}","${r.hubs.driver.name}","${r.hubs.transit.name}",${basesStr},${data.rating},${mornMins},${eveMins},${cleanNotes}\n`;
+      const isEntered = orielCheckedSet.has(id) ? "YES" : "NO";
+      csv += `${idx + 1},"${isEntered}","${r.code}","${r.title}","${r.region}","${r.places}","${tierStr}","${r.hubs.driver.name}","${r.hubs.transit.name}",${basesStr},${data.rating},${mornMins},${eveMins},${cleanNotes}\n`;
     }
   });
   downloadBlob(csv, "ST4_Anaesthetics_MyShortlist_Ranked.csv", "text/csv;charset=utf-8;");
