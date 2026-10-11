@@ -64,6 +64,19 @@ def validate_data_js(file_path="data.js"):
     if coord_errors == 0:
         print(f"[PASS] All {len(coord_matches)} coordinate pairs are within valid UK geographical bounds.")
 
+    # 5. Check REGION_COLORS coverage
+    color_block_match = re.search(r'const REGION_COLORS\s*=\s*\{([^}]+)\}', content)
+    if not color_block_match:
+        errors.append("const REGION_COLORS declaration missing from data.js")
+    else:
+        declared_colors = set(re.findall(r'"([^"]+)":\s*"#[0-9a-fA-F]{6}"', color_block_match.group(1)))
+        regions_in_rotations = set(re.findall(r'region:\s*"([^"]+)"', rot_block))
+        missing_colors = regions_in_rotations - declared_colors
+        if missing_colors:
+            errors.append(f"Regions missing a mapped color in REGION_COLORS: {missing_colors}")
+        else:
+            print(f"[PASS] All {len(regions_in_rotations)} NHS rotation regions have colors mapped in REGION_COLORS.")
+
     if errors:
         print("\n=== VALIDATION FAILED ===")
         for err in errors:

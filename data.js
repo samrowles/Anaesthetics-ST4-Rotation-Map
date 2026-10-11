@@ -1890,6 +1890,23 @@ function getRotationHospitalBases(rot) {
   return [...new Set(rot.stages.map(s => s.hosp))];
 }
 
+const REGION_COLORS = {
+  "East of England": "#ea580c",
+  "East Midlands": "#16a34a",
+  "London - North Central East": "#dc2626",
+  "London - North West": "#e11d48",
+  "London - South": "#b91c1c",
+  "Wessex": "#2563eb",
+  "Thames Valley": "#8b5cf6",
+  "South West - Severn": "#0891b2",
+  "South West - Peninsula": "#0d9488",
+  "Wales": "#c026d3",
+  "West Midlands": "#d97706",
+  "Yorkshire and the Humber": "#4f46e5",
+  "North West": "#0284c7",
+  "North East": "#6366f1"
+};
+
 // Window attachments for cross-script safety
 window.HOSPITALS = HOSPITALS;
 window.REGION_COLORS = REGION_COLORS;

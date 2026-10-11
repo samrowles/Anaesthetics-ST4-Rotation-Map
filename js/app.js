@@ -1248,19 +1248,23 @@ function renderAllPlacements({ fitView = true } = {}) {
   overviewLinesGroup.clearLayers();
   activeHospitalMarkers = {};
 
-  document.getElementById('miniCardTitle').textContent = `All UK Placement Sites (${Object.keys(HOSPITALS).length} Bases)`;
-  document.getElementById('miniCardSpread').textContent = `${currentFilteredList.length} Rotations`;
-  document.getElementById('miniCardHub').innerHTML = `<span>National Map View</span> <span style="font-weight:700; color:var(--primary);">Menu &rarr;</span>`;
+  const titleEl = document.getElementById('miniCardTitle');
+  if (titleEl) titleEl.textContent = `All UK Placement Sites (${Object.keys(HOSPITALS).length} Bases)`;
+  const spreadEl = document.getElementById('miniCardSpread');
+  if (spreadEl) spreadEl.textContent = `${currentFilteredList.length} Rotations`;
+  const hubEl = document.getElementById('miniCardHub');
+  if (hubEl) hubEl.innerHTML = `<span>National Map View</span> <span style="font-weight:700; color:var(--primary);">Menu &rarr;</span>`;
 
   const allPoints = [];
   const linesByHospital = {};
+  const regionColorsMap = (typeof REGION_COLORS !== 'undefined' ? REGION_COLORS : (window.REGION_COLORS || {}));
 
   // 11a. Dashed route lines for every rotation in the filtered feed (region, pills, search)
   if (showOverviewLines) {
     currentFilteredList.forEach(rot => {
       const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
       if (coords.length > 1) {
-        const regColor = REGION_COLORS[rot.region] || "#0284c7";
+        const regColor = regionColorsMap[rot.region] || "#0284c7";
         const maxDist = getRotationMaxDistance(rot);
 
         const polyline = L.polyline(coords, {
@@ -1309,7 +1313,7 @@ function renderAllPlacements({ fitView = true } = {}) {
     allPoints.push(h.coords);
 
     const linkedRotations = ROTATIONS_DATA.filter(r => r.stages.some(s => s.hosp === hName));
-    const regColor = REGION_COLORS[h.region] || "#0284c7";
+    const regColor = regionColorsMap[h.region] || "#0284c7";
 
     const linkedHtml = linkedRotations.length ? 
       `<div class="overview-popup-rot-list">
