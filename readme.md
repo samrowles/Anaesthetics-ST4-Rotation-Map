@@ -51,7 +51,7 @@ An interactive, open-source web application designed to help UK Anaesthetics tra
 - **Basement & Theatre Reliable:** Review rotations and commute matrices even with poor signal in hospital basements, operating theatres, or doctors' mess rooms.
 - **Installable:** Can be installed directly to home screens on iOS/Android or desktop Chrome/Edge.
 
-### 🎨 Trainee-Focused UI & Privacy
+### 🎨 UI & Privacy
 - **Automatic & Manual Dark Mode:** Matches system preferences (`prefers-color-scheme: dark`) with manual `🌓 Auto` / `🌙 Dark` / `☀️ Light` toggling. Features GPU-filtered high-contrast dark map tiles.
 - **100% Client-Side & Private:** Zero tracking cookies, zero analytics, zero external user databases. All preferences stay in your local browser (`localStorage`).
 
