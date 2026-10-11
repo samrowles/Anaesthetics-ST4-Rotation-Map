@@ -124,6 +124,7 @@ L.control.layers(baseLayers, null, { position: 'topleft' }).addTo(map);
 const overviewLinesGroup = L.layerGroup().addTo(map);
 const backgroundHospitalsGroup = L.layerGroup().addTo(map);
 const activeRouteGroup = L.layerGroup().addTo(map);
+let activeHospitalMarkers = {};
 
 // 4. THEME MANAGEMENT (Auto OS detection with manual override)
 let currentThemeMode = localStorage.getItem('anaesth_theme_pref') || 'auto'; // 'auto', 'dark', 'light'
@@ -663,7 +664,12 @@ function focusHospitalBaseFromBtn(btn) {
   const hospName = btn.dataset.hosp;
   const h = HOSPITALS[hospName];
   if (h) {
-    map.flyTo(h.coords, 13, { duration: 1.2 });
+    map.flyTo(h.coords, 13, { duration: 1.0 });
+    if (activeHospitalMarkers[hospName]) {
+      setTimeout(() => {
+        activeHospitalMarkers[hospName].openPopup();
+      }, 500);
+    }
     if (window.innerWidth <= 768) {
       toggleMobileSidebar(false);
     }
@@ -846,6 +852,23 @@ function selectRotation(id, shouldCloseMobile = false) {
   rot.stages.forEach((stg, idx) => {
     const step = document.createElement('div');
     step.className = "timeline-step";
+    step.style.cursor = 'pointer';
+    step.title = `Click to locate ${stg.hosp} on map`;
+    step.onclick = (e) => {
+      if (e.target.tagName === 'A') return;
+      const h = HOSPITALS[stg.hosp];
+      if (h) {
+        map.flyTo(h.coords, 13, { duration: 1.0 });
+        if (activeHospitalMarkers[stg.hosp]) {
+          setTimeout(() => {
+            activeHospitalMarkers[stg.hosp].openPopup();
+          }, 450);
+        }
+        if (window.innerWidth <= 768) {
+          toggleMobileSidebar(false);
+        }
+      }
+    };
     step.innerHTML = `
       <div class="timeline-dot">${idx + 1}</div>
       <div class="timeline-content">
@@ -944,23 +967,98 @@ function selectRotation(id, shouldCloseMobile = false) {
     activeRouteGroup.addLayer(commuteCircle);
   }
 
-  // Plot Active Placement Base Pins
+  // Plot Active Placement Base Pins (Grouped by hospital so repeated placements show all stage numbers)
   const plottedHospitalPoints = [];
+  const hospitalPlacements = new Map();
+  activeHospitalMarkers = {};
+
   rot.stages.forEach((stg, idx) => {
     const hData = HOSPITALS[stg.hosp];
     if (hData) {
       allMapPoints.push(hData.coords);
       plottedHospitalPoints.push(hData.coords);
-      const icon = L.divIcon({
-        className: 'numbered-pin',
-        html: `${idx + 1}`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
+
+      if (!hospitalPlacements.has(stg.hosp)) {
+        hospitalPlacements.set(stg.hosp, {
+          hosp: stg.hosp,
+          coords: hData.coords,
+          region: hData.region || rot.region || '',
+          stages: []
+        });
+      }
+      hospitalPlacements.get(stg.hosp).stages.push({
+        num: idx + 1,
+        stage: stg.stage,
+        desc: stg.desc
       });
-      const m = L.marker(hData.coords, { icon, zIndexOffset: 1500 })
-        .bindPopup(`<b>Stage ${idx + 1}: ${stg.hosp}</b><br><span style="font-size:0.8rem; color:var(--text-muted);">${stg.stage} - ${stg.desc}</span>`);
-      activeRouteGroup.addLayer(m);
     }
+  });
+
+  hospitalPlacements.forEach((data) => {
+    const stageNumbers = data.stages.map(s => s.num);
+    const isMulti = stageNumbers.length > 1;
+    const labelText = stageNumbers.join(', ');
+
+    let iconWidth = 28;
+    if (stageNumbers.length === 2) {
+      iconWidth = 38;
+    } else if (stageNumbers.length >= 3) {
+      iconWidth = 54;
+    }
+
+    const icon = L.divIcon({
+      className: 'numbered-pin' + (isMulti ? ' multi-stage-pin' : ''),
+      html: labelText,
+      iconSize: [iconWidth, 28],
+      iconAnchor: [Math.round(iconWidth / 2), 14]
+    });
+
+    let popupStagesHtml = '';
+    if (isMulti) {
+      popupStagesHtml = `
+        <div style="font-size:0.75rem; color:var(--primary); font-weight:700; margin:4px 0 6px 0;">
+          🔄 Rotated in ${stageNumbers.length} placements:
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px; border-top:1px solid var(--border-color); padding-top:6px;">
+          ${data.stages.map(s => `
+            <div style="font-size:0.78rem;">
+              <span class="badge badge-code" style="padding:1px 5px; font-size:0.7rem;">Stage ${s.num}</span>
+              <b>${escapeHtml(s.stage)}</b>
+              <div style="color:var(--text-muted); font-size:0.73rem; margin-top:1px;">${escapeHtml(s.desc)}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } else {
+      const s = data.stages[0];
+      popupStagesHtml = `
+        <div style="border-top:1px solid var(--border-color); padding-top:6px; font-size:0.78rem;">
+          <span class="badge badge-code" style="padding:1px 5px; font-size:0.7rem;">Stage ${s.num}</span>
+          <b>${escapeHtml(s.stage)}</b>
+          <div style="color:var(--text-muted); font-size:0.73rem; margin-top:1px;">${escapeHtml(s.desc)}</div>
+        </div>
+      `;
+    }
+
+    const popupContent = `
+      <div style="min-width:210px; max-width:280px;">
+        <div style="font-weight:800; font-size:0.9rem; color:var(--text-main); margin-bottom:2px;">
+          🏥 ${escapeHtml(data.hosp)}
+        </div>
+        <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:6px;">
+          ${escapeHtml(data.region)}
+        </div>
+        ${popupStagesHtml}
+        <div style="margin-top:8px; padding-top:5px; border-top:1px solid var(--border-color); text-align:right;">
+          <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.hosp + ', UK')}" target="_blank" style="color:var(--primary); font-size:0.72rem; text-decoration:none;">Open in Google Maps ↗</a>
+        </div>
+      </div>
+    `;
+
+    const m = L.marker(data.coords, { icon, zIndexOffset: 1500 + (isMulti ? 50 : 0) })
+      .bindPopup(popupContent);
+    activeRouteGroup.addLayer(m);
+    activeHospitalMarkers[data.hosp] = m;
   });
 
   if (plottedHospitalPoints.length > 1) {
