@@ -258,6 +258,197 @@ function isPoolRotation(rot) {
   return false;
 }
 
+// 6a. Overview Line Styling & Corridor Separation Helpers
+const ROTATION_DASH_PATTERNS = [
+  'none',             // Solid
+  '7, 5',             // Crisp medium dash
+  '2, 5',             // Distinct dotted line
+  '12, 6',            // Long dash
+  '9, 4, 2, 4',       // Dash-dot
+  '14, 4, 3, 4, 3, 4' // Dash-double-dot
+];
+
+const ROTATION_TONE_SHIFTS = [
+  0,    // Pure deanery hue
+  16,   // +16% lighter / brighter
+  -16,  // -16% deeper
+  26,   // +26% light/vibrant
+  -24   // -24% dark rich
+];
+
+function adjustColorTone(hexColor, percent) {
+  if (!hexColor || !hexColor.startsWith('#')) return hexColor;
+  let num = parseInt(hexColor.slice(1), 16);
+  if (isNaN(num)) return hexColor;
+  let r = (num >> 16) + Math.round(255 * (percent / 100));
+  let g = ((num >> 8) & 0x00FF) + Math.round(255 * (percent / 100));
+  let b = (num & 0x0000FF) + Math.round(255 * (percent / 100));
+  r = Math.min(245, Math.max(15, r));
+  g = Math.min(245, Math.max(15, g));
+  b = Math.min(245, Math.max(15, b));
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
+function getRotationLineStyle(rot) {
+  const regColor = (window.REGION_COLORS && window.REGION_COLORS[rot.region]) || (typeof REGION_COLORS !== 'undefined' ? REGION_COLORS[rot.region] : "#0284c7");
+  const regionRots = ROTATIONS_DATA.filter(r => r.region === rot.region);
+  const rotIdx = Math.max(0, regionRots.findIndex(r => r.id === rot.id));
+
+  const dashPattern = ROTATION_DASH_PATTERNS[rotIdx % ROTATION_DASH_PATTERNS.length];
+  const toneShift = ROTATION_TONE_SHIFTS[Math.floor(rotIdx / ROTATION_DASH_PATTERNS.length) % ROTATION_TONE_SHIFTS.length];
+  const color = adjustColorTone(regColor, toneShift);
+
+  return {
+    color,
+    baseColor: color,
+    dashPattern,
+    regColor,
+    isDashed: dashPattern !== 'none'
+  };
+}
+
+function buildCorridorUsageRegistry(rotationsList) {
+  const registry = new Map();
+  rotationsList.forEach(rot => {
+    if (isPoolRotation(rot)) return;
+    const stages = rot.stages || [];
+    for (let i = 0; i < stages.length - 1; i++) {
+      const h1 = stages[i].hosp;
+      const h2 = stages[i + 1].hosp;
+      if (h1 && h2 && h1 !== h2 && HOSPITALS[h1] && HOSPITALS[h2]) {
+        const key = h1 < h2 ? `${h1}:::${h2}` : `${h2}:::${h1}`;
+        if (!registry.has(key)) registry.set(key, []);
+        const list = registry.get(key);
+        if (!list.includes(rot.id)) {
+          list.push(rot.id);
+        }
+      }
+    }
+  });
+  return registry;
+}
+
+function generateCurvedSegmentPoints(coordA, coordB, offsetMultiplier, numPoints = 8) {
+  const [lat1, lng1] = coordA;
+  const [lat2, lng2] = coordB;
+
+  if (Math.abs(lat1 - lat2) < 0.0001 && Math.abs(lng1 - lng2) < 0.0001) {
+    return [[lat1, lng1]];
+  }
+
+  const midLat = (lat1 + lat2) / 2.0;
+  const midLng = (lng1 + lng2) / 2.0;
+
+  const cosLat = 0.61; // Average UK latitude correction
+  const dLat = lat2 - lat1;
+  const dLng = (lng2 - lng1) * cosLat;
+  const segDist = Math.sqrt(dLat * dLat + dLng * dLng);
+
+  if (segDist < 0.001) {
+    return [[lat1, lng1], [lat2, lng2]];
+  }
+
+  const normLat = -dLng / segDist;
+  const normLng = dLat / segDist;
+
+  const baseSpacing = Math.min(0.035, Math.max(0.007, segDist * 0.16));
+  const offsetDist = offsetMultiplier * baseSpacing;
+
+  const ctrlLat = midLat + normLat * offsetDist;
+  const ctrlLng = midLng + (normLng / cosLat) * offsetDist;
+
+  const points = [];
+  for (let step = 0; step <= numPoints; step++) {
+    const t = step / numPoints;
+    const invT = 1.0 - t;
+    const bLat = invT * invT * lat1 + 2.0 * invT * t * ctrlLat + t * t * lat2;
+    const bLng = invT * invT * lng1 + 2.0 * invT * t * ctrlLng + t * t * lng2;
+    points.push([bLat, bLng]);
+  }
+  return points;
+}
+
+function generateRotationCurvedPath(rot, corridorRegistry) {
+  const stages = rot.stages || [];
+  const fullPath = [];
+
+  for (let i = 0; i < stages.length - 1; i++) {
+    const h1 = stages[i].hosp;
+    const h2 = stages[i + 1].hosp;
+    if (!h1 || !h2 || !HOSPITALS[h1] || !HOSPITALS[h2]) continue;
+
+    const coord1 = HOSPITALS[h1].coords;
+    const coord2 = HOSPITALS[h2].coords;
+    if (!coord1 || !coord2) continue;
+
+    const key = h1 < h2 ? `${h1}:::${h2}` : `${h2}:::${h1}`;
+    const corridorUsers = corridorRegistry.get(key) || [rot.id];
+    const totalUsers = corridorUsers.length;
+    const userSlot = corridorUsers.indexOf(rot.id);
+
+    let multiplier = 0;
+    if (totalUsers > 1) {
+      multiplier = userSlot - (totalUsers - 1) / 2.0;
+      if (h1 > h2) multiplier = -multiplier;
+    } else {
+      multiplier = 0.25;
+      if (h1 > h2) multiplier = -multiplier;
+    }
+
+    const segPoints = generateCurvedSegmentPoints(coord1, coord2, multiplier, 8);
+    if (fullPath.length === 0) {
+      fullPath.push(...segPoints);
+    } else {
+      fullPath.push(...segPoints.slice(1));
+    }
+  }
+
+  return fullPath;
+}
+
+let overviewPolylinesMap = {};
+
+function highlightOverviewTrack(rotId) {
+  if (!showOverviewLines || currentViewMode !== 'list') return;
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+  Object.keys(overviewPolylinesMap).forEach(id => {
+    const entry = overviewPolylinesMap[id];
+    if (id === rotId) {
+      entry.polyline.setStyle({
+        weight: 4.5,
+        opacity: 1.0,
+        color: isDark ? '#38bdf8' : entry.highlightColor
+      });
+      entry.polyline.bringToFront();
+    } else {
+      entry.polyline.setStyle({
+        opacity: 0.08
+      });
+    }
+  });
+
+  const card = document.getElementById(`feed-card-${rotId}`);
+  if (card) card.classList.add('map-highlighted-card');
+}
+
+function resetOverviewTrackHighlights() {
+  if (!showOverviewLines || currentViewMode !== 'list') return;
+  Object.keys(overviewPolylinesMap).forEach(id => {
+    const entry = overviewPolylinesMap[id];
+    entry.polyline.setStyle({
+      weight: entry.baseWeight,
+      opacity: entry.baseOpacity,
+      color: entry.baseColor,
+      dashArray: entry.baseDash === 'none' ? null : entry.baseDash
+    });
+  });
+
+  document.querySelectorAll('.rotation-list-card.map-highlighted-card').forEach(el => {
+    el.classList.remove('map-highlighted-card');
+  });
+}
+
 function getRotationMaxDistance(rot) {
   if (!rot || !rot.stages) return 0;
   const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
@@ -533,6 +724,22 @@ function renderRotationCardsFeed(list) {
       openDetailsForRotation(r.id);
     };
 
+    const lineStyle = getRotationLineStyle(r);
+    const swatchHtml = isPool ? '' : `
+      <span class="card-line-swatch" title="Line signature on overview map (${lineStyle.isDashed ? 'dashed' : 'solid'})">
+        <svg width="22" height="6" viewBox="0 0 22 6" style="display:block;">
+          <line x1="1" y1="3" x2="21" y2="3" stroke="${lineStyle.color}" ${lineStyle.dashPattern === 'none' ? '' : `stroke-dasharray="${lineStyle.dashPattern}"`} stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </span>
+    `;
+
+    card.addEventListener('mouseenter', () => {
+      highlightOverviewTrack(r.id);
+    });
+    card.addEventListener('mouseleave', () => {
+      resetOverviewTrackHighlights();
+    });
+
     const starsHtml = userData.rating > 0 ? `<span style="color:var(--amber); font-weight:800; font-size:0.8rem;">${'★'.repeat(userData.rating)}</span>` : '';
 
     card.innerHTML = `
@@ -540,6 +747,7 @@ function renderRotationCardsFeed(list) {
         <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
           <span class="badge badge-code">${escapeHtml(r.code)}</span>
           <span class="badge badge-places">${escapeHtml(r.places)}</span>
+          ${swatchHtml}
           ${isPool ? '<span class="badge badge-pool">Pool</span>' : ''}
           <span class="badge badge-split" title="Training Balance: ${split.tertiary}% Tertiary, ${split.dgh}% DGH">${split.tertiary}% Tert • ${split.dgh}% DGH</span>
           ${tierBadgeHtml}
@@ -1369,45 +1577,68 @@ function renderAllPlacements({ fitView = true } = {}) {
   const linesByHospital = {};
   const regionColorsMap = (typeof REGION_COLORS !== 'undefined' ? REGION_COLORS : (window.REGION_COLORS || {}));
 
-  // 11a. Dashed route lines for every rotation in the filtered feed (region, pills, search)
+  overviewPolylinesMap = {};
+
+  // 11a. Separated curved route lines for every rotation in the filtered feed (region, pills, search)
   if (showOverviewLines) {
+    const corridorRegistry = buildCorridorUsageRegistry(currentFilteredList);
+
     currentFilteredList.forEach(rot => {
       if (isPoolRotation(rot)) return;
 
-      const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
-      if (coords.length > 1) {
-        const regColor = regionColorsMap[rot.region] || "#0284c7";
+      const curvedPoints = generateRotationCurvedPath(rot, corridorRegistry);
+      if (curvedPoints.length > 1) {
+        const lineStyle = getRotationLineStyle(rot);
         const maxDist = getRotationMaxDistance(rot);
 
-        const polyline = L.polyline(coords, {
-          color: regColor,
+        const polyline = L.polyline(curvedPoints, {
+          color: lineStyle.color,
           weight: 2,
-          dashArray: '4, 5', // Small checked lines
-          opacity: 0.55
+          dashArray: lineStyle.dashPattern === 'none' ? null : lineStyle.dashPattern,
+          opacity: 0.42
         });
 
-        const tooltipContent = `<b>${rot.title}</b><br><span style="font-size:0.75rem;">${rot.code} • ${rot.places} • Max Spread: ${maxDist} mi</span>`;
-        polyline.bindTooltip(tooltipContent, { sticky: true });
+        const stagesSummary = rot.stages.map(s => escapeHtml(s.hosp)).join(' &rarr; ');
+        const tooltipContent = `
+          <div style="min-width:180px; max-width:290px;">
+            <div style="font-weight:800; font-size:0.84rem; color:var(--text-main); margin-bottom:2px;">${escapeHtml(rot.title)}</div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:4px;">
+              <span class="badge badge-code" style="padding:1px 4px; font-size:0.68rem;">${escapeHtml(rot.code)}</span> • ${escapeHtml(rot.places)} • Max Spread: ${maxDist} mi
+            </div>
+            <div style="font-size:0.72rem; color:var(--primary); font-weight:700; line-height:1.35;">
+              ${stagesSummary}
+            </div>
+          </div>
+        `;
+        polyline.bindTooltip(tooltipContent, { sticky: true, className: 'rotation-line-tooltip' });
 
         polyline.on('mouseover', function() {
-          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-          this.setStyle({ weight: 4.5, opacity: 1.0, color: isDark ? '#38bdf8' : '#0f172a' });
-          this.bringToFront();
+          highlightOverviewTrack(rot.id);
         });
 
         polyline.on('mouseout', function() {
-          this.setStyle({ weight: 2, opacity: 0.55, color: regColor });
+          resetOverviewTrackHighlights();
         });
 
-        polyline.on('click', function() {
-          diveInFromPopup(rot.id);
+        polyline.on('click', function(e) {
+          L.DomEvent.stopPropagation(e);
+          openDetailsForRotation(rot.id);
         });
 
         overviewLinesGroup.addLayer(polyline);
 
+        overviewPolylinesMap[rot.id] = {
+          polyline,
+          baseColor: lineStyle.color,
+          baseWeight: 2,
+          baseDash: lineStyle.dashPattern,
+          baseOpacity: 0.42,
+          highlightColor: lineStyle.color
+        };
+
         rot.stages.forEach(s => {
           if (!linesByHospital[s.hosp]) linesByHospital[s.hosp] = [];
-          linesByHospital[s.hosp].push({ line: polyline, color: regColor });
+          linesByHospital[s.hosp].push({ line: polyline, color: lineStyle.color, dash: lineStyle.dashPattern });
         });
       }
     });
@@ -1458,7 +1689,7 @@ function renderAllPlacements({ fitView = true } = {}) {
       const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
       const lines = linesByHospital[hName] || [];
       lines.forEach(item => {
-        item.line.setStyle({ weight: 4.5, opacity: 1.0, color: isDark ? '#38bdf8' : '#0f172a' });
+        item.line.setStyle({ weight: 3.8, opacity: 0.95, color: isDark ? '#38bdf8' : item.color });
         item.line.bringToFront();
       });
     });
@@ -1466,7 +1697,7 @@ function renderAllPlacements({ fitView = true } = {}) {
     m.on('mouseout', function() {
       const lines = linesByHospital[hName] || [];
       lines.forEach(item => {
-        item.line.setStyle({ weight: 2, opacity: 0.55, color: item.color });
+        item.line.setStyle({ weight: 2, opacity: 0.42, color: item.color, dashArray: item.dash === 'none' ? null : item.dash });
       });
     });
 

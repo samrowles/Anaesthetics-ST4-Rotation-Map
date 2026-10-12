@@ -1974,5 +1974,51 @@ select:focus, input:focus, textarea:focus {
 [data-theme="dark"] .badge-dgh { background: #134e4a; color: #5eead4; border-color: #0d9488; }
 [data-theme="dark"] .badge-pool { background: #1e293b; color: #cbd5e1; border-color: #475569; }
 
+/* --------------------------------------------------------------------------
+   Overview Map Line Separation, Swatches, and Hover Focus
+   -------------------------------------------------------------------------- */
+.card-line-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 5px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.rotation-list-card.map-highlighted-card {
+  border-color: var(--primary) !important;
+  background: var(--bg-card-hover) !important;
+  box-shadow: 0 0 0 2px var(--primary), 0 4px 12px rgba(2, 132, 199, 0.22) !important;
+  transform: translateX(2px);
+}
+
+.rotation-line-tooltip {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-main) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
+  border-radius: 6px !important;
+  padding: 7px 10px !important;
+  font-family: inherit !important;
+  font-size: 0.76rem !important;
+  line-height: 1.35 !important;
+  pointer-events: none !important;
+}
+
+.rotation-line-tooltip::before {
+  border-top-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] .rotation-line-tooltip {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6) !important;
+}
+
+
 
 
