@@ -97,13 +97,13 @@ function escapeHtml(str) {
 // 3. LEAFLET MAP INITIALIZATION & LAYER GROUPS
 const map = L.map('map', { 
   zoomControl: true,
-  minZoom: 6,
+  minZoom: 5,
   maxZoom: 18,
   maxBounds: [
-    [49.5, -9.0],  // South-West England & Wales
-    [56.5, 2.5]    // North-East England
+    [35.0, -35.0],  // Generous North Atlantic & European perimeter allowing smooth panning across UK & regions
+    [72.0, 35.0]
   ],
-  maxBoundsViscosity: 0.75
+  maxBoundsViscosity: 0.1
 }).setView([52.8, -1.8], 6);
 
 const osmStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
