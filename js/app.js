@@ -100,10 +100,10 @@ const map = L.map('map', {
   minZoom: 5,
   maxZoom: 18,
   maxBounds: [
-    [35.0, -35.0],  // Generous North Atlantic & European perimeter allowing smooth panning across UK & regions
-    [72.0, 35.0]
+    [44.0, -19.0],  // Balanced UK & Irish perimeter allowing natural panning without excessive empty space
+    [65.0, 15.0]
   ],
-  maxBoundsViscosity: 0.1
+  maxBoundsViscosity: 0.2
 }).setView([52.8, -1.8], 6);
 
 const osmStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
