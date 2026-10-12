@@ -54,7 +54,7 @@
     <span id="miniCardSpread" class="badge badge-code" style="font-size:0.7rem;">76 Posts</span>
   </div>
   <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px; display:flex; justify-content:space-between;" id="miniCardHub">
-    <span>🌐 Tap any pin on map or open list</span>
+    <span>Tap any pin on map or open list</span>
     <span style="font-weight:700; color:var(--primary);">Menu &rarr;</span>
   </div>
 </div>
@@ -65,15 +65,15 @@
     <h1>
       ST4 Explorer
       <div class="header-actions">
-        <button class="btn-top btn-sync" id="btnThemeToggle" onclick="cycleTheme()" title="Switch Theme (Auto / Dark / Light)">🌓 Auto</button>
+        <button class="btn-top btn-sync" id="btnThemeToggle" onclick="cycleTheme()" title="Switch Theme (Auto / Dark / Light)">Theme</button>
         <button class="btn-top btn-sync" onclick="openShortlistModal()" title="View and reorder your ranked shortlist">
-          ⭐ Shortlist <span id="headerShortlistBadge" style="background:var(--amber); color:#000; border-radius:4px; padding:1px 6px; font-size:0.68rem; font-weight:800; margin-left:2px;">0</span>
+          Shortlist <span id="headerShortlistBadge" style="background:var(--amber); color:#000; border-radius:4px; padding:1px 6px; font-size:0.68rem; font-weight:800; margin-left:2px;">0</span>
         </button>
         <button class="btn-top btn-compare-top" onclick="openCompareModal()" title="Compare candidate rotations side-by-side">
-          ⚖️ Compare <span id="headerCompareBadge" style="background:#7c3aed; color:white; border-radius:4px; padding:1px 6px; font-size:0.68rem; font-weight:800; margin-left:2px;">0</span>
+          Compare <span id="headerCompareBadge" style="background:#7c3aed; color:white; border-radius:4px; padding:1px 6px; font-size:0.68rem; font-weight:800; margin-left:2px;">0</span>
         </button>
-        <button class="btn-top btn-sync" onclick="openSyncModal()" title="Backup preferences, export spreadsheets, or share with partner">💾 Data</button>
-        <button class="btn-mobile-nav" onclick="toggleMobileSidebar(false)" aria-label="View Map">🗺️ Map</button>
+        <button class="btn-top btn-sync" onclick="openSyncModal()" title="Backup preferences, export spreadsheets, or share with partner">Data</button>
+        <button class="btn-mobile-nav" onclick="toggleMobileSidebar(false)" aria-label="View Map">Map</button>
       </div>
     </h1>
     <p>National Oriel Rotations with Commute &amp; Living Analysis</p>
@@ -96,20 +96,20 @@
       <div class="strip-row">
         <span class="strip-label">Base:</span>
         <div class="transport-toggle strip-toggle">
-          <button class="transport-btn active" id="btnModeDriver" onclick="setCommuteMode('driver')">🚗 Driver</button>
-          <button class="transport-btn" id="btnModeTransit" onclick="setCommuteMode('transit')">🚆 Transit</button>
-          <button class="transport-btn" id="btnModeCustom" onclick="setCommuteMode('custom')">📍 My Base</button>
+          <button class="transport-btn active" id="btnModeDriver" onclick="setCommuteMode('driver')">Driver</button>
+          <button class="transport-btn" id="btnModeTransit" onclick="setCommuteMode('transit')">Transit</button>
+          <button class="transport-btn" id="btnModeCustom" onclick="setCommuteMode('custom')">My Base</button>
         </div>
         <button class="btn-link-action" onclick="openCustomBaseModal()" title="Set your prospective home postcode">
-          <span id="customBasePillText">📍 Postcode</span>
+          <span id="customBasePillText">Postcode</span>
         </button>
       </div>
       <div class="strip-row">
         <span class="strip-label">Shift:</span>
         <div class="transport-toggle strip-toggle">
-          <button class="transport-btn active" id="btnTimingMorning" onclick="setShiftTiming('0730')" title="Arrive 07:30 handover">🌅 07:30</button>
-          <button class="transport-btn" id="btnTimingEvening" onclick="setShiftTiming('1800')" title="Leave 18:00 rush">🌆 18:00</button>
-          <button class="transport-btn" id="btnTimingOffPeak" onclick="setShiftTiming('offpeak')" title="Free-flow off-peak">⚡ Off-Peak</button>
+          <button class="transport-btn active" id="btnTimingMorning" onclick="setShiftTiming('0730')" title="Arrive 07:30 handover">07:30 Handover</button>
+          <button class="transport-btn" id="btnTimingEvening" onclick="setShiftTiming('1800')" title="Leave 18:00 rush">18:00 Rush</button>
+          <button class="transport-btn" id="btnTimingOffPeak" onclick="setShiftTiming('offpeak')" title="Free-flow off-peak">Off-Peak</button>
         </div>
         <select id="sortSelect" onchange="handleSortChange(this.value)" class="strip-sort" title="Sort Rotations" aria-label="Sort Rotations">
           <option value="DEFAULT">Sort: Oriel</option>
@@ -124,11 +124,11 @@
     <div class="filter-pills-row">
       <div class="filter-pills">
         <button class="filter-pill-btn active" id="pillAll" onclick="setQuickFilter('ALL')">All (<span id="listCountBadge">76</span>)</button>
-        <button class="filter-pill-btn" id="pillStarred" onclick="setQuickFilter('STARRED')">⭐ Starred</button>
-        <button class="filter-pill-btn" id="pillTier1" onclick="setQuickFilter('TIER1')">🟢 Tier 1</button>
-        <button class="filter-pill-btn" id="pillTier2" onclick="setQuickFilter('TIER2')">🟡 Tier 2</button>
-        <button class="filter-pill-btn" id="pillTier3" onclick="setQuickFilter('TIER3')">🔴 Tier 3</button>
-        <button class="filter-pill-btn" id="pillLowSpread" onclick="setQuickFilter('LOW_SPREAD')">&le;25mi</button>
+        <button class="filter-pill-btn" id="pillStarred" onclick="setQuickFilter('STARRED')">Starred</button>
+        <button class="filter-pill-btn" id="pillTier1" onclick="setQuickFilter('TIER1')">Tier 1</button>
+        <button class="filter-pill-btn" id="pillTier2" onclick="setQuickFilter('TIER2')">Tier 2</button>
+        <button class="filter-pill-btn" id="pillTier3" onclick="setQuickFilter('TIER3')">Tier 3</button>
+        <button class="filter-pill-btn" id="pillLowSpread" onclick="setQuickFilter('LOW_SPREAD')">&le; 25 mi</button>
       </div>
       <button class="btn-reset-filters" onclick="resetAllFilters()" title="Reset all search queries and filters">↺</button>
     </div>
@@ -139,8 +139,8 @@
     <div id="listViewContainer">
       <div class="app-tip-banner" id="appTipBanner">
         <div style="display:flex; align-items:center; gap:6px;">
-          <span>💡</span>
-          <span>Click any card to inspect route &amp; commute, or tap hospital pins on the map.</span>
+          <span style="font-weight:700; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em;">Tip:</span>
+          <span>Click any card to inspect hospital placements and commutes, or tap pins on the map.</span>
         </div>
         <button onclick="dismissTipBanner()" style="border:none; background:none; color:var(--text-muted); font-size:0.8rem; cursor:pointer;" title="Dismiss tip">✕</button>
       </div>
@@ -150,118 +150,166 @@
     <!-- View 2: Detailed Inspector Card (Focus Mode) -->
     <div id="inspectorCard" style="display: none;">
       <div class="card">
+        <!-- Top Action Bar -->
         <div class="inspector-top-bar">
           <button class="btn-back-to-list" onclick="showListView()">
             &larr; Back to List
           </button>
-          <div class="inspector-stepper">
-            <button class="btn-step" onclick="stepRotation(-1)" title="Previous rotation (← key)" aria-label="Previous rotation">&larr;</button>
-            <select id="prefSelect" onchange="selectRotation(this.value, false)" aria-label="Select Rotation" style="max-width:160px; font-size:0.74rem; padding:3px 6px;">
-              <option value="">Jump to...</option>
-            </select>
-            <button class="btn-step" onclick="stepRotation(1)" title="Next rotation (→ key)" aria-label="Next rotation">&rarr;</button>
+          <div class="inspector-top-actions">
+            <button id="cardCompareBtn" class="btn-compare-action" onclick="toggleCompareFromCard()">Compare</button>
+            <button class="btn-share-link" onclick="copyDirectShareLink()" title="Copy direct link to this rotation">Share</button>
+            <div class="inspector-stepper">
+              <button class="btn-step" onclick="stepRotation(-1)" title="Previous rotation (← key)" aria-label="Previous rotation">&larr;</button>
+              <select id="prefSelect" onchange="selectRotation(this.value, false)" aria-label="Select Rotation" style="max-width:130px; font-size:0.74rem; padding:3px 6px;">
+                <option value="">Jump...</option>
+              </select>
+              <button class="btn-step" onclick="stepRotation(1)" title="Next rotation (→ key)" aria-label="Next rotation">&rarr;</button>
+            </div>
           </div>
         </div>
 
         <button class="btn-view-map-card" onclick="toggleMobileSidebar(false)">
-          🗺️ View Rotation Route on Map &rarr;
+          View Route on Map &rarr;
         </button>
 
-        <div class="card-actions-row">
-          <div style="display:flex; gap:6px;">
-            <button class="btn-step" onclick="showListView()">&larr; Feed</button>
-            <button id="cardCompareBtn" class="btn-compare-action" onclick="toggleCompareFromCard()">⚖️ Compare</button>
+        <!-- Rotation Header Meta -->
+        <div class="inspector-header-section">
+          <div class="badge-container">
+            <span class="badge badge-code" id="cardCode">Oriel Code</span>
+            <span class="badge badge-places" id="cardPlaces">Places: -</span>
+            <span class="badge badge-pool" id="cardPoolBadge" style="display:none;">Pool Scheme</span>
+            <span class="badge badge-spread-med" id="cardSpreadBadge">Max: 0 mi</span>
+            <span class="badge badge-tier-1" id="cardTierBadge" style="display:none; cursor:pointer;" onclick="switchInspectorTab('notes')" title="Assigned preference tier (click to edit)">Tier 1</span>
           </div>
-          <button class="btn-share-link" onclick="copyDirectShareLink()" title="Copy direct link to this rotation">🔗 Link</button>
-        </div>
-
-        <div class="badge-container">
-          <span class="badge badge-code" id="cardCode">Oriel Code</span>
-          <span class="badge badge-places" id="cardPlaces">Places: -</span>
-          <span class="badge" id="cardSpreadBadge">Max: 0 mi</span>
-          <span class="badge" id="cardTierBadge" style="display:none;">Tier 1</span>
-        </div>
-        <div class="card-title" id="cardTitle">Track Title</div>
-
-        <!-- Dynamic Living Hub Card -->
-        <div class="hub-box driver-theme" id="hubBox">
-          <div class="hub-title">
-            <span>
-              <span id="hubTitlePrefix">🏡 Suggested Base (🚗 Driver):</span>
-              <span id="hubTownName" style="margin-left: 4px; font-weight:800;">Town</span>
-            </span>
-            <a id="hubDirectionsLink" href="#" target="_blank" class="hub-directions-link">Google Maps ↗</a>
-          </div>
-          <div class="hub-content" id="hubDescription">Hub travel details...</div>
-          <div class="hub-alert" id="hubAlertBox" style="display:none;"></div>
-        </div>
-
-        <div class="metrics-bar">
-          <div class="metric-item">
-            <div class="metric-value" id="metricSites">0</div>
-            <div class="metric-label">Hospital Bases</div>
-          </div>
-          <div class="metric-item">
-            <div class="metric-value" id="metricDistance">0 mi</div>
-            <div class="metric-label">Max Spread</div>
+          <div class="card-title" id="cardTitle">Track Title</div>
+          <div class="card-subtitle-row">
+            <span id="cardRegionText" class="card-region-text">Region</span>
+            <span class="card-hub-summary" id="cardHubSummary">Suggested Base: Base Name</span>
           </div>
         </div>
 
-        <!-- Training Balance Split: Tertiary Teaching vs DGH -->
-        <div class="split-bar-box">
-          <div class="split-bar-header">
-            <span class="split-label-tertiary">🏛️ Tertiary / Teaching: <b id="splitTertiaryText">50%</b></span>
-            <span class="split-label-dgh">🏥 DGH: <b id="splitDghText">50%</b></span>
+        <!-- Sleek Segmented Tab Navigation -->
+        <div class="inspector-tabs-nav">
+          <button class="inspector-tab-btn active" id="tabBtnPlacements" onclick="switchInspectorTab('placements')">
+            Placements
+          </button>
+          <button class="inspector-tab-btn" id="tabBtnCommute" onclick="switchInspectorTab('commute')">
+            Commute &amp; Base
+          </button>
+          <button class="inspector-tab-btn" id="tabBtnIntel" onclick="switchInspectorTab('intel')">
+            Trust Profiles
+          </button>
+          <button class="inspector-tab-btn" id="tabBtnNotes" onclick="switchInspectorTab('notes')">
+            Notes &amp; Tier
+          </button>
+        </div>
+
+        <!-- TAB PANE 1: Placements (Default & Hero Focus) -->
+        <div id="tabPanePlacements" class="tab-pane active">
+          <!-- Overview Strip: Training Balance & Metrics -->
+          <div class="placements-overview-strip">
+            <div class="split-bar-box" style="margin-bottom:8px;">
+              <div class="split-bar-header">
+                <span class="split-label-tertiary">Tertiary / Teaching: <b id="splitTertiaryText">50%</b></span>
+                <span class="split-label-dgh">DGH: <b id="splitDghText">50%</b></span>
+              </div>
+              <div class="split-bar-track" title="Rotation Training Split">
+                <div id="splitTertiaryFill" class="split-fill-tertiary" style="width: 50%;"></div>
+                <div id="splitDghFill" class="split-fill-dgh" style="width: 50%;"></div>
+              </div>
+            </div>
+            <div class="metrics-bar" style="margin-bottom:12px;">
+              <div class="metric-item">
+                <div class="metric-value" id="metricSites">0</div>
+                <div class="metric-label" id="metricSitesLabel">Hospital Bases</div>
+              </div>
+              <div class="metric-item">
+                <div class="metric-value" id="metricDistance">0 mi</div>
+                <div class="metric-label" id="metricDistanceLabel">Max Spread</div>
+              </div>
+            </div>
           </div>
-          <div class="split-bar-track" title="Rotation Training Split">
-            <div id="splitTertiaryFill" class="split-fill-tertiary" style="width: 50%;"></div>
-            <div id="splitDghFill" class="split-fill-dgh" style="width: 50%;"></div>
+
+          <!-- Hero Hospital Sequence Timeline -->
+          <div class="timeline-section-header">
+            <span id="timelineHeading" style="font-weight: 800; font-size: 0.74rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em;">HOSPITAL PLACEMENT SEQUENCE:</span>
+            <span style="font-size: 0.68rem; color: var(--text-dim);">Click to locate on map</span>
+          </div>
+          <div class="timeline" id="timelineContainer"></div>
+
+          <!-- Quick Preference Tier Bar directly on Placements Tab -->
+          <div class="quick-tier-bar">
+            <span class="quick-tier-label">Preference Tier:</span>
+            <div class="tier-selector-row" style="margin-bottom:0; flex:1;">
+              <button class="tier-btn tier-1" id="quickTierBtn1" onclick="setTier('TIER1')">Tier 1</button>
+              <button class="tier-btn tier-2" id="quickTierBtn2" onclick="setTier('TIER2')">Tier 2</button>
+              <button class="tier-btn tier-3" id="quickTierBtn3" onclick="setTier('TIER3')">Tier 3</button>
+              <button class="tier-btn tier-exclude" id="quickTierBtnExclude" onclick="setTier('EXCLUDE')">Exclude</button>
+            </div>
           </div>
         </div>
 
-        <!-- Commute Breakdown Matrix From Chosen Base -->
-        <div class="commute-matrix-box">
-          <div class="commute-matrix-title">
-            <span>🚗 Estimated Commute from Base:</span>
-            <span id="commuteMatrixHubName" style="font-size:0.7rem; color:var(--primary); font-weight:700;">Base Name</span>
+        <!-- TAB PANE 2: Commute & Base -->
+        <div id="tabPaneCommute" class="tab-pane">
+          <!-- Suggested Living Base -->
+          <div class="hub-box driver-theme" id="hubBox">
+            <div class="hub-title">
+              <span>
+                <span id="hubTitlePrefix">Suggested Base (Driving):</span>
+                <span id="hubTownName" style="margin-left: 4px; font-weight:800;">Town</span>
+              </span>
+              <a id="hubDirectionsLink" href="#" target="_blank" class="hub-directions-link">Google Maps ↗</a>
+            </div>
+            <div class="hub-content" id="hubDescription">Hub travel details...</div>
+            <div class="hub-alert" id="hubAlertBox" style="display:none;"></div>
           </div>
-          <div id="commuteMatrixList"></div>
+
+          <!-- Commute Breakdown Matrix -->
+          <div class="commute-matrix-box">
+            <div class="commute-matrix-title">
+              <span id="commuteMatrixTitleText">Estimated Commute from Base:</span>
+              <span id="commuteMatrixHubName" style="font-size:0.7rem; color:var(--primary); font-weight:700;">Base Name</span>
+            </div>
+            <div id="commuteMatrixList"></div>
+          </div>
         </div>
 
-        <!-- Hospital Bases Section -->
-        <div class="hospitals-box">
-          <div class="hospitals-box-title">
-            <span>🏥 Hospital Bases in this Rotation:</span>
-            <span style="font-size:0.7rem; color:var(--text-muted); font-weight:normal;">Click 'Focus' to zoom pin</span>
+        <!-- TAB PANE 3: Trust Profiles -->
+        <div id="tabPaneIntel" class="tab-pane">
+          <div class="hospitals-box">
+            <div class="hospitals-box-title">
+              <span id="hospitalsBoxTitleText">Hospitals in this Rotation:</span>
+              <span style="font-size:0.7rem; color:var(--text-muted); font-weight:normal;">Click profile for EPR &amp; parking</span>
+            </div>
+            <div id="hospitalsListContainer" class="hospitals-chip-list"></div>
           </div>
-          <div id="hospitalsListContainer" class="hospitals-chip-list"></div>
         </div>
 
-        <div style="font-weight: 800; font-size: 0.76rem; margin-bottom: 8px; color: var(--text-muted);">ROTATION TIMELINE:</div>
-        <div class="timeline" id="timelineContainer"></div>
+        <!-- TAB PANE 4: Notes & Tier -->
+        <div id="tabPaneNotes" class="tab-pane">
+          <div class="rating-section" style="border:none; padding:4px 0 0 0; background:transparent;">
+            <div style="font-weight: 800; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 6px;">ASSIGN PREFERENCE TIER:</div>
+            <div class="tier-selector-row">
+              <button class="tier-btn tier-1" id="tierBtn1" onclick="setTier('TIER1')">Tier 1 (Top)</button>
+              <button class="tier-btn tier-2" id="tierBtn2" onclick="setTier('TIER2')">Tier 2 (Mid)</button>
+              <button class="tier-btn tier-3" id="tierBtn3" onclick="setTier('TIER3')">Tier 3 (Low)</button>
+              <button class="tier-btn tier-exclude" id="tierBtnExclude" onclick="setTier('EXCLUDE')">Exclude</button>
+            </div>
 
-        <!-- Rating, Tier & Shared Notes Section -->
-        <div class="rating-section">
-          <div style="font-weight: 800; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 6px;">ASSIGN PREFERENCE TIER:</div>
-          <div class="tier-selector-row">
-            <button class="tier-btn tier-1" id="tierBtn1" onclick="setTier('TIER1')">🟢 Tier 1 (Top)</button>
-            <button class="tier-btn tier-2" id="tierBtn2" onclick="setTier('TIER2')">🟡 Tier 2 (Mid)</button>
-            <button class="tier-btn tier-3" id="tierBtn3" onclick="setTier('TIER3')">🔴 Tier 3 (Low)</button>
-            <button class="tier-btn tier-exclude" id="tierBtnExclude" onclick="setTier('EXCLUDE')">⚪ Exclude</button>
+            <div style="font-weight: 800; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 4px;">YOUR RATING &amp; NOTES:</div>
+            <div class="star-row" id="starContainer">
+              <span class="star" onclick="setRating(1, true)">★</span>
+              <span class="star" onclick="setRating(2, true)">★</span>
+              <span class="star" onclick="setRating(3, true)">★</span>
+              <span class="star" onclick="setRating(4, true)">★</span>
+              <span class="star" onclick="setRating(5, true)">★</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 6px;" id="ratingText">(Unrated)</span>
+            </div>
+            <textarea class="notes-input" id="partnerNotes" placeholder="Personal notes (e.g., manageable commute, excellent cardiac block)..."></textarea>
+            <button class="btn-save" onclick="saveUserPreferences()">Save Notes &amp; Tier</button>
           </div>
-
-          <div style="font-weight: 800; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 4px;">YOUR RATING &amp; NOTES:</div>
-          <div class="star-row" id="starContainer">
-            <span class="star" onclick="setRating(1, true)">★</span>
-            <span class="star" onclick="setRating(2, true)">★</span>
-            <span class="star" onclick="setRating(3, true)">★</span>
-            <span class="star" onclick="setRating(4, true)">★</span>
-            <span class="star" onclick="setRating(5, true)">★</span>
-            <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 6px;" id="ratingText">(Unrated)</span>
-          </div>
-          <textarea class="notes-input" id="partnerNotes" placeholder="Personal notes (e.g., commute manageable, excellent cardiac block)..."></textarea>
-          <button class="btn-save" onclick="saveUserPreferences()">Save Notes &amp; Tier</button>
         </div>
+
       </div>
     </div>
   </div>
@@ -272,13 +320,13 @@
   <!-- Map Floating Overlay Controls -->
   <div class="map-floating-overlay">
     <button class="map-float-btn active-btn" id="btnMapLinesToggle" onclick="toggleOverviewLines()" title="Toggle dashed rotation network lines on overview map">
-      🔀 Lines: ON
+      Lines: ON
     </button>
     <button class="map-float-btn" onclick="locateUserOnMap()" title="Show my current GPS location on the map">
-      🎯 Locate Me
+      Locate Me
     </button>
     <button class="map-float-btn" onclick="toggleMapFullscreen()" title="Toggle fullscreen view">
-      ⛶ Fullscreen
+      Fullscreen
     </button>
   </div>
 </div>
@@ -287,7 +335,7 @@
 <div class="modal-overlay" id="shortlistModal">
   <div class="modal-content modal-content-wide">
     <div class="modal-header">
-      <h2>⭐ My Shortlist &amp; Oriel Preferencing Companion</h2>
+      <h2>My Shortlist &amp; Oriel Preferencing Companion</h2>
       <button class="btn-step" onclick="closeModal('shortlistModal')" aria-label="Close modal">✕</button>
     </div>
     <div class="modal-body">
@@ -295,7 +343,7 @@
       <div class="oriel-companion-banner">
         <div style="flex:1; min-width:260px;">
           <div style="font-weight:800; font-size:0.85rem; color:var(--text-main); display:flex; align-items:center; gap:6px;">
-            <span>🎯 Oriel Submission Assistant</span>
+            <span>Oriel Submission Assistant</span>
             <span style="font-size:0.68rem; font-weight:normal; color:var(--text-muted);">(Manual Oriel Entry Helper)</span>
           </div>
           <div style="font-size:0.74rem; color:var(--text-muted); margin-top:2px; line-height:1.35;">
@@ -303,9 +351,9 @@
           </div>
         </div>
         <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-          <button class="btn-top btn-export" onclick="copyShortlistPlainText()" title="Copy numbered preference list to clipboard">📋 Copy Text List</button>
-          <button class="btn-top btn-export" onclick="printShortlistReport()" title="Print A4 submission checklist or save as PDF">🖨️ Print Cheat Sheet</button>
-          <button class="btn-top btn-export" onclick="exportShortlistCSV()" title="Download CSV spreadsheet backup for Excel / Google Sheets">📊 CSV Backup</button>
+          <button class="btn-top btn-export" onclick="copyShortlistPlainText()" title="Copy numbered preference list to clipboard">Copy Text List</button>
+          <button class="btn-top btn-export" onclick="printShortlistReport()" title="Print A4 submission checklist or save as PDF">Print Cheat Sheet</button>
+          <button class="btn-top btn-export" onclick="exportShortlistCSV()" title="Download CSV spreadsheet backup for Excel / Google Sheets">CSV Backup</button>
         </div>
       </div>
 
@@ -329,7 +377,7 @@
 <div class="modal-overlay" id="compareModal">
   <div class="modal-content modal-content-wide">
     <div class="modal-header">
-      <h2>⚖️ Side-by-Side Rotation Comparison</h2>
+      <h2>Side-by-Side Rotation Comparison</h2>
       <button class="btn-step" onclick="closeModal('compareModal')" aria-label="Close modal">✕</button>
     </div>
     <div class="modal-body">
@@ -342,7 +390,7 @@
 <div class="modal-overlay" id="customBaseModal">
   <div class="modal-content" style="max-width:480px;">
     <div class="modal-header">
-      <h2>📍 Set My Custom Home / Commute Base</h2>
+      <h2>Set My Custom Home / Commute Base</h2>
       <button class="btn-step" onclick="closeModal('customBaseModal')" aria-label="Close modal">✕</button>
     </div>
     <div class="modal-body">
@@ -354,8 +402,8 @@
         <button class="btn-top btn-export" onclick="lookupCustomPostcode()" style="padding:6px 14px;">Find</button>
       </div>
       <div style="display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap;">
-        <button class="btn-top btn-sync" onclick="useGpsForCustomBase()">🎯 Use GPS Location</button>
-        <button class="btn-top btn-sync" onclick="startMapPickBase()">🗺️ Click on Map</button>
+        <button class="btn-top btn-sync" onclick="useGpsForCustomBase()">Use GPS Location</button>
+        <button class="btn-top btn-sync" onclick="startMapPickBase()">Click on Map</button>
         <button class="btn-top btn-sync" onclick="clearCustomHomeBase()" style="color:#b91c1c;">Clear Base</button>
       </div>
       <div id="customBaseStatusBox" style="font-size:0.76rem; color:var(--text-muted); background:var(--bg-card-subtle); padding:8px 10px; border-radius:6px; border:1px solid var(--border-color);">
@@ -369,38 +417,38 @@
 <div class="modal-overlay" id="syncModal">
   <div class="modal-content">
     <div class="modal-header">
-      <h2>💾 Data Management &amp; Backup</h2>
+      <h2>Data Management &amp; Backup</h2>
       <button class="btn-step" onclick="closeModal('syncModal')" aria-label="Close modal">✕</button>
     </div>
     <div class="modal-body">
       <div style="margin-bottom:16px;">
-        <h4 style="margin:0 0 4px 0; font-size:0.85rem;">📊 Export Hard Copy / Reference Sheet (Excel / CSV)</h4>
+        <h4 style="margin:0 0 4px 0; font-size:0.85rem;">Export Hard Copy / Reference Sheet (Excel / CSV)</h4>
         <p style="font-size:0.73rem; color:var(--text-muted); margin:0 0 8px 0; line-height:1.35;">
           Note: Oriel does not support direct CSV upload. Export as a hard copy for future reference, paper submission checking, or spreadsheet analysis.
         </p>
         <div style="display:flex; gap:8px;">
-          <button class="btn-top btn-export" style="flex:1; justify-content:center; padding:7px;" onclick="exportShortlistCSV()">⭐ Export Shortlist Reference</button>
-          <button class="btn-top btn-sync" style="flex:1; justify-content:center; padding:7px;" onclick="exportPreferencesCSV()">📋 Export All Reference CSV</button>
+          <button class="btn-top btn-export" style="flex:1; justify-content:center; padding:7px;" onclick="exportShortlistCSV()">Export Shortlist Reference</button>
+          <button class="btn-top btn-sync" style="flex:1; justify-content:center; padding:7px;" onclick="exportPreferencesCSV()">Export All Reference CSV</button>
         </div>
       </div>
 
       <div style="margin-bottom:16px; border-top:1px solid var(--border-color); padding-top:12px;">
-        <h4 style="margin:0 0 8px 0; font-size:0.85rem;">💾 JSON Backup &amp; Restore</h4>
+        <h4 style="margin:0 0 8px 0; font-size:0.85rem;">JSON Backup &amp; Restore</h4>
         <div style="display:flex; gap:8px;">
-          <button class="btn-save" style="margin-top:0; flex:1;" onclick="downloadJsonBackup()">💾 Download JSON File</button>
-          <button class="btn-save" style="margin-top:0; background:var(--emerald); flex:1;" onclick="document.getElementById('backupFileInput').click()">📂 Upload JSON File</button>
+          <button class="btn-save" style="margin-top:0; flex:1;" onclick="downloadJsonBackup()">Download JSON File</button>
+          <button class="btn-save" style="margin-top:0; background:var(--emerald); flex:1;" onclick="document.getElementById('backupFileInput').click()">Upload JSON File</button>
           <input type="file" id="backupFileInput" accept=".json" style="display:none;" onchange="handleBackupFileUpload(event)">
         </div>
       </div>
 
       <div style="border-top:1px solid var(--border-color); padding-top:12px;">
-        <h4 style="margin:0 0 8px 0; font-size:0.85rem;">🔄 Share with Partner</h4>
+        <h4 style="margin:0 0 8px 0; font-size:0.85rem;">Share with Partner</h4>
         <div style="background:var(--bg-card-subtle); border:1px solid var(--border-color); border-radius:6px; padding:10px; margin-bottom:12px; text-align:center;">
-          <div style="font-size:0.8rem; font-weight:800; color:var(--text-main); margin-bottom:2px;">🔗 Instant 1-Click Share Link</div>
+          <div style="font-size:0.8rem; font-weight:800; color:var(--text-main); margin-bottom:2px;">Instant 1-Click Share Link</div>
           <p style="font-size:0.74rem; color:var(--text-muted); margin-bottom:8px;">
             Send a single URL with your shortlisted ranks, custom base, and notes. No file download needed.
           </p>
-          <button class="btn-top btn-sync" style="margin:0 auto; padding:6px 14px; font-weight:700;" onclick="generatePartnerShareLink()">📋 Copy Partner Link</button>
+          <button class="btn-top btn-sync" style="margin:0 auto; padding:6px 14px; font-weight:700;" onclick="generatePartnerShareLink()">Copy Partner Link</button>
         </div>
 
         <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:8px;">
@@ -408,8 +456,8 @@
         </p>
         <textarea id="syncJsonArea" style="height:90px; font-family:monospace; font-size:0.74rem;"></textarea>
         <div style="display:flex; gap:8px; margin-top:10px;">
-          <button class="btn-save" style="margin-top:0;" onclick="copySyncData()">📋 Copy Code</button>
-          <button class="btn-save" style="margin-top:0; background:var(--emerald);" onclick="importSyncData()">📥 Import Code</button>
+          <button class="btn-save" style="margin-top:0;" onclick="copySyncData()">Copy Code</button>
+          <button class="btn-save" style="margin-top:0; background:var(--emerald);" onclick="importSyncData()">Import Code</button>
         </div>
       </div>
     </div>
@@ -421,7 +469,7 @@
   <div class="modal-content" style="max-width:540px;">
     <div class="modal-header">
       <div style="display:flex; align-items:center; gap:8px;">
-        <span style="font-size:1.3rem;" id="modalHospTypeIcon">🏛️</span>
+        <span class="badge badge-code" id="modalHospTypeIcon" style="font-size:0.75rem; text-transform:uppercase;">Trust</span>
         <div>
           <h2 id="modalHospName" style="font-size:1.05rem; margin:0;">Hospital Name</h2>
           <span id="modalHospRegionBadge" class="badge badge-code" style="font-size:0.68rem; margin-top:2px;">Region</span>

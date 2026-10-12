@@ -143,13 +143,13 @@ function updateThemeButtonUI() {
   if (!btn) return;
   if (currentThemeMode === 'auto') {
     const isDark = getEffectiveTheme() === 'dark';
-    btn.innerHTML = `🌓 Auto`;
+    btn.innerHTML = `Auto`;
     btn.title = `Theme: Auto (${isDark ? 'Dark' : 'Light'}) - Click to switch`;
   } else if (currentThemeMode === 'dark') {
-    btn.innerHTML = `🌙 Dark`;
+    btn.innerHTML = `Dark`;
     btn.title = `Theme: Dark Mode - Click to switch`;
   } else {
-    btn.innerHTML = `☀️ Light`;
+    btn.innerHTML = `Light`;
     btn.title = `Theme: Light Mode - Click to switch`;
   }
 }
@@ -252,6 +252,17 @@ function syncShortlistOrder() {
 }
 
 // 6. ROTATION METRICS & DATA HELPERS
+function isPoolRotation(rot) {
+  if (!rot) return false;
+  if (typeof rot.isPool === 'boolean') return rot.isPool;
+  if (Array.isArray(rot.stages) && rot.stages.length > 2) {
+    if (rot.stages.every(s => s.stage === 'CT1 - CT3' || (typeof s.stage === 'string' && s.stage.toLowerCase().includes('base network')))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function getRotationMaxDistance(rot) {
   if (!rot || !rot.stages) return 0;
   const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
@@ -379,13 +390,13 @@ function updateCustomBaseUI() {
   const btnCustom = document.getElementById('btnModeCustom');
 
   if (customHomeBase && customHomeBase.coords) {
-    if (pillText) pillText.textContent = `📍 Base: ${customHomeBase.name}`;
+    if (pillText) pillText.textContent = `Base: ${customHomeBase.name}`;
     if (statusBox) statusBox.innerHTML = `Current Base: <b>${escapeHtml(customHomeBase.name)}</b> (${customHomeBase.coords[0].toFixed(3)}, ${customHomeBase.coords[1].toFixed(3)})`;
-    if (btnCustom) btnCustom.textContent = `📍 ${customHomeBase.name}`;
+    if (btnCustom) btnCustom.textContent = customHomeBase.name;
   } else {
-    if (pillText) pillText.textContent = `📍 Set My Postcode`;
+    if (pillText) pillText.textContent = `Set Postcode`;
     if (statusBox) statusBox.innerHTML = `Current Base: <b>None set</b> (using suggested programme hubs).`;
-    if (btnCustom) btnCustom.textContent = `📍 My Base`;
+    if (btnCustom) btnCustom.textContent = `My Base`;
   }
 }
 
@@ -437,6 +448,25 @@ function populateDropdown(list) {
   }
 }
 
+let currentInspectorTab = 'placements';
+
+function switchInspectorTab(tabKey) {
+  currentInspectorTab = tabKey;
+  const tabMap = {
+    'placements': { btn: 'tabBtnPlacements', pane: 'tabPanePlacements' },
+    'commute': { btn: 'tabBtnCommute', pane: 'tabPaneCommute' },
+    'intel': { btn: 'tabBtnIntel', pane: 'tabPaneIntel' },
+    'notes': { btn: 'tabBtnNotes', pane: 'tabPaneNotes' }
+  };
+  Object.keys(tabMap).forEach(key => {
+    const btn = document.getElementById(tabMap[key].btn);
+    const pane = document.getElementById(tabMap[key].pane);
+    const isActive = (key === tabKey);
+    if (btn) btn.classList.toggle('active', isActive);
+    if (pane) pane.classList.toggle('active', isActive);
+  });
+}
+
 function renderRotationCardsFeed(list) {
   const container = document.getElementById('rotationCardsFeed');
   if (!container) return;
@@ -448,7 +478,7 @@ function renderRotationCardsFeed(list) {
         <p style="font-weight:700;">No matching rotations found</p>
         <p style="font-size:0.8rem; margin-top:4px; margin-bottom:12px;">Try adjusting your search query, region, or filters.</p>
         <button class="btn-step" onclick="resetAllFilters()" style="margin:0 auto; padding:6px 14px; color:var(--primary); font-weight:800;">
-          ↺ Reset All Filters
+          Reset All Filters
         </button>
       </div>`;
     return;
@@ -460,19 +490,45 @@ function renderRotationCardsFeed(list) {
     const split = getRotationTrainingSplit(r);
     const isSelected = r.id === currentSelectedId;
     const isComparing = compareList.includes(r.id);
+    const isPool = isPoolRotation(r);
 
     let activeHubName = r.hubs[currentCommuteMode === 'transit' ? 'transit' : 'driver'].name;
-    let hubEmoji = currentCommuteMode === 'transit' ? '🚆' : '🚗';
     if (currentCommuteMode === 'custom' && customHomeBase) {
       activeHubName = customHomeBase.name;
-      hubEmoji = '📍';
     }
 
     let tierBadgeHtml = '';
-    if (userData.tier === 'TIER1') tierBadgeHtml = '<span class="badge badge-tier-1">🟢 T1</span>';
-    else if (userData.tier === 'TIER2') tierBadgeHtml = '<span class="badge badge-tier-2">🟡 T2</span>';
-    else if (userData.tier === 'TIER3') tierBadgeHtml = '<span class="badge badge-tier-3">🔴 T3</span>';
-    else if (userData.tier === 'EXCLUDE') tierBadgeHtml = '<span class="badge badge-tier-exclude">⚪ Excl</span>';
+    if (userData.tier === 'TIER1') tierBadgeHtml = '<span class="badge badge-tier-1">Tier 1</span>';
+    else if (userData.tier === 'TIER2') tierBadgeHtml = '<span class="badge badge-tier-2">Tier 2</span>';
+    else if (userData.tier === 'TIER3') tierBadgeHtml = '<span class="badge badge-tier-3">Tier 3</span>';
+    else if (userData.tier === 'EXCLUDE') tierBadgeHtml = '<span class="badge badge-tier-exclude">Excl</span>';
+
+    // Hospital Placement Sequence Flow for Feed Card
+    let flowHtml = '';
+    if (isPool) {
+      const bases = getRotationHospitalBases(r);
+      const itemsHtml = bases.map(b => `<span class="card-stage-chip"><span class="card-stage-name">${escapeHtml(b)}</span></span>`).join('<span class="card-pool-bullet">•</span>');
+      flowHtml = `
+        <div class="card-hospitals-flow">
+          <span class="card-pool-tag">Hospital Pool:</span>
+          ${itemsHtml}
+        </div>
+      `;
+    } else if (Array.isArray(r.stages) && r.stages.length > 0) {
+      const chips = r.stages.map((stg, idx) => {
+        let dur = '';
+        const durMatch = (stg.stage + ' ' + (stg.desc || '')).match(/(\d+\s*m(?:onths?)?)/i);
+        if (durMatch) {
+          dur = ` <span class="card-stage-dur">(${durMatch[1].replace(/\s+/g, '')})</span>`;
+        }
+        return `<span class="card-stage-chip"><span class="card-stage-num">${idx + 1}</span> <span class="card-stage-name">${escapeHtml(stg.hosp)}</span>${dur}</span>`;
+      });
+      flowHtml = `
+        <div class="card-hospitals-flow">
+          ${chips.join('<span class="card-stage-arrow">&rarr;</span>')}
+        </div>
+      `;
+    }
 
     const card = document.createElement('div');
     card.className = `rotation-list-card ${isSelected ? 'active-card' : ''}`;
@@ -482,29 +538,32 @@ function renderRotationCardsFeed(list) {
       openDetailsForRotation(r.id);
     };
 
+    const starsHtml = userData.rating > 0 ? `<span style="color:var(--amber); font-weight:800; font-size:0.8rem;">${'★'.repeat(userData.rating)}</span>` : '';
+
     card.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
         <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
           <span class="badge badge-code">${escapeHtml(r.code)}</span>
           <span class="badge badge-places">${escapeHtml(r.places)}</span>
+          ${isPool ? '<span class="badge badge-pool">Pool</span>' : ''}
           <span class="badge badge-split" title="Training Balance: ${split.tertiary}% Tertiary, ${split.dgh}% DGH">${split.tertiary}% Tert • ${split.dgh}% DGH</span>
           ${tierBadgeHtml}
         </div>
         <div style="display:flex; align-items:center; gap:5px;">
           <button class="btn-compare-action ${isComparing ? 'in-compare' : ''}" onclick="toggleCompareCard(event, '${r.id}')" title="Compare rotation">
-            ${isComparing ? '✓ Comparing' : '+ Compare'}
+            ${isComparing ? 'In Compare' : 'Compare'}
           </button>
           <span class="badge ${commute.badgeClass}" title="Estimated drive time at ${commute.timingShort}">${commute.maxDist} mi (~${commute.activeMins}m @ ${commute.timingShort})</span>
         </div>
       </div>
       <div class="card-list-title">${escapeHtml(r.title)}</div>
+      ${flowHtml}
       <div class="card-list-hub">
-        <span>${hubEmoji} Base: <b>${escapeHtml(activeHubName)}</b></span>
-        <span style="color:var(--amber); font-weight:800; font-size:0.85rem;">${'★'.repeat(userData.rating) || '☆☆☆☆☆'}</span>
-      </div>
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:6px; border-top:1px solid var(--border-color);">
-        <span style="font-size:0.72rem; color:var(--text-muted);">${escapeHtml(r.region)}</span>
-        <button class="hospital-chip-btn" onclick="openDetailsForRotation('${r.id}')" style="font-size:0.72rem; padding:3px 9px;">Details &amp; Timeline &rarr;</button>
+        <span>Base: <b>${escapeHtml(activeHubName)}</b></span>
+        <div style="display:flex; align-items:center; gap:6px;">
+          ${starsHtml}
+          <span style="font-size:0.72rem; color:var(--text-muted);">${escapeHtml(r.region)}</span>
+        </div>
       </div>
     `;
     container.appendChild(card);
@@ -550,20 +609,30 @@ function setTier(tierVal) {
 }
 
 function updateTierButtons(activeTier) {
-  document.getElementById('tierBtn1').classList.toggle('active', activeTier === 'TIER1');
-  document.getElementById('tierBtn2').classList.toggle('active', activeTier === 'TIER2');
-  document.getElementById('tierBtn3').classList.toggle('active', activeTier === 'TIER3');
-  document.getElementById('tierBtnExclude').classList.toggle('active', activeTier === 'EXCLUDE');
+  const syncBtnGroup = (prefix) => {
+    const b1 = document.getElementById(prefix + '1');
+    const b2 = document.getElementById(prefix + '2');
+    const b3 = document.getElementById(prefix + '3');
+    const bx = document.getElementById(prefix + 'Exclude');
+    if (b1) b1.classList.toggle('active', activeTier === 'TIER1');
+    if (b2) b2.classList.toggle('active', activeTier === 'TIER2');
+    if (b3) b3.classList.toggle('active', activeTier === 'TIER3');
+    if (bx) bx.classList.toggle('active', activeTier === 'EXCLUDE');
+  };
+  syncBtnGroup('tierBtn');
+  syncBtnGroup('quickTierBtn');
 
   const tierBadge = document.getElementById('cardTierBadge');
-  if (activeTier && activeTier !== 'UNSET') {
-    tierBadge.style.display = 'inline-block';
-    if (activeTier === 'TIER1') { tierBadge.className = 'badge badge-tier-1'; tierBadge.textContent = '🟢 Tier 1'; }
-    else if (activeTier === 'TIER2') { tierBadge.className = 'badge badge-tier-2'; tierBadge.textContent = '🟡 Tier 2'; }
-    else if (activeTier === 'TIER3') { tierBadge.className = 'badge badge-tier-3'; tierBadge.textContent = '🔴 Tier 3'; }
-    else if (activeTier === 'EXCLUDE') { tierBadge.className = 'badge badge-tier-exclude'; tierBadge.textContent = '⚪ Excluded'; }
-  } else {
-    tierBadge.style.display = 'none';
+  if (tierBadge) {
+    if (activeTier && activeTier !== 'UNSET') {
+      tierBadge.style.display = 'inline-block';
+      if (activeTier === 'TIER1') { tierBadge.className = 'badge badge-tier-1'; tierBadge.textContent = 'Tier 1'; }
+      else if (activeTier === 'TIER2') { tierBadge.className = 'badge badge-tier-2'; tierBadge.textContent = 'Tier 2'; }
+      else if (activeTier === 'TIER3') { tierBadge.className = 'badge badge-tier-3'; tierBadge.textContent = 'Tier 3'; }
+      else if (activeTier === 'EXCLUDE') { tierBadge.className = 'badge badge-tier-exclude'; tierBadge.textContent = 'Excluded'; }
+    } else {
+      tierBadge.style.display = 'none';
+    }
   }
 }
 
@@ -683,13 +752,13 @@ function setShiftTiming(timing, showFeedback = true) {
   if (btnEve) btnEve.classList.toggle('active', currentShiftTiming === '1800');
   if (btnOff) btnOff.classList.toggle('active', currentShiftTiming === 'offpeak');
 
-  let labelText = '🌅 Arrive 07:30 (Handover)';
+  let labelText = 'Arrive 07:30 (Handover)';
   let toastText = 'Commute model: Arrive by 07:30 (Morning Handover)';
   if (currentShiftTiming === '1800') {
-    labelText = '🌆 Leave 18:00 (Evening Rush)';
+    labelText = 'Leave 18:00 (Rush)';
     toastText = 'Commute model: Depart at 18:00 (Evening Rush Hour)';
   } else if (currentShiftTiming === 'offpeak') {
-    labelText = '⚡ Off-Peak Baseline';
+    labelText = 'Off-Peak Baseline';
     toastText = 'Commute model: Off-Peak Baseline Drive';
   }
   if (lbl) lbl.textContent = labelText;
@@ -755,15 +824,16 @@ function openHospitalProfile(hospName) {
 
   const isTertiary = h.type === 'Tertiary';
   nameEl.textContent = hospName;
-  regBadge.textContent = `${h.region} • ${isTertiary ? '🏛️ Tertiary Teaching' : '🏥 DGH'}`;
-  typeIcon.textContent = isTertiary ? '🏛️' : '🏥';
+  regBadge.textContent = `${h.region} • ${isTertiary ? 'Tertiary Teaching' : 'DGH'}`;
+  typeIcon.textContent = isTertiary ? 'Tertiary' : 'DGH';
+  typeIcon.className = `badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}`;
 
   // Identify all rotations in database that include this hospital
   const linked = ROTATIONS_DATA.filter(r => r.stages.some(s => s.hosp === hospName));
 
   body.innerHTML = `
     <div class="hosp-profile-summary">
-      <b>${isTertiary ? '🏛️ Tertiary / Specialist Teaching Hospital' : '🏥 District General Hospital (DGH)'}</b>
+      <b>${isTertiary ? 'Tertiary / Specialist Teaching Hospital' : 'District General Hospital (DGH)'}</b>
       <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
         Key clinical training base in ${escapeHtml(h.region)}. Included in <b>${linked.length}</b> ST4 rotation schemes.
       </div>
@@ -771,19 +841,19 @@ function openHospitalProfile(hospName) {
 
     <div class="hosp-intel-grid">
       <div class="hosp-intel-card">
-        <div class="hosp-intel-card-header">📋 Electronic Records (EPR)</div>
+        <div class="hosp-intel-card-header">Electronic Records (EPR)</div>
         <div class="hosp-intel-card-body">${escapeHtml(h.epr || 'Electronic / Hybrid system')}</div>
       </div>
       <div class="hosp-intel-card">
-        <div class="hosp-intel-card-header">🚗 Doctor Parking Policy</div>
+        <div class="hosp-intel-card-header">Doctor Parking Policy</div>
         <div class="hosp-intel-card-body">${escapeHtml(h.parking || 'Staff parking permit scheme')}</div>
       </div>
       <div class="hosp-intel-card">
-        <div class="hosp-intel-card-header">🚆 Rail &amp; Transit</div>
+        <div class="hosp-intel-card-header">Rail &amp; Transit</div>
         <div class="hosp-intel-card-body">${escapeHtml(h.station || 'Local rail & bus connections')}</div>
       </div>
       <div class="hosp-intel-card">
-        <div class="hosp-intel-card-header">🩺 Specialist Services</div>
+        <div class="hosp-intel-card-header">Specialist Services</div>
         <div class="hosp-intel-card-body">${escapeHtml(h.highlights || 'General & emergency surgical services')}</div>
       </div>
     </div>
@@ -841,6 +911,11 @@ function selectRotation(id, shouldCloseMobile = false) {
   const rot = ROTATIONS_DATA.find(r => r.id === id);
   if (!rot) return;
 
+  const isPool = isPoolRotation(rot);
+
+  // Maintain active tab or default to Placements
+  switchInspectorTab(currentInspectorTab || 'placements');
+
   activeRouteGroup.clearLayers();
   backgroundHospitalsGroup.clearLayers();
   overviewLinesGroup.clearLayers();
@@ -849,12 +924,17 @@ function selectRotation(id, shouldCloseMobile = false) {
   document.getElementById('cardPlaces').textContent = `Places: ${rot.places}`;
   document.getElementById('cardTitle').textContent = rot.title;
 
+  const cardPoolBadge = document.getElementById('cardPoolBadge');
+  if (cardPoolBadge) {
+    cardPoolBadge.style.display = isPool ? 'inline-block' : 'none';
+  }
+
   // Comparison toggle button state on card
   const cardCompareBtn = document.getElementById('cardCompareBtn');
   if (cardCompareBtn) {
     const isComparing = compareList.includes(rot.id);
     cardCompareBtn.classList.toggle('in-compare', isComparing);
-    cardCompareBtn.textContent = isComparing ? '✓ In Compare' : '⚖️ Compare';
+    cardCompareBtn.textContent = isComparing ? 'In Compare' : 'Compare';
   }
 
   // Determine Active Base Coordinates
@@ -867,19 +947,19 @@ function selectRotation(id, shouldCloseMobile = false) {
 
   if (currentCommuteMode === 'custom' && customHomeBase && customHomeBase.coords) {
     hubBox.className = "hub-box custom-theme";
-    document.getElementById('hubTitlePrefix').textContent = "📍 Custom Home Base:";
+    document.getElementById('hubTitlePrefix').textContent = "Custom Home Base:";
     document.getElementById('hubTownName').textContent = customHomeBase.name;
     document.getElementById('hubDescription').textContent = "Personal commute matrix calculated from your prospective living location.";
     activeHubCoords = customHomeBase.coords;
     activeHubName = customHomeBase.name;
   } else if (currentCommuteMode === 'transit') {
     hubBox.className = "hub-box transit-theme";
-    document.getElementById('hubTitlePrefix').textContent = "🏡 Suggested Base (🚆 Transit Only):";
+    document.getElementById('hubTitlePrefix').textContent = "Suggested Base (Transit):";
     document.getElementById('hubTownName').textContent = activeHub.name;
     document.getElementById('hubDescription').textContent = activeHub.desc;
   } else {
     hubBox.className = "hub-box driver-theme";
-    document.getElementById('hubTitlePrefix').textContent = "🏡 Suggested Base (🚗 Driver):";
+    document.getElementById('hubTitlePrefix').textContent = "Suggested Base (Driver):";
     document.getElementById('hubTownName').textContent = activeHub.name;
     document.getElementById('hubDescription').textContent = activeHub.desc;
   }
@@ -910,12 +990,14 @@ function selectRotation(id, shouldCloseMobile = false) {
   hospitalsListContainer.innerHTML = "";
 
   uniqueHospBases.forEach(hName => {
+    const hData = HOSPITALS[hName];
+    const isTertiary = hData && hData.type === 'Tertiary';
     const chip = document.createElement('div');
     chip.className = "hospital-chip-item";
     
     const nameSpan = document.createElement('div');
     nameSpan.className = "hospital-chip-name";
-    nameSpan.textContent = "🏥 " + hName;
+    nameSpan.innerHTML = `<span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.65rem; margin-right:4px;">${isTertiary ? 'Tertiary' : 'DGH'}</span>${escapeHtml(hName)}`;
     chip.appendChild(nameSpan);
 
     const btnGroup = document.createElement('div');
@@ -924,14 +1006,14 @@ function selectRotation(id, shouldCloseMobile = false) {
 
     const focusBtn = document.createElement('button');
     focusBtn.className = "hospital-chip-btn";
-    focusBtn.textContent = "📍 Focus";
+    focusBtn.textContent = "Focus";
     focusBtn.dataset.hosp = hName;
     focusBtn.onclick = function() { focusHospitalBaseFromBtn(this); };
     btnGroup.appendChild(focusBtn);
 
     const intelBtn = document.createElement('button');
     intelBtn.className = "hospital-chip-btn";
-    intelBtn.textContent = "ℹ️ Intel";
+    intelBtn.textContent = "Profile";
     intelBtn.title = "View Ground Truth Trust intel, parking, EPR, and transit";
     intelBtn.onclick = function() { openHospitalProfile(hName); };
     btnGroup.appendChild(intelBtn);
@@ -972,22 +1054,30 @@ function selectRotation(id, shouldCloseMobile = false) {
         ? `${hData.coords[0]},${hData.coords[1]}`
         : encodeURIComponent(hName + ', UK');
 
+      const isTertiary = hData.type === 'Tertiary';
       const row = document.createElement('div');
       row.className = "commute-matrix-item";
       row.innerHTML = `
-        <span class="commute-hosp-label">🏥 ${escapeHtml(hName)}</span>
+        <span class="commute-hosp-label">
+          <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.62rem; margin-right:4px;">${isTertiary ? 'Tertiary' : 'DGH'}</span>${escapeHtml(hName)}
+        </span>
         <div style="display:flex; align-items:center; gap:6px;">
-          <span class="commute-time-pill ${timeClass}" title="07:30 handover arrival: ~${mornMins}m | 18:00 evening rush departure: ~${eveMins}m">
-            ${dist} mi (🌅 ~${mornMins}m · 🌆 ~${eveMins}m)
+          <span class="commute-time-pill ${timeClass}" title="07:30 handover: ~${mornMins}m | 18:00 rush: ~${eveMins}m">
+            ${dist} mi (~${mornMins}m morn · ~${eveMins}m eve)
           </span>
-          <a href="https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=driving" target="_blank" style="font-size:0.68rem; color:var(--primary); text-decoration:none;" title="Verify route and live traffic in Google Maps">Directions ↗</a>
+          <a href="https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=driving" target="_blank" style="font-size:0.68rem; color:var(--primary); text-decoration:none;" title="Verify route and live traffic in Google Maps">Directions &rarr;</a>
         </div>
       `;
       matrixContainer.appendChild(row);
     }
   });
 
-  // Render Placement Timeline
+  // Render Placement Sequence Timeline
+  const timelineHeading = document.getElementById('timelineHeading');
+  if (timelineHeading) {
+    timelineHeading.textContent = isPool ? 'CANDIDATE HOSPITAL BASES (LOCAL ALLOCATION):' : 'HOSPITAL PLACEMENT SEQUENCE:';
+  }
+
   const timeline = document.getElementById('timelineContainer');
   timeline.innerHTML = "";
 
@@ -1013,14 +1103,21 @@ function selectRotation(id, shouldCloseMobile = false) {
     };
 
     const h = HOSPITALS[stg.hosp];
+    const isTertiary = h && h.type === 'Tertiary';
     const hospMapQuery = (h && h.coords && Array.isArray(h.coords))
       ? `${h.coords[0]},${h.coords[1]}`
       : encodeURIComponent(stg.hosp + ', UK');
 
+    const dotHtml = isPool ? '•' : (idx + 1);
+    const dotStyle = isPool ? 'style="background:var(--slate-500); font-size:11px;"' : '';
+
     step.innerHTML = `
-      <div class="timeline-dot">${idx + 1}</div>
+      <div class="timeline-dot" ${dotStyle}>${dotHtml}</div>
       <div class="timeline-content">
-        <div class="timeline-stage">${escapeHtml(stg.stage)}</div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="timeline-stage">${escapeHtml(stg.stage)}</div>
+          <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.65rem;">${isTertiary ? 'Tertiary' : 'DGH'}</span>
+        </div>
         <div class="timeline-hosp">
           <span>${escapeHtml(stg.hosp)}</span>
           <a href="https://www.google.com/maps/search/?api=1&query=${hospMapQuery}" target="_blank" style="color:var(--primary); font-size:0.7rem; text-decoration:none;">Map ↗</a>
@@ -1053,20 +1150,19 @@ function selectRotation(id, shouldCloseMobile = false) {
   spreadBadge.textContent = `Max: ${commute.maxDist} mi`;
   if (commute.activeMins <= 35) {
     spreadBadge.className = 'badge badge-spread-low';
-    spreadBadge.textContent = `🟢 Low Spread: ${commute.maxDist} mi (🌅 ~${commute.mornMins}m · 🌆 ~${commute.eveMins}m)`;
+    spreadBadge.textContent = `Low Spread: ${commute.maxDist} mi (~${commute.mornMins}m morn · ~${commute.eveMins}m eve)`;
   } else if (commute.activeMins <= 50) {
     spreadBadge.className = 'badge badge-spread-med';
-    spreadBadge.textContent = `🟡 Moderate: ${commute.maxDist} mi (🌅 ~${commute.mornMins}m · 🌆 ~${commute.eveMins}m)`;
+    spreadBadge.textContent = `Moderate: ${commute.maxDist} mi (~${commute.mornMins}m morn · ~${commute.eveMins}m eve)`;
   } else {
     spreadBadge.className = 'badge badge-spread-high';
-    spreadBadge.textContent = `🔴 High Spread: ${commute.maxDist} mi (🌅 ~${commute.mornMins}m · 🌆 ~${commute.eveMins}m)`;
+    spreadBadge.textContent = `High Spread: ${commute.maxDist} mi (~${commute.mornMins}m morn · ~${commute.eveMins}m eve)`;
   }
 
-  const modeEmoji = currentCommuteMode === 'transit' ? '🚆' : (currentCommuteMode === 'custom' ? '📍' : '🚗');
   document.getElementById('miniCardTitle').textContent = `${rot.title} (${rot.code})`;
-  document.getElementById('miniCardSpread').textContent = `${commute.maxDist} mi (~${commute.activeMins}m)`;
-  document.getElementById('miniCardSpread').className = `badge ${commute.badgeClass}`;
-  document.getElementById('miniCardHub').innerHTML = `<span>${modeEmoji} <b>${escapeHtml(activeHubName)}</b> (${uniqueHospBases.length} Bases)</span> <span style="font-weight:700; color:var(--primary);">Details &rarr;</span>`;
+  document.getElementById('miniCardSpread').textContent = isPool ? `${commute.maxDist} mi span (~${commute.activeMins}m)` : `${commute.maxDist} mi (~${commute.activeMins}m)`;
+  document.getElementById('miniCardSpread').className = `badge ${isPool ? 'badge-pool' : commute.badgeClass}`;
+  document.getElementById('miniCardHub').innerHTML = `<span>Base: <b>${escapeHtml(activeHubName)}</b> (${uniqueHospBases.length} ${isPool ? 'Candidate Sites' : 'Bases'})</span> <span style="font-weight:700; color:var(--primary);">Details &rarr;</span>`;
 
   // Background subtle markers for other hospitals
   Object.keys(HOSPITALS).forEach(hName => {
@@ -1089,16 +1185,16 @@ function selectRotation(id, shouldCloseMobile = false) {
   if (activeHubCoords) {
     allMapPoints.push(activeHubCoords);
     let pinClass = 'home-pin-driver';
-    let pinIconHtml = '🚗';
+    let pinIconHtml = 'Base';
     let circleColor = '#16a34a';
 
     if (currentCommuteMode === 'transit') {
       pinClass = 'home-pin-transit';
-      pinIconHtml = '🚆';
+      pinIconHtml = 'Base';
       circleColor = '#7c3aed';
     } else if (currentCommuteMode === 'custom') {
       pinClass = 'home-pin-custom';
-      pinIconHtml = '🏡';
+      pinIconHtml = 'Home';
       circleColor = '#d97706';
     }
 
@@ -1125,7 +1221,7 @@ function selectRotation(id, shouldCloseMobile = false) {
     activeRouteGroup.addLayer(commuteCircle);
   }
 
-  // Plot Active Placement Base Pins (Grouped by hospital so repeated placements show all stage numbers)
+  // Plot Active Placement Base Pins
   const plottedHospitalPoints = [];
   const hospitalPlacements = new Map();
   activeHospitalMarkers = {};
@@ -1153,29 +1249,49 @@ function selectRotation(id, shouldCloseMobile = false) {
   });
 
   hospitalPlacements.forEach((data) => {
-    const stageNumbers = data.stages.map(s => s.num);
-    const isMulti = stageNumbers.length > 1;
-    const labelText = stageNumbers.join(', ');
+    const hospObj = HOSPITALS[data.hosp];
+    const isTertiary = hospObj && hospObj.type === 'Tertiary';
 
-    let iconWidth = 28;
-    if (stageNumbers.length === 2) {
-      iconWidth = 38;
-    } else if (stageNumbers.length >= 3) {
-      iconWidth = 54;
+    let icon;
+    if (isPool) {
+      icon = L.divIcon({
+        className: 'pool-site-pin' + (isTertiary ? ' tertiary-pool-pin' : ''),
+        html: isTertiary ? 'T' : 'H',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      });
+    } else {
+      const stageNumbers = data.stages.map(s => s.num);
+      const isMulti = stageNumbers.length > 1;
+      const labelText = stageNumbers.join(', ');
+
+      let iconWidth = 28;
+      if (stageNumbers.length === 2) {
+        iconWidth = 38;
+      } else if (stageNumbers.length >= 3) {
+        iconWidth = 54;
+      }
+
+      icon = L.divIcon({
+        className: 'numbered-pin' + (isMulti ? ' multi-stage-pin' : ''),
+        html: labelText,
+        iconSize: [iconWidth, 28],
+        iconAnchor: [Math.round(iconWidth / 2), 14]
+      });
     }
 
-    const icon = L.divIcon({
-      className: 'numbered-pin' + (isMulti ? ' multi-stage-pin' : ''),
-      html: labelText,
-      iconSize: [iconWidth, 28],
-      iconAnchor: [Math.round(iconWidth / 2), 14]
-    });
-
     let popupStagesHtml = '';
-    if (isMulti) {
+    if (isPool) {
+      popupStagesHtml = `
+        <div style="border-top:1px solid var(--border-color); padding-top:6px; font-size:0.78rem;">
+          <span class="badge badge-pool" style="padding:1px 6px; font-size:0.7rem;">Candidate Base</span>
+          <div style="color:var(--text-muted); font-size:0.73rem; margin-top:2px;">${escapeHtml(data.stages[0].desc || 'Candidate hospital base (allocated locally)')}</div>
+        </div>
+      `;
+    } else if (data.stages.length > 1) {
       popupStagesHtml = `
         <div style="font-size:0.75rem; color:var(--primary); font-weight:700; margin:4px 0 6px 0;">
-          🔄 Rotated in ${stageNumbers.length} placements:
+          Rotated in ${data.stages.length} placements:
         </div>
         <div style="display:flex; flex-direction:column; gap:6px; border-top:1px solid var(--border-color); padding-top:6px;">
           ${data.stages.map(s => `
@@ -1198,31 +1314,30 @@ function selectRotation(id, shouldCloseMobile = false) {
       `;
     }
 
-    const hospObj = HOSPITALS[data.hosp];
-    const isTertiary = hospObj && hospObj.type === 'Tertiary';
     const popupContent = `
       <div style="min-width:220px; max-width:290px;">
         <div style="font-weight:800; font-size:0.9rem; color:var(--text-main); margin-bottom:2px;">
-          ${isTertiary ? '🏛️' : '🏥'} ${escapeHtml(data.hosp)}
+          ${escapeHtml(data.hosp)}
         </div>
         <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:6px;">
-          ${escapeHtml(data.region)} • ${isTertiary ? 'Tertiary Teaching' : 'DGH'}
+          ${escapeHtml(data.region)} • <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.65rem;">${isTertiary ? 'Tertiary' : 'DGH'}</span>
         </div>
         ${popupStagesHtml}
         <div style="margin-top:8px; padding-top:6px; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; gap:6px;">
-          <button class="hospital-chip-btn" style="font-size:0.72rem; padding:3px 7px;" onclick="openHospitalProfile('${escapeHtml(data.hosp)}');">ℹ️ Trust Intel</button>
+          <button class="hospital-chip-btn" style="font-size:0.72rem; padding:3px 7px;" onclick="openHospitalProfile('${escapeHtml(data.hosp)}');">Profile</button>
           <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.hosp + ', UK')}" target="_blank" style="color:var(--primary); font-size:0.72rem; text-decoration:none;">Maps ↗</a>
         </div>
       </div>
     `;
 
-    const m = L.marker(data.coords, { icon, zIndexOffset: 1500 + (isMulti ? 50 : 0) })
+    const m = L.marker(data.coords, { icon, zIndexOffset: 1500 + (!isPool && data.stages.length > 1 ? 50 : 0) })
       .bindPopup(popupContent);
     activeRouteGroup.addLayer(m);
     activeHospitalMarkers[data.hosp] = m;
   });
 
-  if (plottedHospitalPoints.length > 1) {
+  // Polyline route: only draw for sequential tracks, NOT pool candidate schemes
+  if (!isPool && plottedHospitalPoints.length > 1) {
     const polyline = L.polyline(plottedHospitalPoints, {
       color: '#0284c7',
       weight: 3.5,
@@ -1262,6 +1377,8 @@ function renderAllPlacements({ fitView = true } = {}) {
   // 11a. Dashed route lines for every rotation in the filtered feed (region, pills, search)
   if (showOverviewLines) {
     currentFilteredList.forEach(rot => {
+      if (isPoolRotation(rot)) return;
+
       const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
       if (coords.length > 1) {
         const regColor = regionColorsMap[rot.region] || "#0284c7";
@@ -1335,10 +1452,10 @@ function renderAllPlacements({ fitView = true } = {}) {
 
     const isTertiary = h.type === 'Tertiary';
     const m = L.marker(h.coords, { icon, zIndexOffset: 500 }).bindPopup(`
-      <div class="overview-popup-title">${isTertiary ? '🏛️' : '🏥'} ${escapeHtml(hName)}</div>
-      <div class="overview-popup-reg" style="color:${regColor};">${escapeHtml(h.region)} • ${isTertiary ? 'Tertiary Teaching' : 'DGH'}</div>
+      <div class="overview-popup-title">${escapeHtml(hName)}</div>
+      <div class="overview-popup-reg" style="color:${regColor};">${escapeHtml(h.region)} • <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.65rem;">${isTertiary ? 'Tertiary' : 'DGH'}</span></div>
       <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Included in <b>${linkedRotations.length}</b> rotation scheme(s).</div>
-      <button class="hospital-chip-btn" style="width:100%; margin-bottom:8px; font-size:0.73rem; padding:4px 8px;" onclick="openHospitalProfile('${escapeHtml(hName)}');">ℹ️ Hospital Intel Profile</button>
+      <button class="hospital-chip-btn" style="width:100%; margin-bottom:8px; font-size:0.73rem; padding:4px 8px;" onclick="openHospitalProfile('${escapeHtml(hName)}');">Hospital Profile &rarr;</button>
       ${linkedHtml}
     `, { maxWidth: 280 });
 
@@ -1374,7 +1491,7 @@ function toggleOverviewLines() {
   showOverviewLines = !showOverviewLines;
   const btnMap = document.getElementById('btnMapLinesToggle');
   if (btnMap) {
-    btnMap.textContent = showOverviewLines ? '🔀 Lines: ON' : '🔀 Lines: OFF';
+    btnMap.textContent = showOverviewLines ? 'Lines: ON' : 'Lines: OFF';
     btnMap.classList.toggle('active-btn', showOverviewLines);
   }
 
@@ -1555,9 +1672,9 @@ function updateOrielProgressBar() {
   const textEl = document.getElementById('orielProgressText');
   const barEl = document.getElementById('orielProgressBar');
   if (textEl) {
-    textEl.innerHTML = `<b>🎯 Entered in Oriel:</b> ${enteredCount} of ${total} (${pct}%)`;
+    textEl.innerHTML = `<b>Entered in Oriel:</b> ${enteredCount} of ${total} (${pct}%)`;
     if (enteredCount === total && total > 0) {
-      textEl.innerHTML += ` <span style="color:var(--emerald); font-weight:800; margin-left:6px;">🎉 All Preferences Entered!</span>`;
+      textEl.innerHTML += ` <span style="color:var(--emerald); font-weight:800; margin-left:6px;">All Preferences Entered!</span>`;
     }
   }
   if (barEl) {
@@ -1711,8 +1828,8 @@ function printShortlistReport() {
         </td>
         <td style="font-size:0.75rem; text-align:center; white-space:nowrap; width:95px;">
           <b>${commute.maxDist} mi</b><br>
-          🌅 ~${commute.mornMins}m<br>
-          🌆 ~${commute.eveMins}m
+          ~${commute.mornMins}m (07:30)<br>
+          ~${commute.eveMins}m (18:00)
         </td>
         <td style="font-size:0.75rem; width:130px;">
           <div><b>${tierLabel}</b> ${'★'.repeat(d.rating)}</div>
@@ -1785,10 +1902,10 @@ function renderShortlistModal() {
     const isEntered = orielCheckedSet.has(r.id);
 
     let tierBadgeHtml = '';
-    if (data.tier === 'TIER1') tierBadgeHtml = '<span class="badge badge-tier-1">🟢 Tier 1</span>';
-    else if (data.tier === 'TIER2') tierBadgeHtml = '<span class="badge badge-tier-2">🟡 Tier 2</span>';
-    else if (data.tier === 'TIER3') tierBadgeHtml = '<span class="badge badge-tier-3">🔴 Tier 3</span>';
-    else if (data.tier === 'EXCLUDE') tierBadgeHtml = '<span class="badge badge-tier-exclude">⚪ Excluded</span>';
+    if (data.tier === 'TIER1') tierBadgeHtml = '<span class="badge badge-tier-1">Tier 1</span>';
+    else if (data.tier === 'TIER2') tierBadgeHtml = '<span class="badge badge-tier-2">Tier 2</span>';
+    else if (data.tier === 'TIER3') tierBadgeHtml = '<span class="badge badge-tier-3">Tier 3</span>';
+    else if (data.tier === 'EXCLUDE') tierBadgeHtml = '<span class="badge badge-tier-exclude">Excluded</span>';
 
     const div = document.createElement('div');
     div.className = `shortlist-item ${isEntered ? 'oriel-entered' : ''}`;
@@ -1822,10 +1939,10 @@ function renderShortlistModal() {
           <span style="font-size:0.75rem; font-weight:800; color:var(--text-muted);">Rank:</span>
           <input type="number" class="rank-input" value="${idx + 1}" min="1" max="${starred.length}" onchange="changeRankInput(${idx}, this.value)" title="Change rank number">
           <strong class="oriel-code-badge" title="Oriel Track Code">${escapeHtml(r.code)}</strong>
-          <button class="btn-copy-code" onclick="copyOrielCode('${escapeHtml(r.code)}')" title="Copy exact Oriel code to clipboard">📋 Copy</button>
+          <button class="btn-copy-code" onclick="copyOrielCode('${escapeHtml(r.code)}')" title="Copy exact Oriel code to clipboard">Copy</button>
           ${tierBadgeHtml}
           <span class="badge ${commute.badgeClass}" style="font-size:0.68rem;" title="Peak commute estimates">
-            ${commute.maxDist} mi (🌅 ~${commute.mornMins}m · 🌆 ~${commute.eveMins}m)
+            ${commute.maxDist} mi (~${commute.mornMins}m morn · ~${commute.eveMins}m eve)
           </span>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
@@ -1842,7 +1959,7 @@ function renderShortlistModal() {
       </div>
       <div style="font-weight:700; font-size:0.9rem; margin:6px 0 3px 0;">${escapeHtml(r.title)}</div>
       <div style="font-size:0.75rem; color:var(--text-muted);">
-        <span>🏡 Driving Base: <b>${escapeHtml(r.hubs.driver.name)}</b></span> • 
+        <span>Driving Base: <b>${escapeHtml(r.hubs.driver.name)}</b></span> • 
         <span>Region: <b>${escapeHtml(r.region)}</b></span> • 
         <span>Places: <b>${escapeHtml(r.places)}</b></span>
       </div>
@@ -1935,7 +2052,7 @@ function toggleCompare(id) {
     if (cardCompareBtn) {
       const isComparing = compareList.includes(currentSelectedId);
       cardCompareBtn.classList.toggle('in-compare', isComparing);
-      cardCompareBtn.textContent = isComparing ? '✓ In Compare' : '⚖️ Compare';
+      cardCompareBtn.textContent = isComparing ? 'In Compare' : 'Compare';
     }
   }
 }
@@ -1970,8 +2087,11 @@ function renderCompareModal() {
             <th class="compare-label-th">Rotation Scheme</th>
             ${rotations.map(r => `
               <th class="compare-col-header">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
-                  <span class="badge badge-code">${escapeHtml(r.code)}</span>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px; gap:4px; flex-wrap:wrap;">
+                  <div style="display:flex; gap:4px; align-items:center;">
+                    <span class="badge badge-code">${escapeHtml(r.code)}</span>
+                    ${isPoolRotation(r) ? '<span class="badge badge-pool" style="font-size:0.68rem; padding:1px 5px;">Pool</span>' : ''}
+                  </div>
                   <button style="border:none; background:none; color:#b91c1c; font-size:0.75rem; font-weight:800; cursor:pointer;" onclick="toggleCompare('${r.id}'); renderCompareModal();">✕ Remove</button>
                 </div>
                 <div style="font-weight:800; font-size:0.88rem; margin-bottom:2px;">${escapeHtml(r.title)}</div>
@@ -1988,7 +2108,7 @@ function renderCompareModal() {
               return `
                 <td>
                   <div style="font-weight:700; font-size:0.78rem; margin-bottom:4px;">
-                    🏛️ ${split.tertiary}% Tertiary • 🏥 ${split.dgh}% DGH
+                    ${split.tertiary}% Tertiary • ${split.dgh}% DGH
                   </div>
                   <div class="split-bar-track" style="height:6px; margin:0;" title="${split.tertiary}% Tertiary / ${split.dgh}% DGH">
                     <div class="split-fill-tertiary" style="width:${split.tertiary}%;"></div>
@@ -2006,11 +2126,11 @@ function renderCompareModal() {
               return `
                 <td>
                   <div style="font-weight:800; font-size:0.85rem;">
-                    ${commute.maxDist} mi ${isBest ? '<span class="compare-best-badge">⭐ Lowest Spread</span>' : ''}
+                    ${commute.maxDist} mi ${isBest ? '<span class="compare-best-badge">Lowest Spread</span>' : ''}
                   </div>
                   <div style="font-size:0.74rem; color:var(--text-muted); margin-top:3px;">
-                    🌅 ~${commute.mornMins}m @ 07:30<br>
-                    🌆 ~${commute.eveMins}m @ 18:00
+                    ~${commute.mornMins}m @ 07:30<br>
+                    ~${commute.eveMins}m @ 18:00
                   </div>
                 </td>
               `;
@@ -2020,8 +2140,8 @@ function renderCompareModal() {
             <td class="compare-label-th">Living Hub Base</td>
             ${rotations.map(r => `
               <td>
-                <div style="font-size:0.76rem;">🚗 <b>Driver:</b> ${escapeHtml(r.hubs.driver.name)}</div>
-                <div style="font-size:0.76rem; margin-top:3px; color:var(--text-muted);">🚆 <b>Transit:</b> ${escapeHtml(r.hubs.transit.name)}</div>
+                <div style="font-size:0.76rem;"><b>Driver:</b> ${escapeHtml(r.hubs.driver.name)}</div>
+                <div style="font-size:0.76rem; margin-top:3px; color:var(--text-muted);"><b>Transit:</b> ${escapeHtml(r.hubs.transit.name)}</div>
               </td>
             `).join('')}
           </tr>
@@ -2034,8 +2154,8 @@ function renderCompareModal() {
                   <div style="display:flex; flex-direction:column; gap:3px;">
                     ${bases.map(b => {
                       const h = HOSPITALS[b];
-                      const icon = (h && h.type === 'Tertiary') ? '🏛️' : '🏥';
-                      return `<span style="font-size:0.74rem;">${icon} ${escapeHtml(b)}</span>`;
+                      const isTertiary = h && h.type === 'Tertiary';
+                      return `<span style="font-size:0.74rem;">${escapeHtml(b)} <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.62rem; margin-left:3px;">${isTertiary ? 'Tertiary' : 'DGH'}</span></span>`;
                     }).join('')}
                   </div>
                 </td>
@@ -2047,10 +2167,10 @@ function renderCompareModal() {
             ${rotations.map(r => {
               const data = getUserData(r.id);
               let tierBadge = '<span style="color:var(--text-muted); font-size:0.72rem;">Unset</span>';
-              if (data.tier === 'TIER1') tierBadge = '<span class="badge badge-tier-1">🟢 Tier 1</span>';
-              else if (data.tier === 'TIER2') tierBadge = '<span class="badge badge-tier-2">🟡 Tier 2</span>';
-              else if (data.tier === 'TIER3') tierBadge = '<span class="badge badge-tier-3">🔴 Tier 3</span>';
-              else if (data.tier === 'EXCLUDE') tierBadge = '<span class="badge badge-tier-exclude">⚪ Excluded</span>';
+              if (data.tier === 'TIER1') tierBadge = '<span class="badge badge-tier-1">Tier 1</span>';
+              else if (data.tier === 'TIER2') tierBadge = '<span class="badge badge-tier-2">Tier 2</span>';
+              else if (data.tier === 'TIER3') tierBadge = '<span class="badge badge-tier-3">Tier 3</span>';
+              else if (data.tier === 'EXCLUDE') tierBadge = '<span class="badge badge-tier-exclude">Excluded</span>';
               return `
                 <td>
                   <div style="display:flex; align-items:center; gap:6px;">
@@ -2202,7 +2322,7 @@ function locateUserOnMap() {
         weight: 2.5,
         opacity: 1,
         fillOpacity: 0.9
-      }).bindPopup("<b>📍 Your Current Location</b>").addTo(map);
+      }).bindPopup("<b>Your Current Location</b>").addTo(map);
       currentUserLocationMarker.openPopup();
       if (window.innerWidth <= 768) toggleMobileSidebar(false);
     },
@@ -2356,7 +2476,7 @@ function generatePartnerShareLink() {
     
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(shareUrl)
-        .then(() => showToast("🔗 Partner share link copied to clipboard!"))
+        .then(() => showToast("Partner share link copied to clipboard!"))
         .catch(() => {
           prompt("Copy this partner share link:", shareUrl);
         });

@@ -1088,6 +1088,38 @@ select:focus, input:focus, textarea:focus {
   cursor: pointer; 
 }
 
+.pool-site-pin { 
+  background: #0284c7; 
+  color: #ffffff; 
+  font-size: 13px; 
+  border-radius: 50%; 
+  width: 28px !important; 
+  height: 28px !important; 
+  display: flex !important; 
+  align-items: center !important; 
+  justify-content: center !important; 
+  border: 2px solid #ffffff; 
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35); 
+  cursor: pointer; 
+  box-sizing: border-box;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pool-site-pin:hover {
+  transform: scale(1.18);
+  box-shadow: 0 5px 14px rgba(2, 132, 199, 0.5);
+  z-index: 9999 !important;
+}
+
+.pool-site-pin.tertiary-pool-pin {
+  background: #7c3aed;
+  box-shadow: 0 3px 8px rgba(124, 58, 237, 0.4);
+}
+
+.pool-site-pin.tertiary-pool-pin:hover {
+  box-shadow: 0 5px 14px rgba(124, 58, 237, 0.6);
+}
+
 .overview-hosp-pin { 
   width: 12px !important; 
   height: 12px !important; 
@@ -1773,5 +1805,174 @@ select:focus, input:focus, textarea:focus {
   background: #14532d;
   color: #86efac;
 }
+
+/* --------------------------------------------------------------------------
+   Inspector Segmented Tab Navigation & Panes
+   -------------------------------------------------------------------------- */
+.inspector-tabs-nav {
+  display: flex;
+  gap: 3px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 3px;
+  margin: 10px 0 12px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.inspector-tabs-nav::-webkit-scrollbar { display: none; }
+
+.inspector-tab-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 6px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.inspector-tab-btn:hover {
+  color: var(--text-main);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="dark"] .inspector-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.inspector-tab-btn.active {
+  background: var(--bg-card);
+  color: var(--primary);
+  font-weight: 800;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .inspector-tab-btn.active {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.tab-pane {
+  display: none;
+  animation: fadeInTab 0.18s ease-in-out;
+}
+
+.tab-pane.active {
+  display: block;
+}
+
+@keyframes fadeInTab {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --------------------------------------------------------------------------
+   Feed Card Hospital Placement Progression Sequence
+   -------------------------------------------------------------------------- */
+.card-hospitals-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 7px 0 8px 0;
+  padding: 6px 8px;
+  background: var(--bg-card-subtle);
+  border-radius: 5px;
+  border: 1px solid var(--border-color);
+}
+
+.card-stage-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.card-stage-num {
+  background: var(--primary);
+  color: white;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  font-size: 0.62rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.card-stage-name {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.card-stage-dur {
+  font-size: 0.67rem;
+  color: var(--text-muted);
+}
+
+.card-stage-arrow {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-weight: 600;
+  user-select: none;
+  padding: 0 1px;
+}
+
+.card-pool-tag {
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--border-color);
+  color: var(--text-muted);
+  margin-right: 2px;
+}
+
+.card-pool-bullet {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  padding: 0 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Quick Preference Tier Shortcut Bar on Placements Tab
+   -------------------------------------------------------------------------- */
+.quick-tier-bar {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quick-tier-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+/* Clean Professional Badges */
+.badge-tertiary { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+.badge-dgh { background: #ccfbf1; color: #0f766e; border: 1px solid #99f6e4; }
+.badge-pool { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; text-transform: none; }
+
+[data-theme="dark"] .badge-tertiary { background: #0c4a6e; color: #7dd3fc; border-color: #0284c7; }
+[data-theme="dark"] .badge-dgh { background: #134e4a; color: #5eead4; border-color: #0d9488; }
+[data-theme="dark"] .badge-pool { background: #1e293b; color: #cbd5e1; border-color: #475569; }
+
 
 
