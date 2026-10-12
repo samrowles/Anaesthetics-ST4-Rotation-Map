@@ -255,11 +255,6 @@ function syncShortlistOrder() {
 function isPoolRotation(rot) {
   if (!rot) return false;
   if (typeof rot.isPool === 'boolean') return rot.isPool;
-  if (Array.isArray(rot.stages) && rot.stages.length > 2) {
-    if (rot.stages.every(s => s.stage === 'CT1 - CT3' || (typeof s.stage === 'string' && s.stage.toLowerCase().includes('base network')))) {
-      return true;
-    }
-  }
   return false;
 }
 
