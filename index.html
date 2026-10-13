@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>ST4 Anaesthetics National Rotation &amp; Commute Explorer</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Interactive map of UK ST4 Anaesthetics training rotations with dual-commute living analysis for doctors and partners.">
   <meta name="theme-color" content="#0284c7" id="metaThemeColor">
 
@@ -305,7 +305,7 @@
               <span class="star" onclick="setRating(5, true)">★</span>
               <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 6px;" id="ratingText">(Unrated)</span>
             </div>
-            <textarea class="notes-input" id="partnerNotes" placeholder="Personal notes (e.g., manageable commute, excellent cardiac block)..."></textarea>
+            <textarea class="notes-input" id="partnerNotes" oninput="debounceSaveNotes()" placeholder="Personal notes (e.g., manageable commute, excellent cardiac block)..."></textarea>
             <button class="btn-save" onclick="saveUserPreferences()">Save Notes &amp; Tier</button>
           </div>
         </div>
@@ -332,7 +332,7 @@
 </div>
 
 <!-- Modal 1: Starred Shortlist, Oriel Ranking & Submission Companion -->
-<div class="modal-overlay" id="shortlistModal">
+<div class="modal-overlay" id="shortlistModal" role="dialog" aria-modal="true">
   <div class="modal-content modal-content-wide">
     <div class="modal-header">
       <h2>My Shortlist &amp; Oriel Preferencing Companion</h2>
@@ -374,7 +374,7 @@
 </div>
 
 <!-- Modal 2: Side-by-Side Comparison Modal -->
-<div class="modal-overlay" id="compareModal">
+<div class="modal-overlay" id="compareModal" role="dialog" aria-modal="true">
   <div class="modal-content modal-content-wide">
     <div class="modal-header">
       <h2>Side-by-Side Rotation Comparison</h2>
@@ -387,7 +387,7 @@
 </div>
 
 <!-- Modal 3: Custom Home Base Calculator -->
-<div class="modal-overlay" id="customBaseModal">
+<div class="modal-overlay" id="customBaseModal" role="dialog" aria-modal="true">
   <div class="modal-content" style="max-width:480px;">
     <div class="modal-header">
       <h2>Set My Custom Home / Commute Base</h2>
@@ -414,7 +414,7 @@
 </div>
 
 <!-- Modal 4: Data Sync / Transfer (JSON + File Import/Export) -->
-<div class="modal-overlay" id="syncModal">
+<div class="modal-overlay" id="syncModal" role="dialog" aria-modal="true">
   <div class="modal-content">
     <div class="modal-header">
       <h2>Data Management &amp; Backup</h2>
@@ -465,7 +465,7 @@
 </div>
 
 <!-- Modal 5: Hospital Ground Truth Profile Modal -->
-<div class="modal-overlay" id="hospitalProfileModal">
+<div class="modal-overlay" id="hospitalProfileModal" role="dialog" aria-modal="true">
   <div class="modal-content" style="max-width:540px;">
     <div class="modal-header">
       <div style="display:flex; align-items:center; gap:8px;">

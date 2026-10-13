@@ -21,7 +21,8 @@ function calcDistanceMiles(c1, c2) {
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
             Math.cos(c1[0] * Math.PI / 180) * Math.cos(c2[0] * Math.PI / 180) *
             Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return dist < 1 ? Math.round(dist * 10) / 10 : Math.round(dist);
 }
 
 /**
@@ -232,6 +233,61 @@ function showToast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
+// 5b. IN-MEMORY STATE CACHE FOR PREFERENCES (Eliminates localStorage thrashing)
+const userPrefsCache = new Map();
+
+function initUserPrefsCache() {
+  userPrefsCache.clear();
+  if (typeof ROTATIONS_DATA !== 'undefined' && Array.isArray(ROTATIONS_DATA)) {
+    ROTATIONS_DATA.forEach(r => {
+      let pref = null;
+      try {
+        const raw = localStorage.getItem(`anaesth_pref_${r.id}`);
+        if (raw) pref = JSON.parse(raw);
+      } catch (e) {}
+      userPrefsCache.set(r.id, {
+        rating: (pref && typeof pref.rating === 'number') ? pref.rating : 0,
+        notes: (pref && typeof pref.notes === 'string') ? pref.notes : "",
+        tier: (pref && ['TIER1', 'TIER2', 'TIER3', 'EXCLUDE', 'UNSET'].includes(pref.tier)) ? pref.tier : 'UNSET'
+      });
+    });
+  }
+}
+
+function getUserData(id) {
+  if (!id) return { rating: 0, notes: "", tier: "UNSET" };
+  let data = userPrefsCache.get(id);
+  if (!data) {
+    try {
+      const raw = localStorage.getItem(`anaesth_pref_${id}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        data = {
+          rating: typeof parsed.rating === 'number' ? parsed.rating : 0,
+          notes: typeof parsed.notes === 'string' ? parsed.notes : "",
+          tier: parsed.tier || "UNSET"
+        };
+      }
+    } catch (e) {}
+    if (!data) data = { rating: 0, notes: "", tier: "UNSET" };
+    userPrefsCache.set(id, data);
+  }
+  return data;
+}
+
+function setUserData(id, partialUpdate) {
+  if (!id) return;
+  const current = getUserData(id);
+  Object.assign(current, partialUpdate);
+  userPrefsCache.set(id, current);
+  try {
+    localStorage.setItem(`anaesth_pref_${id}`, JSON.stringify(current));
+  } catch (e) {
+    console.error("Failed to persist user preference to localStorage", e);
+  }
+  return current;
+}
+
 // Shortlist membership: a rotation is shortlisted once it has a rating, any preference tier (excluding EXCLUDE), or notes.
 function isShortlisted(d) {
   return !!d && d.tier !== 'EXCLUDE' && (d.rating > 0 || (d.tier && d.tier !== 'UNSET') || (d.notes && d.notes.trim() !== ''));
@@ -289,7 +345,7 @@ function adjustColorTone(hexColor, percent) {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
-function getRotationLineStyle(rot) {
+function computeRotationLineStyle(rot) {
   const regColor = (window.REGION_COLORS && window.REGION_COLORS[rot.region]) || (typeof REGION_COLORS !== 'undefined' ? REGION_COLORS[rot.region] : "#0284c7");
   const regionRots = ROTATIONS_DATA.filter(r => r.region === rot.region);
   const rotIdx = Math.max(0, regionRots.findIndex(r => r.id === rot.id));
@@ -306,6 +362,117 @@ function getRotationLineStyle(rot) {
     isDashed: dashPattern !== 'none'
   };
 }
+
+function computeRotationHospitalBases(rot) {
+  if (!rot || !rot.stages) return [];
+  const unique = [];
+  rot.stages.forEach(s => {
+    if (s.hosp && !unique.includes(s.hosp)) {
+      unique.push(s.hosp);
+    }
+  });
+  return unique;
+}
+
+function computeRotationTrainingSplit(rot) {
+  if (!rot || !rot.stages || !rot.stages.length) {
+    return { tertiary: 50, dgh: 50, tertiaryCount: 0, dghCount: 0 };
+  }
+  let tertiaryWeight = 0;
+  let dghWeight = 0;
+  let tertiaryCount = 0;
+  let dghCount = 0;
+
+  rot.stages.forEach(stg => {
+    const h = HOSPITALS[stg.hosp];
+    const isTertiary = h && h.type === 'Tertiary';
+    let months = 6;
+    const fullText = `${stg.stage || ''} ${stg.desc || ''}`;
+    const match = fullText.match(/\b(\d+)\s*m\b/i);
+    if (match) {
+      const parsed = parseInt(match[1], 10);
+      if (parsed > 0 && parsed <= 24) months = parsed;
+    }
+
+    if (isTertiary) {
+      tertiaryWeight += months;
+      tertiaryCount++;
+    } else {
+      dghWeight += months;
+      dghCount++;
+    }
+  });
+
+  const total = tertiaryWeight + dghWeight;
+  if (total === 0) return { tertiary: 50, dgh: 50, tertiaryCount: 0, dghCount: 0 };
+
+  const tertiaryPct = Math.round((tertiaryWeight / total) * 100);
+  const dghPct = 100 - tertiaryPct;
+  return {
+    tertiary: tertiaryPct,
+    dgh: dghPct,
+    tertiaryCount,
+    dghCount
+  };
+}
+
+/**
+ * Startup Data Normalization & Pre-Computation.
+ * Runs once over ROTATIONS_DATA and attaches immutable metadata to rot._meta.
+ */
+function initRotationMetadata() {
+  if (typeof ROTATIONS_DATA === 'undefined' || !Array.isArray(ROTATIONS_DATA)) return;
+  ROTATIONS_DATA.forEach(rot => {
+    const bases = computeRotationHospitalBases(rot);
+    const split = computeRotationTrainingSplit(rot);
+    const lineStyle = computeRotationLineStyle(rot);
+    const placesNum = parseInt(rot.places, 10) || 0;
+
+    const driverHub = (rot.hubs && rot.hubs.driver && rot.hubs.driver.name) || '';
+    const transitHub = (rot.hubs && rot.hubs.transit && rot.hubs.transit.name) || '';
+    const stagesText = (rot.stages || []).map(s => `${s.hosp || ''} ${s.stage || ''} ${s.desc || ''}`).join(' ');
+
+    const searchParts = [
+      rot.title || '',
+      rot.code || '',
+      rot.region || '',
+      driverHub,
+      transitHub,
+      stagesText
+    ];
+    const searchText = searchParts.join(' ').toLowerCase();
+
+    rot._meta = {
+      bases,
+      split,
+      lineStyle,
+      placesNum,
+      searchText
+    };
+  });
+}
+
+function getRotationHospitalBases(rot) {
+  if (!rot) return [];
+  if (rot._meta && rot._meta.bases) return rot._meta.bases;
+  return computeRotationHospitalBases(rot);
+}
+
+function getRotationTrainingSplit(rot) {
+  if (!rot) return { tertiary: 50, dgh: 50, tertiaryCount: 0, dghCount: 0 };
+  if (rot._meta && rot._meta.split) return rot._meta.split;
+  return computeRotationTrainingSplit(rot);
+}
+
+function getRotationLineStyle(rot) {
+  if (!rot) return { color: '#0284c7', baseColor: '#0284c7', dashPattern: 'none', regColor: '#0284c7', isDashed: false };
+  if (rot._meta && rot._meta.lineStyle) return rot._meta.lineStyle;
+  return computeRotationLineStyle(rot);
+}
+
+// Initialise caches immediately
+initRotationMetadata();
+initUserPrefsCache();
 
 function buildCorridorUsageRegistry(rotationsList) {
   const registry = new Map();
@@ -429,7 +596,12 @@ function highlightOverviewTrack(rotId) {
   });
 
   const card = document.getElementById(`feed-card-${rotId}`);
-  if (card) card.classList.add('map-highlighted-card');
+  if (card) {
+    card.classList.add('map-highlighted-card');
+    if (currentViewMode === 'list') {
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
 }
 
 function resetOverviewTrackHighlights() {
@@ -452,6 +624,18 @@ function resetOverviewTrackHighlights() {
 function getRotationMaxDistance(rot) {
   if (!rot || !rot.stages) return 0;
   const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
+  if (!coords.length) return 0;
+
+  // When custom home base is active, calculate commute from custom base to furthest hospital in scheme
+  if (currentCommuteMode === 'custom' && customHomeBase && customHomeBase.coords) {
+    let maxDist = 0;
+    coords.forEach(c => {
+      const d = calcDistanceMiles(customHomeBase.coords, c);
+      if (d > maxDist) maxDist = d;
+    });
+    return maxDist;
+  }
+
   let maxDist = 0;
   for (let i = 0; i < coords.length; i++) {
     for (let j = i + 1; j < coords.length; j++) {
@@ -462,9 +646,7 @@ function getRotationMaxDistance(rot) {
   // Single-site scheme fallback: calculate commute distance to living base
   if (maxDist === 0 && coords.length > 0) {
     let hubCoords = null;
-    if (currentCommuteMode === 'custom' && customHomeBase && customHomeBase.coords) {
-      hubCoords = customHomeBase.coords;
-    } else if (currentCommuteMode === 'transit' && rot.hubs && rot.hubs.transit && rot.hubs.transit.coords) {
+    if (currentCommuteMode === 'transit' && rot.hubs && rot.hubs.transit && rot.hubs.transit.coords) {
       hubCoords = rot.hubs.transit.coords;
     } else if (rot.hubs && rot.hubs.driver && rot.hubs.driver.coords) {
       hubCoords = rot.hubs.driver.coords;
@@ -496,67 +678,6 @@ function getRotationCommuteSummary(rot, timing = currentShiftTiming) {
   return { maxDist, mornMins, eveMins, activeMins, badgeClass, timingShort };
 }
 
-/**
- * Returns a deduplicated array of hospital base names visited by a rotation.
- */
-function getRotationHospitalBases(rot) {
-  if (!rot || !rot.stages) return [];
-  const unique = [];
-  rot.stages.forEach(s => {
-    if (s.hosp && !unique.includes(s.hosp)) {
-      unique.push(s.hosp);
-    }
-  });
-  return unique;
-}
-
-/**
- * Calculates Tertiary Teaching vs DGH balance percentage for a rotation.
- * Factors in duration months if specified in stage text (e.g. 6m, 3m, 12m).
- */
-function getRotationTrainingSplit(rot) {
-  if (!rot || !rot.stages || !rot.stages.length) {
-    return { tertiary: 50, dgh: 50, tertiaryCount: 0, dghCount: 0 };
-  }
-  let tertiaryWeight = 0;
-  let dghWeight = 0;
-  let tertiaryCount = 0;
-  let dghCount = 0;
-
-  rot.stages.forEach(stg => {
-    const h = HOSPITALS[stg.hosp];
-    const isTertiary = h && h.type === 'Tertiary';
-    
-    // Extract months if present like "Stage 1 (6m)" or "(3m)"
-    let months = 6;
-    const fullText = `${stg.stage || ''} ${stg.desc || ''}`;
-    const match = fullText.match(/\b(\d+)\s*m\b/i);
-    if (match) {
-      const parsed = parseInt(match[1], 10);
-      if (parsed > 0 && parsed <= 24) months = parsed;
-    }
-
-    if (isTertiary) {
-      tertiaryWeight += months;
-      tertiaryCount++;
-    } else {
-      dghWeight += months;
-      dghCount++;
-    }
-  });
-
-  const total = tertiaryWeight + dghWeight;
-  if (total === 0) return { tertiary: 50, dgh: 50, tertiaryCount: 0, dghCount: 0 };
-
-  const tertiaryPct = Math.round((tertiaryWeight / total) * 100);
-  const dghPct = 100 - tertiaryPct;
-  return {
-    tertiary: tertiaryPct,
-    dgh: dghPct,
-    tertiaryCount,
-    dghCount
-  };
-}
 
 function updateShortlistBadge() {
   const badge = document.getElementById('headerShortlistBadge');
@@ -606,7 +727,11 @@ function populateRegionDropdown() {
 const prefSelect = document.getElementById('prefSelect');
 function populateDropdown(list) {
   if (!prefSelect) return;
-  prefSelect.innerHTML = '<option value="">Jump to rotation...</option>';
+  const frag = document.createDocumentFragment();
+  const defaultOpt = document.createElement('option');
+  defaultOpt.value = "";
+  defaultOpt.textContent = "Jump to rotation...";
+  frag.appendChild(defaultOpt);
   
   const groups = {};
   list.forEach(r => {
@@ -626,8 +751,10 @@ function populateDropdown(list) {
       opt.textContent = `${r.title} (${r.code})${tierStr}${starStr}`;
       optgroup.appendChild(opt);
     });
-    prefSelect.appendChild(optgroup);
+    frag.appendChild(optgroup);
   });
+
+  prefSelect.replaceChildren(frag);
 
   if (currentSelectedId && list.some(r => r.id === currentSelectedId)) {
     prefSelect.value = currentSelectedId;
@@ -656,19 +783,20 @@ function switchInspectorTab(tabKey) {
 function renderRotationCardsFeed(list) {
   const container = document.getElementById('rotationCardsFeed');
   if (!container) return;
-  container.innerHTML = "";
 
   if (!list.length) {
     container.innerHTML = `
       <div style="text-align:center; padding:40px 15px; color:var(--text-muted);">
         <p style="font-weight:700;">No matching rotations found</p>
         <p style="font-size:0.8rem; margin-top:4px; margin-bottom:12px;">Try adjusting your search query, region, or filters.</p>
-        <button class="btn-step" onclick="resetAllFilters()" style="margin:0 auto; padding:6px 14px; color:var(--primary); font-weight:800;">
+        <button class="btn-step" data-action="reset-all-filters" style="margin:0 auto; padding:6px 14px; color:var(--primary); font-weight:800;">
           Reset All Filters
         </button>
       </div>`;
     return;
   }
+
+  const frag = document.createDocumentFragment();
 
   list.forEach((r) => {
     const userData = getUserData(r.id);
@@ -753,7 +881,7 @@ function renderRotationCardsFeed(list) {
           ${tierBadgeHtml}
         </div>
         <div style="display:flex; align-items:center; gap:5px;">
-          <button class="btn-compare-action ${isComparing ? 'in-compare' : ''}" onclick="toggleCompareCard(event, '${r.id}')" title="Compare rotation">
+          <button class="btn-compare-action ${isComparing ? 'in-compare' : ''}" data-action="toggle-compare-card" data-id="${r.id}" title="Compare rotation">
             ${isComparing ? 'In Compare' : 'Compare'}
           </button>
           <span class="badge ${commute.badgeClass}" title="Estimated drive time at ${commute.timingShort}">${commute.maxDist} mi (~${commute.activeMins}m @ ${commute.timingShort})</span>
@@ -769,8 +897,10 @@ function renderRotationCardsFeed(list) {
         </div>
       </div>
     `;
-    container.appendChild(card);
+    frag.appendChild(card);
   });
+
+  container.replaceChildren(frag);
 }
 
 function openDetailsForRotation(id) {
@@ -783,32 +913,17 @@ function openDetailsForRotation(id) {
 }
 
 // 8. PREFERENCES, TIERS & RATINGS
-function getUserData(id) {
-  try {
-    const raw = localStorage.getItem(`anaesth_pref_${id}`);
-    if (!raw) return { rating: 0, notes: "", tier: "UNSET" };
-    const parsed = JSON.parse(raw);
-    return {
-      rating: typeof parsed.rating === 'number' ? parsed.rating : 0,
-      notes: typeof parsed.notes === 'string' ? parsed.notes : "",
-      tier: parsed.tier || "UNSET"
-    };
-  } catch (e) {
-    return { rating: 0, notes: "", tier: "UNSET" };
-  }
-}
-
 function setTier(tierVal) {
   if (!currentSelectedId) return;
   const current = getUserData(currentSelectedId);
-  current.tier = (current.tier === tierVal) ? 'UNSET' : tierVal;
-  localStorage.setItem(`anaesth_pref_${currentSelectedId}`, JSON.stringify(current));
+  const nextTier = (current.tier === tierVal) ? 'UNSET' : tierVal;
+  setUserData(currentSelectedId, { tier: nextTier });
   syncShortlistOrder();
 
-  updateTierButtons(current.tier);
+  updateTierButtons(nextTier);
   updateShortlistBadge();
   applyFiltersAndSearch();
-  showToast(`Tier updated: ${current.tier}`);
+  showToast(`Tier updated: ${nextTier}`);
 }
 
 function updateTierButtons(activeTier) {
@@ -842,16 +957,45 @@ function updateTierButtons(activeTier) {
 function saveUserPreferences() {
   if (!currentSelectedId) return;
   const notes = document.getElementById('partnerNotes').value;
-  const current = getUserData(currentSelectedId);
-  current.rating = currentActiveRating;
-  current.notes = notes;
-  localStorage.setItem(`anaesth_pref_${currentSelectedId}`, JSON.stringify(current));
+  setUserData(currentSelectedId, { rating: currentActiveRating, notes });
   syncShortlistOrder();
 
   updateShortlistBadge();
   applyFiltersAndSearch();
   if (prefSelect) prefSelect.value = currentSelectedId;
   showToast("Saved to browser");
+}
+
+let debounceNotesTimer = null;
+let pendingNotesSave = null;
+
+function flushPendingNotes() {
+  if (debounceNotesTimer) {
+    clearTimeout(debounceNotesTimer);
+    debounceNotesTimer = null;
+  }
+  if (pendingNotesSave) {
+    const { targetId, notes } = pendingNotesSave;
+    pendingNotesSave = null;
+    if (targetId) {
+      setUserData(targetId, { notes });
+      syncShortlistOrder();
+      updateShortlistBadge();
+    }
+  }
+}
+
+function debounceSaveNotes() {
+  const notesEl = document.getElementById('partnerNotes');
+  if (!notesEl || !currentSelectedId) return;
+  const targetId = currentSelectedId;
+  const notes = notesEl.value;
+  pendingNotesSave = { targetId, notes };
+
+  if (debounceNotesTimer) clearTimeout(debounceNotesTimer);
+  debounceNotesTimer = setTimeout(() => {
+    flushPendingNotes();
+  }, 500);
 }
 
 function setRating(val, isClick = false) {
@@ -864,6 +1008,14 @@ function setRating(val, isClick = false) {
     s.classList.toggle('selected', idx < val);
   });
   document.getElementById('ratingText').textContent = val > 0 ? `(${val} / 5 Stars)` : `(Unrated)`;
+
+  if (isClick && currentSelectedId) {
+    setUserData(currentSelectedId, { rating: val });
+    syncShortlistOrder();
+    updateShortlistBadge();
+    applyFiltersAndSearch();
+    showToast(val > 0 ? `Rated ${val}★` : "Rating cleared");
+  }
 }
 
 // 9. VIEW MODE & COMMUTE MODE SWITCHING
@@ -979,6 +1131,7 @@ function setShiftTiming(timing, showFeedback = true) {
 
 function stepRotation(direction) {
   if (!currentFilteredList.length) return;
+  const prevId = currentSelectedId;
   let currentIndex = currentFilteredList.findIndex(r => r.id === currentSelectedId);
   if (currentIndex === -1) {
     currentIndex = 0;
@@ -991,11 +1144,20 @@ function stepRotation(direction) {
   const prefSel = document.getElementById('prefSelect');
   if (prefSel) prefSel.value = nextId;
   selectRotation(nextId, false);
-  renderRotationCardsFeed(currentFilteredList);
+
+  if (prevId) {
+    const prevCard = document.getElementById(`feed-card-${prevId}`);
+    if (prevCard) prevCard.classList.remove('active-card');
+  }
+  const nextCard = document.getElementById(`feed-card-${nextId}`);
+  if (nextCard) {
+    nextCard.classList.add('active-card');
+    nextCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
 }
 
-function focusHospitalBaseFromBtn(btn) {
-  const hospName = btn.dataset.hosp;
+function focusHospitalByName(hospName) {
+  if (!hospName) return;
   const h = HOSPITALS[hospName];
   if (h) {
     map.flyTo(h.coords, 13, { duration: 1.0 });
@@ -1008,6 +1170,12 @@ function focusHospitalBaseFromBtn(btn) {
       toggleMobileSidebar(false);
     }
     showToast(`Focused: ${hospName}`);
+  }
+}
+
+function focusHospitalBaseFromBtn(btn) {
+  if (btn && btn.dataset && btn.dataset.hosp) {
+    focusHospitalByName(btn.dataset.hosp);
   }
 }
 
@@ -1065,7 +1233,7 @@ function openHospitalProfile(hospName) {
       <div class="hosp-rotations-title">Rotations that include this hospital (${linked.length}):</div>
       <div class="hosp-rot-pills">
         ${linked.map(r => `
-          <button class="hosp-rot-btn" onclick="diveInFromPopup('${r.id}'); closeModal('hospitalProfileModal');">
+          <button class="hosp-rot-btn" data-action="dive-in-modal" data-id="${r.id}">
             <b>${escapeHtml(r.code)}</b>: ${escapeHtml(r.title)} &rarr;
           </button>
         `).join('')}
@@ -1091,6 +1259,7 @@ function copyDirectShareLink() {
 // 10. ROTATION INSPECTOR & MAP ROUTE RENDERING
 function selectRotation(id, shouldCloseMobile = false) {
   if (!id) return;
+  flushPendingNotes();
 
   currentSelectedId = id;
   currentViewMode = 'details';
@@ -1167,6 +1336,12 @@ function selectRotation(id, shouldCloseMobile = false) {
     document.getElementById('hubDescription').textContent = activeHub.desc;
   }
 
+  const cardRegionEl = document.getElementById('cardRegionText');
+  if (cardRegionEl) cardRegionEl.textContent = rot.region;
+
+  const cardHubSummaryEl = document.getElementById('cardHubSummary');
+  if (cardHubSummaryEl) cardHubSummaryEl.textContent = `Base: ${activeHubName}`;
+
   const gmapsLink = document.getElementById('hubDirectionsLink');
   if (gmapsLink) {
     const hubQuery = (activeHubCoords && Array.isArray(activeHubCoords))
@@ -1190,7 +1365,7 @@ function selectRotation(id, shouldCloseMobile = false) {
   // Populate Hospital Bases Chips (XSS safe)
   const uniqueHospBases = getRotationHospitalBases(rot);
   const hospitalsListContainer = document.getElementById('hospitalsListContainer');
-  hospitalsListContainer.innerHTML = "";
+  const fragHosp = document.createDocumentFragment();
 
   uniqueHospBases.forEach(hName => {
     const hData = HOSPITALS[hName];
@@ -1211,14 +1386,15 @@ function selectRotation(id, shouldCloseMobile = false) {
     focusBtn.className = "hospital-chip-btn";
     focusBtn.textContent = "Focus";
     focusBtn.dataset.hosp = hName;
-    focusBtn.onclick = function() { focusHospitalBaseFromBtn(this); };
+    focusBtn.dataset.action = "focus-hospital";
     btnGroup.appendChild(focusBtn);
 
     const intelBtn = document.createElement('button');
     intelBtn.className = "hospital-chip-btn";
     intelBtn.textContent = "Profile";
     intelBtn.title = "View Ground Truth Trust intel, parking, EPR, and transit";
-    intelBtn.onclick = function() { openHospitalProfile(hName); };
+    intelBtn.dataset.hosp = hName;
+    intelBtn.dataset.action = "open-hospital-profile";
     btnGroup.appendChild(intelBtn);
 
     const mapLink = document.createElement('a');
@@ -1229,13 +1405,14 @@ function selectRotation(id, shouldCloseMobile = false) {
     btnGroup.appendChild(mapLink);
 
     chip.appendChild(btnGroup);
-    hospitalsListContainer.appendChild(chip);
+    fragHosp.appendChild(chip);
   });
+  hospitalsListContainer.replaceChildren(fragHosp);
 
   // Render Commute Matrix Breakdown from Chosen Base
   document.getElementById('commuteMatrixHubName').textContent = activeHubName;
   const matrixContainer = document.getElementById('commuteMatrixList');
-  matrixContainer.innerHTML = "";
+  const fragMatrix = document.createDocumentFragment();
 
   uniqueHospBases.forEach(hName => {
     const hData = HOSPITALS[hName];
@@ -1271,9 +1448,10 @@ function selectRotation(id, shouldCloseMobile = false) {
           <a href="https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=driving" target="_blank" style="font-size:0.68rem; color:var(--primary); text-decoration:none;" title="Verify route and live traffic in Google Maps">Directions &rarr;</a>
         </div>
       `;
-      matrixContainer.appendChild(row);
+      fragMatrix.appendChild(row);
     }
   });
+  matrixContainer.replaceChildren(fragMatrix);
 
   // Render Placement Sequence Timeline
   const timelineHeading = document.getElementById('timelineHeading');
@@ -1282,28 +1460,15 @@ function selectRotation(id, shouldCloseMobile = false) {
   }
 
   const timeline = document.getElementById('timelineContainer');
-  timeline.innerHTML = "";
+  const fragTimeline = document.createDocumentFragment();
 
   rot.stages.forEach((stg, idx) => {
     const step = document.createElement('div');
     step.className = "timeline-step";
     step.style.cursor = 'pointer';
     step.title = `Click to locate ${stg.hosp} on map`;
-    step.onclick = (e) => {
-      if (e.target.tagName === 'A') return;
-      const h = HOSPITALS[stg.hosp];
-      if (h) {
-        map.flyTo(h.coords, 13, { duration: 1.0 });
-        if (activeHospitalMarkers[stg.hosp]) {
-          setTimeout(() => {
-            activeHospitalMarkers[stg.hosp].openPopup();
-          }, 450);
-        }
-        if (window.innerWidth <= 768) {
-          toggleMobileSidebar(false);
-        }
-      }
-    };
+    step.dataset.action = "focus-hospital";
+    step.dataset.hosp = stg.hosp;
 
     const h = HOSPITALS[stg.hosp];
     const isTertiary = h && h.type === 'Tertiary';
@@ -1328,8 +1493,9 @@ function selectRotation(id, shouldCloseMobile = false) {
         <div class="timeline-desc">${escapeHtml(stg.desc)}</div>
       </div>
     `;
-    timeline.appendChild(step);
+    fragTimeline.appendChild(step);
   });
+  timeline.replaceChildren(fragTimeline);
 
   const commute = getRotationCommuteSummary(rot);
 
@@ -1527,7 +1693,7 @@ function selectRotation(id, shouldCloseMobile = false) {
         </div>
         ${popupStagesHtml}
         <div style="margin-top:8px; padding-top:6px; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; gap:6px;">
-          <button class="hospital-chip-btn" style="font-size:0.72rem; padding:3px 7px;" onclick="openHospitalProfile('${escapeHtml(data.hosp)}');">Profile</button>
+          <button class="hospital-chip-btn" style="font-size:0.72rem; padding:3px 7px;" data-action="open-hospital-profile" data-hosp="${escapeHtml(data.hosp)}">Profile</button>
           <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.hosp + ', UK')}" target="_blank" style="color:var(--primary); font-size:0.72rem; text-decoration:none;">Maps ↗</a>
         </div>
       </div>
@@ -1662,7 +1828,7 @@ function renderAllPlacements({ fitView = true } = {}) {
       `<div class="overview-popup-rot-list">
         <span style="font-size:0.7rem; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Click a rotation to view route:</span>
         ${linkedRotations.map(r => `
-          <button class="popup-rotation-btn" onclick="diveInFromPopup('${r.id}')">
+          <button class="popup-rotation-btn" data-action="dive-in" data-id="${r.id}">
             <span>${r.code}</span>
             <span style="font-size:0.7rem; color:var(--text-muted);">${r.places} pl &rarr;</span>
           </button>
@@ -1681,7 +1847,7 @@ function renderAllPlacements({ fitView = true } = {}) {
       <div class="overview-popup-title">${escapeHtml(hName)}</div>
       <div class="overview-popup-reg" style="color:${regColor};">${escapeHtml(h.region)} • <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.65rem;">${isTertiary ? 'Tertiary' : 'DGH'}</span></div>
       <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Included in <b>${linkedRotations.length}</b> rotation scheme(s).</div>
-      <button class="hospital-chip-btn" style="width:100%; margin-bottom:8px; font-size:0.73rem; padding:4px 8px;" onclick="openHospitalProfile('${escapeHtml(hName)}');">Hospital Profile &rarr;</button>
+      <button class="hospital-chip-btn" style="width:100%; margin-bottom:8px; font-size:0.73rem; padding:4px 8px;" data-action="open-hospital-profile" data-hosp="${escapeHtml(hName)}">Hospital Profile &rarr;</button>
       ${linkedHtml}
     `, { maxWidth: 280 });
 
@@ -1844,12 +2010,8 @@ function applyFiltersAndSearch({ fitView = false } = {}) {
   if (currentSearchTerm) {
     const q = currentSearchTerm;
     list = list.filter(r =>
-      r.title.toLowerCase().includes(q) ||
-      r.code.toLowerCase().includes(q) ||
-      r.hubs.driver.name.toLowerCase().includes(q) ||
-      r.hubs.transit.name.toLowerCase().includes(q) ||
-      getUserData(r.id).notes.toLowerCase().includes(q) ||
-      r.stages.some(s => (s.hosp || '').toLowerCase().includes(q) || (s.desc || '').toLowerCase().includes(q))
+      (r._meta && r._meta.searchText ? r._meta.searchText.includes(q) : false) ||
+      (getUserData(r.id).notes && getUserData(r.id).notes.toLowerCase().includes(q))
     );
   }
 
@@ -1857,7 +2019,7 @@ function applyFiltersAndSearch({ fitView = false } = {}) {
   if (currentSortMode === 'SPREAD_ASC') {
     list.sort((a, b) => getRotationMaxDistance(a) - getRotationMaxDistance(b));
   } else if (currentSortMode === 'PLACES_DESC') {
-    list.sort((a, b) => (parseInt(b.places, 10) || 0) - (parseInt(a.places, 10) || 0));
+    list.sort((a, b) => ((b._meta ? b._meta.placesNum : parseInt(b.places, 10)) || 0) - ((a._meta ? a._meta.placesNum : parseInt(a.places, 10)) || 0));
   } else if (currentSortMode === 'RATING_DESC') {
     list.sort((a, b) => getUserData(b.id).rating - getUserData(a.id).rating);
   }
@@ -2110,7 +2272,7 @@ function printShortlistReport() {
 
 function renderShortlistModal() {
   const body = document.getElementById('shortlistModalBody');
-  body.innerHTML = "";
+  if (!body) return;
 
   const starred = syncShortlistOrder()
     .map(id => ROTATIONS_DATA.find(r => r.id === id))
@@ -2121,6 +2283,8 @@ function renderShortlistModal() {
     updateOrielProgressBar();
     return;
   }
+
+  const frag = document.createDocumentFragment();
 
   starred.forEach((r, idx) => {
     const data = getUserData(r.id);
@@ -2163,9 +2327,9 @@ function renderShortlistModal() {
         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
           <span style="cursor:grab; font-size:1.05rem;" title="Drag card to reorder rank">☰</span>
           <span style="font-size:0.75rem; font-weight:800; color:var(--text-muted);">Rank:</span>
-          <input type="number" class="rank-input" value="${idx + 1}" min="1" max="${starred.length}" onchange="changeRankInput(${idx}, this.value)" title="Change rank number">
+          <input type="number" class="rank-input" value="${idx + 1}" min="1" max="${starred.length}" data-action="change-rank-input" data-index="${idx}" title="Change rank number">
           <strong class="oriel-code-badge" title="Oriel Track Code">${escapeHtml(r.code)}</strong>
-          <button class="btn-copy-code" onclick="copyOrielCode('${escapeHtml(r.code)}')" title="Copy exact Oriel code to clipboard">Copy</button>
+          <button class="btn-copy-code" data-action="copy-oriel-code" data-code="${escapeHtml(r.code)}" title="Copy exact Oriel code to clipboard">Copy</button>
           ${tierBadgeHtml}
           <span class="badge ${commute.badgeClass}" style="font-size:0.68rem;" title="Peak commute estimates">
             ${commute.maxDist} mi (~${commute.mornMins}m morn · ~${commute.eveMins}m eve)
@@ -2173,13 +2337,13 @@ function renderShortlistModal() {
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
           <label class="oriel-check-label" title="Mark as entered into Oriel portal">
-            <input type="checkbox" ${isEntered ? 'checked' : ''} onchange="toggleOrielEntered('${r.id}')">
+            <input type="checkbox" ${isEntered ? 'checked' : ''} data-action="toggle-oriel-entered" data-id="${r.id}">
             <span>${isEntered ? '✓ Entered on Oriel' : 'Mark Entered'}</span>
           </label>
           <span style="color:var(--amber); font-weight:800; font-size:0.85rem;">${'★'.repeat(data.rating)}</span>
           <div style="display:flex; gap:2px;">
-            <button class="btn-step" style="padding:2px 6px; font-size:0.7rem;" onclick="moveShortlistItem(${idx}, -1)" aria-label="Move item up">▲</button>
-            <button class="btn-step" style="padding:2px 6px; font-size:0.7rem;" onclick="moveShortlistItem(${idx}, 1)" aria-label="Move item down">▼</button>
+            <button class="btn-step" style="padding:2px 6px; font-size:0.7rem;" data-action="move-shortlist" data-index="${idx}" data-dir="-1" aria-label="Move item up">▲</button>
+            <button class="btn-step" style="padding:2px 6px; font-size:0.7rem;" data-action="move-shortlist" data-index="${idx}" data-dir="1" aria-label="Move item down">▼</button>
           </div>
         </div>
       </div>
@@ -2191,13 +2355,14 @@ function renderShortlistModal() {
       </div>
       ${data.notes ? `<div style="margin-top:6px; font-size:0.74rem; background:var(--bg-card-subtle); border:1px solid var(--border-color); color:var(--text-main); padding:6px 9px; border-radius:4px; font-style:italic;">"${escapeHtml(data.notes)}"</div>` : ''}
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:6px; border-top:1px solid var(--border-color);">
-        <button class="btn-step" style="font-size:0.7rem; padding:3px 8px;" onclick="closeModal('shortlistModal'); openDetailsForRotation('${r.id}');">View Details &amp; Hospitals &rarr;</button>
-        <button style="border:none; background:none; color:#b91c1c; font-size:0.72rem; font-weight:700; cursor:pointer;" onclick="removeShortlistItem('${r.id}')">✕ Remove from Shortlist</button>
+        <button class="btn-step" style="font-size:0.7rem; padding:3px 8px;" data-action="view-details-shortlist" data-id="${r.id}">View Details &amp; Hospitals &rarr;</button>
+        <button style="border:none; background:none; color:#b91c1c; font-size:0.72rem; font-weight:700; cursor:pointer;" data-action="remove-shortlist-item" data-id="${r.id}">✕ Remove from Shortlist</button>
       </div>
     `;
-    body.appendChild(div);
+    frag.appendChild(div);
   });
 
+  body.replaceChildren(frag);
   updateOrielProgressBar();
 }
 
@@ -2233,11 +2398,7 @@ function removeShortlistItem(id) {
   localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
   orielCheckedSet.delete(id);
   localStorage.setItem('anaesth_oriel_checked', JSON.stringify([...orielCheckedSet]));
-  const d = getUserData(id);
-  d.rating = 0;
-  d.tier = 'UNSET';
-  d.notes = "";
-  localStorage.setItem(`anaesth_pref_${id}`, JSON.stringify(d));
+  setUserData(id, { rating: 0, tier: 'UNSET', notes: "" });
   updateShortlistBadge();
   applyFiltersAndSearch();
   if (currentViewMode === 'details' && currentSelectedId === id) {
@@ -2318,7 +2479,7 @@ function renderCompareModal() {
                     <span class="badge badge-code">${escapeHtml(r.code)}</span>
                     ${isPoolRotation(r) ? '<span class="badge badge-pool" style="font-size:0.68rem; padding:1px 5px;">Pool</span>' : ''}
                   </div>
-                  <button style="border:none; background:none; color:#b91c1c; font-size:0.75rem; font-weight:800; cursor:pointer;" onclick="toggleCompare('${r.id}'); renderCompareModal();">✕ Remove</button>
+                  <button style="border:none; background:none; color:#b91c1c; font-size:0.75rem; font-weight:800; cursor:pointer;" data-action="remove-compare" data-id="${r.id}">✕ Remove</button>
                 </div>
                 <div style="font-weight:800; font-size:0.88rem; margin-bottom:2px;">${escapeHtml(r.title)}</div>
                 <div style="font-size:0.72rem; color:var(--text-muted); font-weight:normal;">${escapeHtml(r.region)} • <b>${escapeHtml(r.places)} places</b></div>
@@ -2412,7 +2573,7 @@ function renderCompareModal() {
             <td class="compare-label-th">Action</td>
             ${rotations.map(r => `
               <td>
-                <button class="btn-top btn-export" style="width:100%; justify-content:center; padding:5px 8px; font-size:0.73rem;" onclick="closeModal('compareModal'); openDetailsForRotation('${r.id}');">
+                <button class="btn-top btn-export" style="width:100%; justify-content:center; padding:5px 8px; font-size:0.73rem;" data-action="view-details-compare" data-id="${r.id}">
                   Inspect Route &rarr;
                 </button>
               </td>
@@ -2447,19 +2608,26 @@ function lookupCustomPostcode() {
   const cleanPC = query.replace(/\s+/g, '');
   showToast("Looking up UK location...");
 
-  // Try free UK Postcodes.io API
+  // Try free UK Postcodes.io API (full postcode, then outward code fallback)
   fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(cleanPC)}`)
     .then(r => r.json())
     .then(data => {
       if (data.status === 200 && data.result) {
         saveCustomHomeBase(data.result.postcode, [data.result.latitude, data.result.longitude]);
       } else {
-        fallbackNominatim(query);
+        // Try outcode endpoint (e.g. CO4, CB2, NW1)
+        return fetch(`https://api.postcodes.io/outcodes/${encodeURIComponent(cleanPC)}`)
+          .then(r => r.json())
+          .then(outData => {
+            if (outData.status === 200 && outData.result) {
+              saveCustomHomeBase(outData.result.outcode.toUpperCase(), [outData.result.latitude, outData.result.longitude]);
+            } else {
+              fallbackNominatim(query);
+            }
+          });
       }
     })
-    .catch(() => {
-      fallbackNominatim(query);
-    });
+    .catch(() => fallbackNominatim(query));
 }
 
 function fallbackNominatim(query) {
@@ -2650,7 +2818,7 @@ function applyParsedBackup(parsed) {
   }
   if (parsed.ratings && typeof parsed.ratings === 'object') {
     Object.keys(parsed.ratings).forEach(k => {
-      localStorage.setItem(`anaesth_pref_${k}`, JSON.stringify(parsed.ratings[k]));
+      setUserData(k, parsed.ratings[k]);
     });
   }
   if (Array.isArray(parsed.shortlistOrder)) {
@@ -2727,14 +2895,15 @@ function checkForSharedLink() {
     if (parsed && (parsed.ratings || parsed.shortlistOrder)) {
       setTimeout(() => {
         const count = Object.keys(parsed.ratings || {}).length;
-        if (confirm(`A partner has shared their Anaesthetics rotation preferences (${count} rotations shortlisted).\n\nWould you like to import their ratings, tiers, and notes? (This will update your current local preferences)`)) {
+        const accepted = confirm(`A partner has shared their Anaesthetics rotation preferences (${count} rotations shortlisted).\n\nWould you like to import their ratings, tiers, and notes? (This will update your current local preferences)`);
+        if (accepted) {
           applyParsedBackup(parsed);
-          if (history.replaceState) {
-            history.replaceState(null, '', window.location.pathname + window.location.search);
-          } else {
-            window.location.hash = '';
-          }
           showToast("Partner preferences successfully loaded!");
+        }
+        if (history.replaceState) {
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+        } else {
+          window.location.hash = '';
         }
       }, 500);
     }
@@ -2869,6 +3038,62 @@ function setupModalBackdrops() {
   });
 }
 
+// Delegated event listener for all dynamic data-action controls
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.dataset.action;
+
+  // Prevent double-firing or premature execution: handled strictly by change listener
+  if (action === 'toggle-oriel-entered' || action === 'change-rank-input') {
+    return;
+  }
+
+  if (action === 'reset-all-filters') {
+    resetAllFilters();
+  } else if (action === 'toggle-compare-card') {
+    e.stopPropagation();
+    toggleCompare(el.dataset.id);
+  } else if (action === 'remove-compare') {
+    toggleCompare(el.dataset.id);
+    renderCompareModal();
+  } else if (action === 'view-details-compare') {
+    closeModal('compareModal');
+    openDetailsForRotation(el.dataset.id);
+  } else if (action === 'open-hospital-profile') {
+    openHospitalProfile(el.dataset.hosp);
+  } else if (action === 'focus-hospital') {
+    if (e.target.tagName === 'A') return;
+    focusHospitalByName(el.dataset.hosp);
+  } else if (action === 'dive-in') {
+    diveInFromPopup(el.dataset.id);
+  } else if (action === 'dive-in-modal') {
+    closeModal('hospitalProfileModal');
+    diveInFromPopup(el.dataset.id);
+  } else if (action === 'copy-oriel-code') {
+    copyOrielCode(el.dataset.code);
+  } else if (action === 'move-shortlist') {
+    moveShortlistItem(parseInt(el.dataset.index, 10), parseInt(el.dataset.dir, 10));
+  } else if (action === 'view-details-shortlist') {
+    closeModal('shortlistModal');
+    openDetailsForRotation(el.dataset.id);
+  } else if (action === 'remove-shortlist-item') {
+    removeShortlistItem(el.dataset.id);
+  }
+});
+
+document.addEventListener('change', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.dataset.action;
+
+  if (action === 'toggle-oriel-entered') {
+    toggleOrielEntered(el.dataset.id);
+  } else if (action === 'change-rank-input') {
+    changeRankInput(parseInt(el.dataset.index, 10), el.value);
+  }
+});
+
 // 20. BROWSER HISTORY & DIRECT LINK ROUTING
 window.addEventListener('hashchange', () => {
   if (window.location.hash.startsWith('#share=')) {
@@ -2912,6 +3137,8 @@ map.on('click', () => {
 
 // 21. APPLICATION ENTRY POINT
 window.onload = () => {
+  initRotationMetadata();
+  initUserPrefsCache();
   applyTheme();
   populateRegionDropdown();
   populateDropdown(ROTATIONS_DATA);

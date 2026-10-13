@@ -1,5 +1,17 @@
-// ============================================================================// ST4 Anaesthetics National Placement Data// ============================================================================
-const HOSPITALS = {  "Addenbrooke's Hospital, Cambridge": {
+const APP_CONFIG = {
+  storagePrefix: "anaesth_",
+  appTitle: "ST4 Anaesthetics National Rotation & Commute Explorer",
+  cycleName: "Aug 2026 / Feb 2027",
+  defaultCenter: [52.8, -1.8],
+  defaultZoom: 6
+};
+window.APP_CONFIG = APP_CONFIG;
+
+// ============================================================================
+// ST4 Anaesthetics National Placement Data
+// ============================================================================
+const HOSPITALS = {
+  "Addenbrooke's Hospital, Cambridge": {
     coords: [52.1751, 0.1408],
     region: "East of England",
     type: "Tertiary",
@@ -613,7 +625,7 @@ const HOSPITALS = {  "Addenbrooke's Hospital, Cambridge": {
   },
   "The Walton Centre, Liverpool": {
     coords: [53.4752, -2.9421],
-    region: "Wales",
+    region: "North West",
     type: "Tertiary",
     epr: "Medway EPR / Electronic Clinical Records",
     parking: "Staff car parking permits available on induction; adjacent to Aintree MTC",
@@ -860,6 +872,7 @@ const ROTATIONS_DATA = [
   // ==================== WESSEX ====================
   {
     id: "wessex-west", code: "Wessex - West (Posts 1, 2 & 3)", region: "Wessex", title: "Wessex West Rotational Scheme", places: "7 total",
+    isPool: true,
     hubs: {
       driver: { name: "Wimborne Minster / Ringwood", coords: [50.8000, -1.9860], desc: "A31/A338. Commute: 20m to Poole/Bournemouth, 32m to Southampton, 40m to Salisbury/Dorchester.", alert: "Central base across Dorset and Hampshire." },
       transit: { name: "Bournemouth Central / Poole", coords: [50.7262, -1.8662], desc: "Frequent m1/m2 buses connect Poole and Bournemouth 24/7; direct trains to Southampton (30m) and Dorchester (40m).", alert: "⚠️ Note: Salisbury requires connecting hospital bus from station." }
@@ -874,6 +887,7 @@ const ROTATIONS_DATA = [
   },
   {
     id: "wessex-east", code: "Wessex - East (Posts 4, 5 & 6)", region: "Wessex", title: "Wessex East Rotational Scheme", places: "7 total",
+    isPool: true,
     hubs: {
       driver: { name: "Winchester", coords: [51.0632, -1.3080], desc: "M3/M27/A34 junction. Driving: 18m to Southampton General, 28m to Portsmouth (QA), 22m to Basingstoke.", alert: "Premier driving base for Wessex East." },
       transit: { name: "Eastleigh / Southampton Central", coords: [50.9682, -1.3532], desc: "Eastleigh connects directly by train to Basingstoke (22m), Winchester (12m), and Portsmouth (40m); Unilink bus to Southampton General.", alert: "Southampton General requires bus connection from station." }
@@ -1742,6 +1756,7 @@ const ROTATIONS_DATA = [
   // ==================== WEST MIDLANDS ====================
   {
     id: "wmid-1-warwickshire", code: "West Midlands - ST4 - Feb - 1", region: "West Midlands", title: "Warwickshire Scheme", places: "5",
+    isPool: true,
     hubs: {
       driver: { name: "Coventry / Kenilworth / Warwick", coords: [52.3802, -1.5502], desc: "A46 corridor. Commute: 15m to UHCW Coventry, 15m to Warwick Hospital.", alert: "A46 dual carriageway connects all Warwickshire hospitals." },
       transit: { name: "Coventry Central / Leamington Spa", coords: [52.4082, -1.5102], desc: "Frequent direct buses (9, 9A) connect Coventry station to UHCW; direct train to Warwick.", alert: "UHCW has extensive bus links from Coventry railway station." }
@@ -1815,6 +1830,7 @@ const ROTATIONS_DATA = [
   // ==================== YORKSHIRE & THE HUMBER ====================
   {
     id: "york-north-east-1", code: "Yorkshire - North / East 1", region: "Yorkshire and the Humber", title: "Hull, York, Scarborough & Scunthorpe", places: "6",
+    isPool: true,
     hubs: {
       driver: { name: "Beverley / York East", coords: [53.8422, -0.4282], desc: "A1079/A64 corridor linking York Hospital and Hull Royal Infirmary.", alert: "Car recommended due to rural East Yorkshire distances." },
       transit: { name: "York City Centre", coords: [53.9582, -1.0902], desc: "York Hospital is walking distance (15m) from centre; direct trains to Hull (1h) and Scarborough (50m).", alert: "York is a major national rail interchange." }
@@ -1828,6 +1844,7 @@ const ROTATIONS_DATA = [
   },
   {
     id: "york-south-2-3e", code: "Yorkshire - South 2 & 3E", region: "Yorkshire and the Humber", title: "South Yorkshire Scheme (Sheffield, Doncaster, Barnsley, Rotherham)", places: "8 total",
+    isPool: true,
     hubs: {
       driver: { name: "Sheffield (West) / Rotherham", coords: [53.3812, -1.4682], desc: "M1 corridor connecting Northern General (Sheffield), Doncaster Royal, Rotherham, and Barnsley.", alert: "M1 enables 20-30m driving to all acute sites." },
       transit: { name: "Sheffield City Centre", coords: [53.3782, -1.4622], desc: "Supertram and buses link station directly to Northern General Hospital; trains to Doncaster (22m) and Barnsley (20m).", alert: "Extensive tram and bus lines for hospital staff." }
@@ -1841,6 +1858,7 @@ const ROTATIONS_DATA = [
   },
   {
     id: "york-west-3-4e", code: "Yorkshire - West 3 & 4E", region: "Yorkshire and the Humber", title: "West Yorkshire Scheme (Leeds, Bradford, Wakefield)", places: "9 total",
+    isPool: true,
     hubs: {
       driver: { name: "Leeds (North / Horsforth)", coords: [53.8342, -1.6422], desc: "Ring road access. Commute: 15m to Leeds General Infirmary, 22m to Bradford Royal, 25m to Pinderfields.", alert: "Avoids inner-city congestion." },
       transit: { name: "Leeds City Centre", coords: [53.7952, -1.5482], desc: "12m walk or free city bus to Leeds General Infirmary; frequent 20m trains to Bradford and Wakefield.", alert: "High frequency West Yorkshire rail network." }
@@ -1855,6 +1873,7 @@ const ROTATIONS_DATA = [
   // ==================== NORTH WEST & NORTH EAST ====================
   {
     id: "nw-cheshire-mersey", code: "North West - Cheshire & Mersey 1 & 1E", region: "North West", title: "Cheshire & Merseyside Scheme", places: "13 total",
+    isPool: true,
     hubs: {
       driver: { name: "Liverpool (South / Aigburth) / Chester", coords: [53.3702, -2.9302], desc: "M62/M53/M56. Central driving location across Merseyside and Cheshire.", alert: "Fast road access via Queensway/Kingsway tunnels." },
       transit: { name: "Liverpool City Centre", coords: [53.4092, -2.9642], desc: "Walking distance to Royal Liverpool; Merseyrail network to Walton and Arrowe Park.", alert: "Merseyrail connects all hospital sites." }
@@ -1866,6 +1885,7 @@ const ROTATIONS_DATA = [
   },
   {
     id: "nw-gt-manchester", code: "North West - Gt Manchester 2 & 2E", region: "North West", title: "Greater Manchester Scheme", places: "16 total",
+    isPool: true,
     hubs: {
       driver: { name: "South Manchester (Didsbury / Altrincham)", coords: [53.4102, -2.2302], desc: "M60/M56. Commute: 20m to MRI, 15m to Wythenshawe, 22m to Salford Royal.", alert: "Good parking options in South Manchester." },
       transit: { name: "Manchester City Centre (Oxford Road)", coords: [53.4732, -2.2412], desc: "Oxford Road is walking distance to MRI; Metrolink tram connects to Salford Royal and Wythenshawe.", alert: "Metrolink tram makes non-driving commutes very easy." }
@@ -1876,6 +1896,7 @@ const ROTATIONS_DATA = [
   },
   {
     id: "north-east-1", code: "North East - 1", region: "North East", title: "North East & North Cumbria Scheme", places: "4",
+    isPool: true,
     hubs: {
       driver: { name: "Newcastle upon Tyne / Durham", coords: [54.9782, -1.6172], desc: "A1(M) spine connecting Newcastle (RVI, Freeman), Sunderland, and James Cook (Middlesbrough).", alert: "Straightforward highway links north and south." },
       transit: { name: "Newcastle City Centre (Haymarket)", coords: [54.9782, -1.6142], desc: "Walk (8m) to Royal Victoria Infirmary (RVI); Tyne & Wear Metro connects directly to Freeman Hospital and Sunderland.", alert: "Tyne & Wear Metro offers rapid transit to hospitals." }
@@ -1885,10 +1906,6 @@ const ROTATIONS_DATA = [
     ]
   }
 ];
-
-function getRotationHospitalBases(rot) {
-  return [...new Set(rot.stages.map(s => s.hosp))];
-}
 
 const REGION_COLORS = {
   "East of England": "#ea580c",
@@ -1911,4 +1928,3 @@ const REGION_COLORS = {
 window.HOSPITALS = HOSPITALS;
 window.REGION_COLORS = REGION_COLORS;
 window.ROTATIONS_DATA = ROTATIONS_DATA;
-window.getRotationHospitalBases = getRotationHospitalBases;
