@@ -3,7 +3,7 @@
  * Provides offline resilience for hospital basements, theatres, and poor connectivity environments.
  */
 
-const CACHE_NAME = 'st4-explorer-v3';
+const CACHE_NAME = 'st4-explorer-v4';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -42,12 +42,14 @@ self.addEventListener('fetch', (event) => {
       caches.open('st4-map-tiles').then((cache) => {
         return cache.match(event.request).then((cachedResponse) => {
           if (cachedResponse) return cachedResponse;
-          return fetch(event.request).then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              cache.put(event.request, networkResponse.clone());
-            }
-            return networkResponse;
-          });
+          return fetch(event.request)
+            .then((networkResponse) => {
+              if (networkResponse && networkResponse.status === 200) {
+                cache.put(event.request, networkResponse.clone());
+              }
+              return networkResponse;
+            })
+            .catch(() => cachedResponse);
         });
       })
     );
@@ -77,22 +79,29 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => caches.match(event.request))
+        .catch(() => caches.match(event.request, { ignoreSearch: true }))
     );
+    return;
+  }
+
+  // Only cache same-origin assets or unpkg libraries (never cache live geocoding API calls)
+  if (url.origin !== self.location.origin && !url.hostname.includes('unpkg.com')) {
     return;
   }
 
   // Other assets (CSS, icons, vendor libraries): Stale-while-revalidate with cache fallback
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, networkResponse.clone());
-          });
-        }
-        return networkResponse;
-      }).catch(() => cachedResponse);
+    caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
+      const fetchPromise = fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, networkResponse.clone());
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => cachedResponse);
       return cachedResponse || fetchPromise;
     })
   );

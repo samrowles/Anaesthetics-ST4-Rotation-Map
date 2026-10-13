@@ -51,7 +51,7 @@
   <div style="width:32px; height:4px; background:var(--border-subtle); border-radius:999px; margin:0 auto 6px auto;"></div>
   <div style="display:flex; justify-content:space-between; align-items:center;">
     <strong id="miniCardTitle" style="font-size:0.85rem; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70%;">National Overview</strong>
-    <span id="miniCardSpread" class="badge badge-code" style="font-size:0.7rem;">76 Posts</span>
+    <span id="miniCardSpread" class="badge badge-code" style="font-size:0.7rem;">66 Posts</span>
   </div>
   <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px; display:flex; justify-content:space-between;" id="miniCardHub">
     <span>Tap any pin on map or open list</span>
@@ -123,11 +123,12 @@
     <!-- Row 3: Quick Filter Pills -->
     <div class="filter-pills-row">
       <div class="filter-pills">
-        <button class="filter-pill-btn active" id="pillAll" onclick="setQuickFilter('ALL')">All (<span id="listCountBadge">76</span>)</button>
+        <button class="filter-pill-btn active" id="pillAll" onclick="setQuickFilter('ALL')">All (<span id="listCountBadge">66</span>)</button>
         <button class="filter-pill-btn" id="pillStarred" onclick="setQuickFilter('STARRED')">Starred</button>
         <button class="filter-pill-btn" id="pillTier1" onclick="setQuickFilter('TIER1')">Tier 1</button>
         <button class="filter-pill-btn" id="pillTier2" onclick="setQuickFilter('TIER2')">Tier 2</button>
         <button class="filter-pill-btn" id="pillTier3" onclick="setQuickFilter('TIER3')">Tier 3</button>
+        <button class="filter-pill-btn" id="pillExcluded" onclick="setQuickFilter('EXCLUDED')">Excluded</button>
         <button class="filter-pill-btn" id="pillLowSpread" onclick="setQuickFilter('LOW_SPREAD')">&le; 25 mi</button>
       </div>
       <button class="btn-reset-filters" onclick="resetAllFilters()" title="Reset all search queries and filters">↺</button>
@@ -332,10 +333,10 @@
 </div>
 
 <!-- Modal 1: Starred Shortlist, Oriel Ranking & Submission Companion -->
-<div class="modal-overlay" id="shortlistModal" role="dialog" aria-modal="true">
+<div class="modal-overlay" id="shortlistModal" role="dialog" aria-modal="true" aria-labelledby="shortlistModalHeading">
   <div class="modal-content modal-content-wide">
     <div class="modal-header">
-      <h2>My Shortlist &amp; Oriel Preferencing Companion</h2>
+      <h2 id="shortlistModalHeading">My Shortlist &amp; Oriel Preferencing Companion</h2>
       <button class="btn-step" onclick="closeModal('shortlistModal')" aria-label="Close modal">✕</button>
     </div>
     <div class="modal-body">
@@ -374,10 +375,10 @@
 </div>
 
 <!-- Modal 2: Side-by-Side Comparison Modal -->
-<div class="modal-overlay" id="compareModal" role="dialog" aria-modal="true">
+<div class="modal-overlay" id="compareModal" role="dialog" aria-modal="true" aria-labelledby="compareModalHeading">
   <div class="modal-content modal-content-wide">
     <div class="modal-header">
-      <h2>Side-by-Side Rotation Comparison</h2>
+      <h2 id="compareModalHeading">Side-by-Side Rotation Comparison</h2>
       <button class="btn-step" onclick="closeModal('compareModal')" aria-label="Close modal">✕</button>
     </div>
     <div class="modal-body">
@@ -387,10 +388,10 @@
 </div>
 
 <!-- Modal 3: Custom Home Base Calculator -->
-<div class="modal-overlay" id="customBaseModal" role="dialog" aria-modal="true">
+<div class="modal-overlay" id="customBaseModal" role="dialog" aria-modal="true" aria-labelledby="customBaseModalHeading">
   <div class="modal-content" style="max-width:480px;">
     <div class="modal-header">
-      <h2>Set My Custom Home / Commute Base</h2>
+      <h2 id="customBaseModalHeading">Set My Custom Home / Commute Base</h2>
       <button class="btn-step" onclick="closeModal('customBaseModal')" aria-label="Close modal">✕</button>
     </div>
     <div class="modal-body">
@@ -414,10 +415,10 @@
 </div>
 
 <!-- Modal 4: Data Sync / Transfer (JSON + File Import/Export) -->
-<div class="modal-overlay" id="syncModal" role="dialog" aria-modal="true">
+<div class="modal-overlay" id="syncModal" role="dialog" aria-modal="true" aria-labelledby="syncModalHeading">
   <div class="modal-content">
     <div class="modal-header">
-      <h2>Data Management &amp; Backup</h2>
+      <h2 id="syncModalHeading">Data Management &amp; Backup</h2>
       <button class="btn-step" onclick="closeModal('syncModal')" aria-label="Close modal">✕</button>
     </div>
     <div class="modal-body">
@@ -465,7 +466,7 @@
 </div>
 
 <!-- Modal 5: Hospital Ground Truth Profile Modal -->
-<div class="modal-overlay" id="hospitalProfileModal" role="dialog" aria-modal="true">
+<div class="modal-overlay" id="hospitalProfileModal" role="dialog" aria-modal="true" aria-labelledby="modalHospName">
   <div class="modal-content" style="max-width:540px;">
     <div class="modal-header">
       <div style="display:flex; align-items:center; gap:8px;">

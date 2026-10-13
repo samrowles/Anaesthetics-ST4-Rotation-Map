@@ -642,6 +642,13 @@ select:focus, input:focus, textarea:focus {
   box-shadow: 0 0 0 1px var(--primary);
 }
 
+.rotation-list-card.excluded-card {
+  opacity: 0.55;
+}
+.rotation-list-card.excluded-card:hover {
+  opacity: 0.9;
+}
+
 .card-list-title {
   font-size: 0.9rem;
   font-weight: 800;

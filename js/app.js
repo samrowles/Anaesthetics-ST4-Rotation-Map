@@ -4,7 +4,18 @@
  * ============================================================================
  */
 
-// 1. DEFENSIVE DATA INTEGRITY CHECK
+// 1. CONFIGURATION & DEFENSIVE DATA INTEGRITY CHECK
+const CONFIG = (typeof window !== 'undefined' && window.APP_CONFIG) || (typeof APP_CONFIG !== 'undefined' ? APP_CONFIG : {
+  storagePrefix: "anaesth_",
+  appTitle: "ST4 Anaesthetics National Rotation & Commute Explorer",
+  cycleName: "Aug 2026 / Feb 2027",
+  defaultCenter: [52.8, -1.8],
+  defaultZoom: 6
+});
+const STORAGE_PREFIX = CONFIG.storagePrefix || 'anaesth_';
+const DEFAULT_MAP_CENTER = CONFIG.defaultCenter || [52.8, -1.8];
+const DEFAULT_MAP_ZOOM = CONFIG.defaultZoom || 6;
+
 if (typeof ROTATIONS_DATA === 'undefined' || typeof HOSPITALS === 'undefined') {
   alert("Error: data.js failed to load. Please verify that data.js is in the same directory as index.html.");
 }
@@ -105,7 +116,7 @@ const map = L.map('map', {
     [65.0, 15.0]
   ],
   maxBoundsViscosity: 0.2
-}).setView([52.8, -1.8], 6);
+}).setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
 
 const osmStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
@@ -130,8 +141,11 @@ const backgroundHospitalsGroup = L.layerGroup().addTo(map);
 const activeRouteGroup = L.layerGroup().addTo(map);
 let activeHospitalMarkers = {};
 
+// Fast Lookup Maps
+const hospitalRotationsMap = new Map();
+
 // 4. THEME MANAGEMENT (Auto OS detection with manual override)
-let currentThemeMode = localStorage.getItem('anaesth_theme_pref') || 'auto'; // 'auto', 'dark', 'light'
+let currentThemeMode = localStorage.getItem(`${STORAGE_PREFIX}theme_pref`) || 'auto'; // 'auto', 'dark', 'light'
 
 function getEffectiveTheme() {
   if (currentThemeMode === 'dark') return 'dark';
@@ -174,7 +188,7 @@ function cycleTheme() {
   } else {
     currentThemeMode = 'auto';
   }
-  localStorage.setItem('anaesth_theme_pref', currentThemeMode);
+  localStorage.setItem(`${STORAGE_PREFIX}theme_pref`, currentThemeMode);
   applyTheme();
 
   const label = currentThemeMode === 'auto'
@@ -195,7 +209,7 @@ if (window.matchMedia) {
 // 4. APPLICATION STATE
 let currentSelectedId = null;
 let currentCommuteMode = 'driver'; // 'driver', 'transit', or 'custom'
-let currentShiftTiming = localStorage.getItem('anaesth_shift_timing') || '0730'; // '0730' (Arrive 07:30), '1800' (Leave 18:00), or 'offpeak'
+let currentShiftTiming = localStorage.getItem(`${STORAGE_PREFIX}shift_timing`) || '0730'; // '0730' (Arrive 07:30), '1800' (Leave 18:00), or 'offpeak'
 let currentViewMode = 'list';       // 'list' (feed + national map) or 'details' (inspector)
 let activeQuickFilter = 'ALL';
 let activeRegionFilter = 'ALL';
@@ -217,10 +231,10 @@ function safeGetStorageJson(key, defaultVal) {
   }
 }
 
-let compareList = safeGetStorageJson('anaesth_compare_list', []);
-let shortlistOrder = safeGetStorageJson('anaesth_shortlist_order', []);
-let customHomeBase = safeGetStorageJson('anaesth_custom_home', null);
-let orielCheckedSet = new Set(safeGetStorageJson('anaesth_oriel_checked', []));
+let compareList = safeGetStorageJson(`${STORAGE_PREFIX}compare_list`, []);
+let shortlistOrder = safeGetStorageJson(`${STORAGE_PREFIX}shortlist_order`, []);
+let customHomeBase = safeGetStorageJson(`${STORAGE_PREFIX}custom_home`, null);
+let orielCheckedSet = new Set(safeGetStorageJson(`${STORAGE_PREFIX}oriel_checked`, []));
 
 // 5. TOAST NOTIFICATIONS
 let toastTimer = null;
@@ -242,7 +256,7 @@ function initUserPrefsCache() {
     ROTATIONS_DATA.forEach(r => {
       let pref = null;
       try {
-        const raw = localStorage.getItem(`anaesth_pref_${r.id}`);
+        const raw = localStorage.getItem(`${STORAGE_PREFIX}pref_${r.id}`);
         if (raw) pref = JSON.parse(raw);
       } catch (e) {}
       userPrefsCache.set(r.id, {
@@ -259,7 +273,7 @@ function getUserData(id) {
   let data = userPrefsCache.get(id);
   if (!data) {
     try {
-      const raw = localStorage.getItem(`anaesth_pref_${id}`);
+      const raw = localStorage.getItem(`${STORAGE_PREFIX}pref_${id}`);
       if (raw) {
         const parsed = JSON.parse(raw);
         data = {
@@ -281,11 +295,16 @@ function setUserData(id, partialUpdate) {
   Object.assign(current, partialUpdate);
   userPrefsCache.set(id, current);
   try {
-    localStorage.setItem(`anaesth_pref_${id}`, JSON.stringify(current));
+    localStorage.setItem(`${STORAGE_PREFIX}pref_${id}`, JSON.stringify(current));
   } catch (e) {
     console.error("Failed to persist user preference to localStorage", e);
   }
   return current;
+}
+
+// User preference check: returns true if the rotation has any rating, notes, or non-default tier (including EXCLUDE)
+function hasUserPreference(d) {
+  return !!d && (d.rating > 0 || (d.tier && d.tier !== 'UNSET') || (d.notes && d.notes.trim() !== ''));
 }
 
 // Shortlist membership: a rotation is shortlisted once it has a rating, any preference tier (excluding EXCLUDE), or notes.
@@ -303,15 +322,14 @@ function syncShortlistOrder() {
   const ordered = (Array.isArray(shortlistOrder) ? shortlistOrder : []).filter((id, i, arr) => activeSet.has(id) && arr.indexOf(id) === i);
   active.forEach(id => { if (!ordered.includes(id)) ordered.push(id); });
   shortlistOrder = ordered;
-  localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
+  localStorage.setItem(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
   return shortlistOrder;
 }
 
 // 6. ROTATION METRICS & DATA HELPERS
 function isPoolRotation(rot) {
-  if (!rot) return false;
-  if (typeof rot.isPool === 'boolean') return rot.isPool;
-  return false;
+  if (!rot || !rot.isPool) return false;
+  return Boolean(Array.isArray(rot.stages) && rot.stages.length > 1);
 }
 
 // 6a. Overview Line Styling & Corridor Separation Helpers
@@ -422,7 +440,27 @@ function computeRotationTrainingSplit(rot) {
  */
 function initRotationMetadata() {
   if (typeof ROTATIONS_DATA === 'undefined' || !Array.isArray(ROTATIONS_DATA)) return;
+
+  hospitalRotationsMap.clear();
+  if (typeof HOSPITALS !== 'undefined') {
+    Object.keys(HOSPITALS).forEach(hName => {
+      hospitalRotationsMap.set(hName, []);
+    });
+  }
+
   ROTATIONS_DATA.forEach(rot => {
+    (rot.stages || []).forEach(stg => {
+      if (stg.hosp) {
+        if (!hospitalRotationsMap.has(stg.hosp)) {
+          hospitalRotationsMap.set(stg.hosp, []);
+        }
+        const arr = hospitalRotationsMap.get(stg.hosp);
+        if (!arr.includes(rot)) {
+          arr.push(rot);
+        }
+      }
+    });
+
     const bases = computeRotationHospitalBases(rot);
     const split = computeRotationTrainingSplit(rot);
     const lineStyle = computeRotationLineStyle(rot);
@@ -469,10 +507,6 @@ function getRotationLineStyle(rot) {
   if (rot._meta && rot._meta.lineStyle) return rot._meta.lineStyle;
   return computeRotationLineStyle(rot);
 }
-
-// Initialise caches immediately
-initRotationMetadata();
-initUserPrefsCache();
 
 function buildCorridorUsageRegistry(rotationsList) {
   const registry = new Map();
@@ -626,16 +660,6 @@ function getRotationMaxDistance(rot) {
   const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
   if (!coords.length) return 0;
 
-  // When custom home base is active, calculate commute from custom base to furthest hospital in scheme
-  if (currentCommuteMode === 'custom' && customHomeBase && customHomeBase.coords) {
-    let maxDist = 0;
-    coords.forEach(c => {
-      const d = calcDistanceMiles(customHomeBase.coords, c);
-      if (d > maxDist) maxDist = d;
-    });
-    return maxDist;
-  }
-
   let maxDist = 0;
   for (let i = 0; i < coords.length; i++) {
     for (let j = i + 1; j < coords.length; j++) {
@@ -660,22 +684,49 @@ function getRotationMaxDistance(rot) {
   return maxDist;
 }
 
+function getRotationMaxCommuteFromBase(rot) {
+  if (!rot || !rot.stages) return 0;
+  const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
+  if (!coords.length) return 0;
+
+  let baseCoords = null;
+  if (currentCommuteMode === 'custom' && customHomeBase && customHomeBase.coords) {
+    baseCoords = customHomeBase.coords;
+  } else if (currentCommuteMode === 'transit' && rot.hubs && rot.hubs.transit && rot.hubs.transit.coords) {
+    baseCoords = rot.hubs.transit.coords;
+  } else if (rot.hubs && rot.hubs.driver && rot.hubs.driver.coords) {
+    baseCoords = rot.hubs.driver.coords;
+  }
+
+  if (!baseCoords) {
+    return getRotationMaxDistance(rot);
+  }
+
+  let maxCommute = 0;
+  coords.forEach(c => {
+    const d = calcDistanceMiles(baseCoords, c);
+    if (d > maxCommute) maxCommute = d;
+  });
+  return maxCommute;
+}
+
 /**
  * Consolidated commute summary for any rotation.
  * Computes max distance spread, morning rush commute (07:30), evening commute (18:00),
  * active shift time based on selected timing, badge styling class, and short timing label.
  */
 function getRotationCommuteSummary(rot, timing = currentShiftTiming) {
-  if (!rot) return { maxDist: 0, mornMins: 0, eveMins: 0, activeMins: 0, badgeClass: 'badge-spread-low', timingShort: '07:30' };
+  if (!rot) return { maxDist: 0, commuteDist: 0, mornMins: 0, eveMins: 0, activeMins: 0, badgeClass: 'badge-spread-low', timingShort: '07:30' };
   const maxDist = getRotationMaxDistance(rot);
-  const mornMins = calcDrivingTimeMinutes(maxDist, rot.region, '0730');
-  const eveMins = calcDrivingTimeMinutes(maxDist, rot.region, '1800');
-  const activeMins = timing === '1800' ? eveMins : (timing === 'offpeak' ? calcDrivingTimeMinutes(maxDist, rot.region, 'offpeak') : mornMins);
+  const commuteDist = getRotationMaxCommuteFromBase(rot);
+  const mornMins = calcDrivingTimeMinutes(commuteDist, rot.region, '0730');
+  const eveMins = calcDrivingTimeMinutes(commuteDist, rot.region, '1800');
+  const activeMins = timing === '1800' ? eveMins : (timing === 'offpeak' ? calcDrivingTimeMinutes(commuteDist, rot.region, 'offpeak') : mornMins);
   const timingShort = timing === '1800' ? '18:00' : (timing === '0730' ? '07:30' : 'off-peak');
   let badgeClass = 'badge-spread-low';
   if (activeMins > 50) badgeClass = 'badge-spread-high';
   else if (activeMins > 35) badgeClass = 'badge-spread-med';
-  return { maxDist, mornMins, eveMins, activeMins, badgeClass, timingShort };
+  return { maxDist, commuteDist, mornMins, eveMins, activeMins, badgeClass, timingShort };
 }
 
 
@@ -845,7 +896,8 @@ function renderRotationCardsFeed(list) {
     }
 
     const card = document.createElement('div');
-    card.className = `rotation-list-card ${isSelected ? 'active-card' : ''}`;
+    const isExcluded = userData.tier === 'EXCLUDE';
+    card.className = `rotation-list-card ${isSelected ? 'active-card' : ''} ${isExcluded ? 'excluded-card' : ''}`.trim();
     card.id = `feed-card-${r.id}`;
     card.onclick = (e) => {
       if (e.target.closest('button')) return;
@@ -1020,6 +1072,7 @@ function setRating(val, isClick = false) {
 
 // 9. VIEW MODE & COMMUTE MODE SWITCHING
 function showListView() {
+  flushPendingNotes();
   currentViewMode = 'list';
   const listView = document.getElementById('listViewContainer');
   const inspectorCard = document.getElementById('inspectorCard');
@@ -1046,13 +1099,13 @@ function dismissTipBanner() {
   const banner = document.getElementById('appTipBanner');
   if (banner) banner.style.display = 'none';
   try {
-    localStorage.setItem('anaesth_tip_dismissed', 'true');
+    localStorage.setItem(`${STORAGE_PREFIX}tip_dismissed`, 'true');
   } catch (e) {}
 }
 
 function checkTipBannerStatus() {
   try {
-    if (localStorage.getItem('anaesth_tip_dismissed') === 'true') {
+    if (localStorage.getItem(`${STORAGE_PREFIX}tip_dismissed`) === 'true') {
       const banner = document.getElementById('appTipBanner');
       if (banner) banner.style.display = 'none';
     }
@@ -1096,7 +1149,7 @@ function setCommuteMode(mode) {
 
 function setShiftTiming(timing, showFeedback = true) {
   currentShiftTiming = timing || '0730';
-  localStorage.setItem('anaesth_shift_timing', currentShiftTiming);
+  localStorage.setItem(`${STORAGE_PREFIX}shift_timing`, currentShiftTiming);
 
   const btnMorn = document.getElementById('btnTimingMorning');
   const btnEve = document.getElementById('btnTimingEvening');
@@ -1200,7 +1253,7 @@ function openHospitalProfile(hospName) {
   typeIcon.className = `badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}`;
 
   // Identify all rotations in database that include this hospital
-  const linked = ROTATIONS_DATA.filter(r => r.stages.some(s => s.hosp === hospName));
+  const linked = hospitalRotationsMap.get(hospName) || [];
 
   body.innerHTML = `
     <div class="hosp-profile-summary">
@@ -1824,14 +1877,14 @@ function renderAllPlacements({ fitView = true } = {}) {
   Object.keys(HOSPITALS).forEach(hName => {
     const h = HOSPITALS[hName];
 
+    const linkedRotations = hospitalRotationsMap.get(hName) || [];
+
     if (activeRegionFilter !== "ALL" && h.region !== activeRegionFilter) {
-      const linkedInRegion = ROTATIONS_DATA.filter(r => r.region === activeRegionFilter && r.stages.some(s => s.hosp === hName));
+      const linkedInRegion = linkedRotations.filter(r => r.region === activeRegionFilter);
       if (!linkedInRegion.length) return;
     }
 
     allPoints.push(h.coords);
-
-    const linkedRotations = ROTATIONS_DATA.filter(r => r.stages.some(s => s.hosp === hName));
     const regColor = regionColorsMap[h.region] || "#0284c7";
 
     const linkedHtml = linkedRotations.length ? 
@@ -1881,10 +1934,10 @@ function renderAllPlacements({ fitView = true } = {}) {
   });
 
   if (fitView && allPoints.length > 0) {
-    if (activeRegionFilter === "ALL") {
-      map.setView([52.8, -1.8], 6);
-    } else {
+    if (activeRegionFilter !== "ALL") {
       map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50], maxZoom: 10 });
+    } else {
+      map.setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
     }
   }
 }
@@ -1924,7 +1977,8 @@ function refreshAfterFilterChange(fitView = false) {
 
 const QUICK_FILTER_PILLS = {
   ALL: 'pillAll', STARRED: 'pillStarred', TIER1: 'pillTier1',
-  TIER2: 'pillTier2', TIER3: 'pillTier3', LOW_SPREAD: 'pillLowSpread'
+  TIER2: 'pillTier2', TIER3: 'pillTier3', LOW_SPREAD: 'pillLowSpread',
+  EXCLUDED: 'pillExcluded'
 };
 
 function updateQuickFilterPills() {
@@ -2014,6 +2068,8 @@ function applyFiltersAndSearch({ fitView = false } = {}) {
     list = list.filter(r => getUserData(r.id).tier === 'TIER3');
   } else if (activeQuickFilter === 'LOW_SPREAD') {
     list = list.filter(r => getRotationMaxDistance(r) <= 25);
+  } else if (activeQuickFilter === 'EXCLUDED') {
+    list = list.filter(r => getUserData(r.id).tier === 'EXCLUDE');
   }
 
   // Search Filter
@@ -2049,6 +2105,7 @@ function applyFiltersAndSearch({ fitView = false } = {}) {
 
 // 13. SHORTLIST, REORDERING & ORIEL SUBMISSION COMPANION
 function openShortlistModal() {
+  flushPendingNotes();
   renderShortlistModal();
   document.getElementById('shortlistModal').style.display = 'flex';
 }
@@ -2087,7 +2144,7 @@ function toggleOrielEntered(id) {
   } else {
     orielCheckedSet.add(id);
   }
-  localStorage.setItem('anaesth_oriel_checked', JSON.stringify([...orielCheckedSet]));
+  localStorage.setItem(`${STORAGE_PREFIX}oriel_checked`, JSON.stringify([...orielCheckedSet]));
   updateOrielProgressBar();
 
   const card = document.getElementById(`shortlist-card-${id}`);
@@ -2108,7 +2165,7 @@ function resetOrielChecks() {
   }
   if (confirm("Reset all 'Entered in Oriel' checkboxes?")) {
     orielCheckedSet.clear();
-    localStorage.removeItem('anaesth_oriel_checked');
+    localStorage.removeItem(`${STORAGE_PREFIX}oriel_checked`);
     renderShortlistModal();
     showToast("Oriel checkmarks reset");
   }
@@ -2327,7 +2384,7 @@ function renderShortlistModal() {
       if (fromIdx !== toIdx) {
         const item = shortlistOrder.splice(fromIdx, 1)[0];
         shortlistOrder.splice(toIdx, 0, item);
-        localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
+        localStorage.setItem(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
         renderShortlistModal();
       }
     };
@@ -2385,7 +2442,7 @@ function changeRankInput(fromIdx, newRankVal) {
   const toIdx = targetRank - 1;
   const item = shortlistOrder.splice(fromIdx, 1)[0];
   shortlistOrder.splice(toIdx, 0, item);
-  localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
+  localStorage.setItem(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
   renderShortlistModal();
 }
 
@@ -2395,7 +2452,7 @@ function moveShortlistItem(index, dir) {
   const temp = shortlistOrder[index];
   shortlistOrder[index] = shortlistOrder[newIndex];
   shortlistOrder[newIndex] = temp;
-  localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
+  localStorage.setItem(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
   renderShortlistModal();
 }
 
@@ -2405,9 +2462,9 @@ function removeShortlistItem(id) {
   if (!confirm(`Remove ${label} from your shortlist?\n\nThis clears its star rating, tier and notes.`)) return;
 
   shortlistOrder = shortlistOrder.filter(x => x !== id);
-  localStorage.setItem('anaesth_shortlist_order', JSON.stringify(shortlistOrder));
+  localStorage.setItem(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
   orielCheckedSet.delete(id);
-  localStorage.setItem('anaesth_oriel_checked', JSON.stringify([...orielCheckedSet]));
+  localStorage.setItem(`${STORAGE_PREFIX}oriel_checked`, JSON.stringify([...orielCheckedSet]));
   setUserData(id, { rating: 0, tier: 'UNSET', notes: "" });
   updateShortlistBadge();
   applyFiltersAndSearch();
@@ -2441,7 +2498,7 @@ function toggleCompare(id) {
     compareList.push(id);
     showToast("Added to compare tray");
   }
-  localStorage.setItem('anaesth_compare_list', JSON.stringify(compareList));
+  localStorage.setItem(`${STORAGE_PREFIX}compare_list`, JSON.stringify(compareList));
   updateCompareBadge();
   renderRotationCardsFeed(currentFilteredList);
   if (currentSelectedId && currentViewMode === 'details') {
@@ -2455,6 +2512,7 @@ function toggleCompare(id) {
 }
 
 function openCompareModal() {
+  flushPendingNotes();
   renderCompareModal();
   document.getElementById('compareModal').style.display = 'flex';
 }
@@ -2681,7 +2739,7 @@ function startMapPickBase() {
 
 function saveCustomHomeBase(name, coords) {
   customHomeBase = { name, coords };
-  localStorage.setItem('anaesth_custom_home', JSON.stringify(customHomeBase));
+  localStorage.setItem(`${STORAGE_PREFIX}custom_home`, JSON.stringify(customHomeBase));
   updateCustomBaseUI();
   setCommuteMode('custom');
   closeModal('customBaseModal');
@@ -2690,7 +2748,7 @@ function saveCustomHomeBase(name, coords) {
 
 function clearCustomHomeBase() {
   customHomeBase = null;
-  localStorage.removeItem('anaesth_custom_home');
+  localStorage.removeItem(`${STORAGE_PREFIX}custom_home`);
   updateCustomBaseUI();
   setCommuteMode('driver');
   closeModal('customBaseModal');
@@ -2739,7 +2797,7 @@ function buildBackupObject() {
   const ratings = {};
   ROTATIONS_DATA.forEach(r => {
     const d = getUserData(r.id);
-    if (isShortlisted(d)) ratings[r.id] = d;
+    if (hasUserPreference(d)) ratings[r.id] = d;
   });
   return {
     version: 1,
@@ -2752,6 +2810,7 @@ function buildBackupObject() {
 }
 
 function openSyncModal() {
+  flushPendingNotes();
   const modal = document.getElementById('syncModal');
   const area = document.getElementById('syncJsonArea');
   area.value = JSON.stringify(buildBackupObject(), null, 2);
@@ -2826,6 +2885,17 @@ function applyParsedBackup(parsed) {
     showToast("Invalid backup format");
     return;
   }
+
+  // True Overwrite: Reset all rotations in userPrefsCache and clear existing pref keys from localStorage
+  if (typeof ROTATIONS_DATA !== 'undefined' && Array.isArray(ROTATIONS_DATA)) {
+    ROTATIONS_DATA.forEach(r => {
+      userPrefsCache.set(r.id, { rating: 0, notes: "", tier: "UNSET" });
+      try {
+        localStorage.removeItem(`${STORAGE_PREFIX}pref_${r.id}`);
+      } catch (e) {}
+    });
+  }
+
   if (parsed.ratings && typeof parsed.ratings === 'object') {
     Object.keys(parsed.ratings).forEach(k => {
       setUserData(k, parsed.ratings[k]);
@@ -2833,18 +2903,29 @@ function applyParsedBackup(parsed) {
   }
   if (Array.isArray(parsed.shortlistOrder)) {
     shortlistOrder = parsed.shortlistOrder;
+  } else {
+    shortlistOrder = [];
   }
   syncShortlistOrder();
 
   if (parsed.orielChecked && Array.isArray(parsed.orielChecked)) {
     orielCheckedSet = new Set(parsed.orielChecked);
-    localStorage.setItem('anaesth_oriel_checked', JSON.stringify([...orielCheckedSet]));
+    localStorage.setItem(`${STORAGE_PREFIX}oriel_checked`, JSON.stringify([...orielCheckedSet]));
+  } else {
+    orielCheckedSet.clear();
+    localStorage.removeItem(`${STORAGE_PREFIX}oriel_checked`);
   }
+
   if (parsed.customHomeBase) {
     customHomeBase = parsed.customHomeBase;
-    localStorage.setItem('anaesth_custom_home', JSON.stringify(customHomeBase));
+    localStorage.setItem(`${STORAGE_PREFIX}custom_home`, JSON.stringify(customHomeBase));
+    updateCustomBaseUI();
+  } else {
+    customHomeBase = null;
+    localStorage.removeItem(`${STORAGE_PREFIX}custom_home`);
     updateCustomBaseUI();
   }
+
   updateShortlistBadge();
   applyFiltersAndSearch();
   if (currentSelectedId && currentViewMode === 'details') {
@@ -2866,6 +2947,7 @@ function decodeBase64Utf8(str) {
 }
 
 function generatePartnerShareLink() {
+  flushPendingNotes();
   const backup = buildBackupObject();
   const count = Object.keys(backup.ratings || {}).length;
   if (count === 0 && !backup.customHomeBase) {
@@ -2933,6 +3015,7 @@ function formatCsvCell(val) {
 }
 
 function exportPreferencesCSV() {
+  flushPendingNotes();
   let csv = "OrielCode,TrackTitle,Region,PlacesAvailable,TierPreference,DriverLivingHub,TransitLivingHub,HospitalBases,RatingStars,MorningDriveMins_0730,EveningDriveMins_1800,PersonalNotes\n";
   ROTATIONS_DATA.forEach(r => {
     const data = getUserData(r.id);
@@ -2960,6 +3043,7 @@ function exportPreferencesCSV() {
 }
 
 function exportShortlistCSV() {
+  flushPendingNotes();
   const orderedIds = syncShortlistOrder();
   if (!orderedIds.length) {
     showToast("No rotations in shortlist to export.");
@@ -3146,7 +3230,7 @@ map.on('click', () => {
 });
 
 // 21. APPLICATION ENTRY POINT
-window.onload = () => {
+window.addEventListener('DOMContentLoaded', () => {
   initRotationMetadata();
   initUserPrefsCache();
   applyTheme();
@@ -3178,4 +3262,6 @@ window.onload = () => {
   if (window.innerWidth <= 768) {
     toggleMobileSidebar(false);
   }
-};
+});
+
+window.addEventListener('beforeunload', flushPendingNotes);

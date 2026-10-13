@@ -701,7 +701,7 @@ const HOSPITALS = {
     type: "DGH",
     epr: "Unity (Cerner Millennium - fully digital new hospital)",
     parking: "Modern multi-storey staff car parking with permit system",
-    station: "Smethwick Rolfe Street (0.8 miles / 15m walk), Duddeley Hill",
+    station: "Smethwick Rolfe Street (0.8 miles / 15m walk), Smethwick Galton Bridge",
     highlights: "Brand-new acute hospital, Modern theatre suites, High-volume Acute Surgery & Trauma"
   },
   "Royal Shrewsbury Hospital": {
@@ -1885,7 +1885,6 @@ const ROTATIONS_DATA = [
   },
   {
     id: "nw-gt-manchester", code: "North West - Gt Manchester 2 & 2E", region: "North West", title: "Greater Manchester Scheme", places: "16 total",
-    isPool: true,
     hubs: {
       driver: { name: "South Manchester (Didsbury / Altrincham)", coords: [53.4102, -2.2302], desc: "M60/M56. Commute: 20m to MRI, 15m to Wythenshawe, 22m to Salford Royal.", alert: "Good parking options in South Manchester." },
       transit: { name: "Manchester City Centre (Oxford Road)", coords: [53.4732, -2.2412], desc: "Oxford Road is walking distance to MRI; Metrolink tram connects to Salford Royal and Wythenshawe.", alert: "Metrolink tram makes non-driving commutes very easy." }
@@ -1896,7 +1895,6 @@ const ROTATIONS_DATA = [
   },
   {
     id: "north-east-1", code: "North East - 1", region: "North East", title: "North East & North Cumbria Scheme", places: "4",
-    isPool: true,
     hubs: {
       driver: { name: "Newcastle upon Tyne / Durham", coords: [54.9782, -1.6172], desc: "A1(M) spine connecting Newcastle (RVI, Freeman), Sunderland, and James Cook (Middlesbrough).", alert: "Straightforward highway links north and south." },
       transit: { name: "Newcastle City Centre (Haymarket)", coords: [54.9782, -1.6142], desc: "Walk (8m) to Royal Victoria Infirmary (RVI); Tyne & Wear Metro connects directly to Freeman Hospital and Sunderland.", alert: "Tyne & Wear Metro offers rapid transit to hospitals." }

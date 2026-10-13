@@ -2,7 +2,7 @@
 """
 Automated Data Integrity & Schema Validation Suite for ST4 Anaesthetics Explorer
 Runs client-side checks on data.js to ensure zero missing hospitals, valid coordinates,
-proper schema keys, and unique rotation identifiers.
+proper schema keys, valid regions, hospital types, and unique rotation identifiers.
 """
 
 import sys
@@ -19,63 +19,115 @@ def validate_data_js(file_path="data.js"):
 
     errors = []
 
-    # 1. Check unique rotation IDs
-    ids = re.findall(r'id:\s*["\']([^"\']+)["\']', content)
-    if not ids:
-        errors.append("No rotation IDs found in file.")
-    elif len(ids) != len(set(ids)):
-        duplicates = [x for x in ids if ids.count(x) > 1]
-        errors.append(f"Duplicate rotation IDs found: {set(duplicates)}")
+    # 1. Parse REGION_COLORS first
+    color_match = re.search(r'const REGION_COLORS\s*=\s*\{([^}]+)\}', content)
+    if not color_match:
+        errors.append("const REGION_COLORS declaration missing from data.js")
+        declared_colors = set()
     else:
-        print(f"[PASS] All {len(ids)} rotation IDs are unique.")
+        declared_colors = set(re.findall(r'"([^"]+)":\s*"#[0-9a-fA-F]{6}"', color_match.group(1)))
+        print(f"[PASS] Parsed {len(declared_colors)} valid deanery colors from REGION_COLORS.")
 
-    # 2. Check declared hospitals in HOSPITALS object
-    rot_idx = content.find("const ROTATIONS_DATA")
-    if rot_idx == -1:
-        errors.append("Could not find 'const ROTATIONS_DATA' boundary.")
+    # 2. Extract Boundaries
+    hosp_start = content.find("const HOSPITALS = {")
+    rot_start = content.find("const ROTATIONS_DATA = [")
+    if hosp_start == -1 or rot_start == -1:
+        errors.append("Could not locate const HOSPITALS or const ROTATIONS_DATA boundaries in data.js")
         return False
 
-    hosp_block = content[:rot_idx]
-    rot_block = content[rot_idx:]
+    hosp_block = content[hosp_start:rot_start]
+    rot_block = content[rot_start:]
 
-    declared_hosps = re.findall(r'"([^"]+)":\s*\{', hosp_block)
-    # Remove non-hospital top keys if any
-    declared_hosps = [h for h in declared_hosps if "coords" in hosp_block[hosp_block.find(f'"{h}"'):hosp_block.find(f'"{h}"') + 300]]
+    # 3. Clean Hospital Parsing (No fragile string slices)
+    # Match hospital declarations: "Hospital Name": { coords: [...], region: "...", type: "..." }
+    hosp_pattern = re.compile(
+        r'^\s*"([^"]+)":\s*\{\s*'
+        r'coords:\s*\[([0-9\.\-]+),\s*([0-9\.\-]+)\],\s*'
+        r'region:\s*"([^"]+)",\s*'
+        r'type:\s*"([^"]+)"',
+        re.MULTILINE
+    )
+    hosp_entries = hosp_pattern.findall(hosp_block)
+    declared_hosps = {}
 
-    print(f"[INFO] Found {len(declared_hosps)} declared hospitals.")
+    for name, lat_s, lon_s, region, htype in hosp_entries:
+        lat = float(lat_s)
+        lon = float(lon_s)
+        declared_hosps[name] = {
+            "coords": [lat, lon],
+            "region": region,
+            "type": htype
+        }
 
-    # 3. Check all referenced hospitals in stages exist
+    # Verify no hospital declarations were missed
+    all_quoted_keys = re.findall(r'^\s*"([^"]+)":\s*\{', hosp_block, re.MULTILINE)
+    missed_keys = set(all_quoted_keys) - set(declared_hosps.keys())
+    if missed_keys:
+        errors.append(f"Hospital declarations with malformed schema: {missed_keys}")
+
+    print(f"[INFO] Successfully parsed {len(declared_hosps)} hospitals from HOSPITALS dictionary.")
+
+    # 4. Check Hospital Region Coverage and Type Constraints
+    for hname, hdata in declared_hosps.items():
+        # Check coordinates in UK bounds (49.0 - 61.5 N, -9.5 - 3.0 E)
+        lat, lon = hdata["coords"]
+        if not (49.0 <= lat <= 61.5 and -9.5 <= lon <= 3.0):
+            errors.append(f"Hospital '{hname}' coordinates out of UK bounds: [{lat}, {lon}]")
+        
+        # Check region exists in REGION_COLORS
+        if hdata["region"] not in declared_colors:
+            errors.append(f"Hospital '{hname}' has region '{hdata['region']}' which is missing from REGION_COLORS")
+        
+        # Check hospital type
+        if hdata["type"] not in ("Tertiary", "DGH"):
+            errors.append(f"Hospital '{hname}' has invalid type '{hdata['type']}' (must be 'Tertiary' or 'DGH')")
+
+    # 5. Check Rotations Unique IDs and Hub Coordinates
+    rot_ids = re.findall(r'id:\s*["\']([^"\']+)["\']', rot_block)
+    if not rot_ids:
+        errors.append("No rotation IDs found in ROTATIONS_DATA.")
+    elif len(rot_ids) != len(set(rot_ids)):
+        duplicates = [x for x in rot_ids if rot_ids.count(x) > 1]
+        errors.append(f"Duplicate rotation IDs found: {set(duplicates)}")
+    else:
+        print(f"[PASS] All {len(rot_ids)} rotation IDs are unique.")
+
+    # Verify driver and transit hub coordinates for all rotations
+    driver_hub_matches = re.findall(r'driver:\s*\{\s*name:\s*"[^"]+",\s*coords:\s*\[([0-9\.\-]+),\s*([0-9\.\-]+)\]', rot_block)
+    transit_hub_matches = re.findall(r'transit:\s*\{\s*name:\s*"[^"]+",\s*coords:\s*\[([0-9\.\-]+),\s*([0-9\.\-]+)\]', rot_block)
+
+    if len(driver_hub_matches) != len(rot_ids):
+        errors.append(f"Driver hubs mismatch: found {len(driver_hub_matches)} driver hubs for {len(rot_ids)} rotations.")
+    if len(transit_hub_matches) != len(rot_ids):
+        errors.append(f"Transit hubs mismatch: found {len(transit_hub_matches)} transit hubs for {len(rot_ids)} rotations.")
+
+    for lat_s, lon_s in driver_hub_matches:
+        lat, lon = float(lat_s), float(lon_s)
+        if not (49.0 <= lat <= 61.5 and -9.5 <= lon <= 3.0):
+            errors.append(f"Driver hub coordinate out of UK bounds: [{lat}, {lon}]")
+
+    for lat_s, lon_s in transit_hub_matches:
+        lat, lon = float(lat_s), float(lon_s)
+        if not (49.0 <= lat <= 61.5 and -9.5 <= lon <= 3.0):
+            errors.append(f"Transit hub coordinate out of UK bounds: [{lat}, {lon}]")
+
+    print(f"[PASS] All {len(driver_hub_matches)} driver and {len(transit_hub_matches)} transit hubs have valid UK coordinates.")
+
+    # 6. Check Referenced Hospitals in Rotation Stages
     referenced_hosps = re.findall(r'hosp:\s*"([^"]+)"', rot_block)
-    missing = set(referenced_hosps) - set(declared_hosps)
+    missing = set(referenced_hosps) - set(declared_hosps.keys())
     if missing:
         errors.append(f"Referenced hospitals in rotations that are missing from HOSPITALS dictionary: {missing}")
     else:
         print(f"[PASS] All {len(referenced_hosps)} stage references map cleanly to declared hospitals.")
 
-    # 4. Check coordinates validity (UK bounding box: 49.0 - 61.0 N, -9.0 - 2.5 E)
-    coord_matches = re.findall(r'coords:\s*\[([0-9\.\-]+),\s*([0-9\.\-]+)\]', content)
-    coord_errors = 0
-    for lat_str, lon_str in coord_matches:
-        lat = float(lat_str)
-        lon = float(lon_str)
-        if not (49.0 <= lat <= 61.5 and -9.5 <= lon <= 3.0):
-            coord_errors += 1
-            errors.append(f"Coordinate out of UK bounds: [{lat}, {lon}]")
-    if coord_errors == 0:
-        print(f"[PASS] All {len(coord_matches)} coordinate pairs are within valid UK geographical bounds.")
-
-    # 5. Check REGION_COLORS coverage
-    color_block_match = re.search(r'const REGION_COLORS\s*=\s*\{([^}]+)\}', content)
-    if not color_block_match:
-        errors.append("const REGION_COLORS declaration missing from data.js")
+    # 7. Check Rotation Regions in REGION_COLORS
+    regions_in_rotations = set(re.findall(r'region:\s*"([^"]+)"', rot_block))
+    missing_rot_regions = regions_in_rotations - declared_colors
+    if missing_rot_regions:
+        errors.append(f"Rotations have regions missing from REGION_COLORS: {missing_rot_regions}")
     else:
-        declared_colors = set(re.findall(r'"([^"]+)":\s*"#[0-9a-fA-F]{6}"', color_block_match.group(1)))
-        regions_in_rotations = set(re.findall(r'region:\s*"([^"]+)"', rot_block))
-        missing_colors = regions_in_rotations - declared_colors
-        if missing_colors:
-            errors.append(f"Regions missing a mapped color in REGION_COLORS: {missing_colors}")
-        else:
-            print(f"[PASS] All {len(regions_in_rotations)} NHS rotation regions have colors mapped in REGION_COLORS.")
+        print(f"[PASS] All {len(regions_in_rotations)} NHS rotation regions map to REGION_COLORS.")
 
     if errors:
         print("\n=== VALIDATION FAILED ===")
