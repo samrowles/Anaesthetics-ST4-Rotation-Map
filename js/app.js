@@ -1410,48 +1410,51 @@ function selectRotation(id, shouldCloseMobile = false) {
   hospitalsListContainer.replaceChildren(fragHosp);
 
   // Render Commute Matrix Breakdown from Chosen Base
-  document.getElementById('commuteMatrixHubName').textContent = activeHubName;
+  const commuteMatrixHubEl = document.getElementById('commuteMatrixHubName');
+  if (commuteMatrixHubEl) commuteMatrixHubEl.textContent = activeHubName;
   const matrixContainer = document.getElementById('commuteMatrixList');
-  const fragMatrix = document.createDocumentFragment();
+  if (matrixContainer) {
+    const fragMatrix = document.createDocumentFragment();
 
-  uniqueHospBases.forEach(hName => {
-    const hData = HOSPITALS[hName];
-    if (hData && activeHubCoords) {
-      const dist = calcDistanceMiles(activeHubCoords, hData.coords);
-      const reg = rot.region || (hData ? hData.region : '');
-      const mornMins = calcDrivingTimeMinutes(dist, reg, '0730');
-      const eveMins = calcDrivingTimeMinutes(dist, reg, '1800');
-      const activeMins = currentShiftTiming === '1800' ? eveMins : (currentShiftTiming === 'offpeak' ? calcDrivingTimeMinutes(dist, reg, 'offpeak') : mornMins);
-      
-      let timeClass = 'time-green';
-      if (activeMins > 50) timeClass = 'time-red';
-      else if (activeMins > 35) timeClass = 'time-amber';
+    uniqueHospBases.forEach(hName => {
+      const hData = HOSPITALS[hName];
+      if (hData && activeHubCoords) {
+        const dist = calcDistanceMiles(activeHubCoords, hData.coords);
+        const reg = rot.region || (hData ? hData.region : '');
+        const mornMins = calcDrivingTimeMinutes(dist, reg, '0730');
+        const eveMins = calcDrivingTimeMinutes(dist, reg, '1800');
+        const activeMins = currentShiftTiming === '1800' ? eveMins : (currentShiftTiming === 'offpeak' ? calcDrivingTimeMinutes(dist, reg, 'offpeak') : mornMins);
+        
+        let timeClass = 'time-green';
+        if (activeMins > 50) timeClass = 'time-red';
+        else if (activeMins > 35) timeClass = 'time-amber';
 
-      const originParam = (activeHubCoords && Array.isArray(activeHubCoords))
-        ? `${activeHubCoords[0]},${activeHubCoords[1]}`
-        : encodeURIComponent(activeHubName + ', UK');
-      const destParam = (hData.coords && Array.isArray(hData.coords))
-        ? `${hData.coords[0]},${hData.coords[1]}`
-        : encodeURIComponent(hName + ', UK');
+        const originParam = (activeHubCoords && Array.isArray(activeHubCoords))
+          ? `${activeHubCoords[0]},${activeHubCoords[1]}`
+          : encodeURIComponent(activeHubName + ', UK');
+        const destParam = (hData.coords && Array.isArray(hData.coords))
+          ? `${hData.coords[0]},${hData.coords[1]}`
+          : encodeURIComponent(hName + ', UK');
 
-      const isTertiary = hData.type === 'Tertiary';
-      const row = document.createElement('div');
-      row.className = "commute-matrix-item";
-      row.innerHTML = `
-        <span class="commute-hosp-label">
-          <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.62rem; margin-right:4px;">${isTertiary ? 'Tertiary' : 'DGH'}</span>${escapeHtml(hName)}
-        </span>
-        <div style="display:flex; align-items:center; gap:6px;">
-          <span class="commute-time-pill ${timeClass}" title="07:30 handover: ~${mornMins}m | 18:00 rush: ~${eveMins}m">
-            ${dist} mi (~${mornMins}m morn · ~${eveMins}m eve)
+        const isTertiary = hData.type === 'Tertiary';
+        const row = document.createElement('div');
+        row.className = "commute-matrix-item";
+        row.innerHTML = `
+          <span class="commute-hosp-label">
+            <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.62rem; margin-right:4px;">${isTertiary ? 'Tertiary' : 'DGH'}</span>${escapeHtml(hName)}
           </span>
-          <a href="https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=driving" target="_blank" style="font-size:0.68rem; color:var(--primary); text-decoration:none;" title="Verify route and live traffic in Google Maps">Directions &rarr;</a>
-        </div>
-      `;
-      fragMatrix.appendChild(row);
-    }
-  });
-  matrixContainer.replaceChildren(fragMatrix);
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="commute-time-pill ${timeClass}" title="07:30 handover: ~${mornMins}m | 18:00 rush: ~${eveMins}m">
+              ${dist} mi (~${mornMins}m morn · ~${eveMins}m eve)
+            </span>
+            <a href="https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=driving" target="_blank" style="font-size:0.68rem; color:var(--primary); text-decoration:none;" title="Verify route and live traffic in Google Maps">Directions &rarr;</a>
+          </div>
+        `;
+        fragMatrix.appendChild(row);
+      }
+    });
+    matrixContainer.replaceChildren(fragMatrix);
+  }
 
   // Render Placement Sequence Timeline
   const timelineHeading = document.getElementById('timelineHeading');
@@ -1528,10 +1531,17 @@ function selectRotation(id, shouldCloseMobile = false) {
     spreadBadge.textContent = `High Spread: ${commute.maxDist} mi (~${commute.mornMins}m morn · ~${commute.eveMins}m eve)`;
   }
 
-  document.getElementById('miniCardTitle').textContent = `${rot.title} (${rot.code})`;
-  document.getElementById('miniCardSpread').textContent = isPool ? `${commute.maxDist} mi span (~${commute.activeMins}m)` : `${commute.maxDist} mi (~${commute.activeMins}m)`;
-  document.getElementById('miniCardSpread').className = `badge ${isPool ? 'badge-pool' : commute.badgeClass}`;
-  document.getElementById('miniCardHub').innerHTML = `<span>Base: <b>${escapeHtml(activeHubName)}</b> (${uniqueHospBases.length} ${isPool ? 'Candidate Sites' : 'Bases'})</span> <span style="font-weight:700; color:var(--primary);">Details &rarr;</span>`;
+  const miniTitleEl = document.getElementById('miniCardTitle');
+  if (miniTitleEl) miniTitleEl.textContent = `${rot.title} (${rot.code})`;
+  const miniSpreadEl = document.getElementById('miniCardSpread');
+  if (miniSpreadEl) {
+    miniSpreadEl.textContent = isPool ? `${commute.maxDist} mi span (~${commute.activeMins}m)` : `${commute.maxDist} mi (~${commute.activeMins}m)`;
+    miniSpreadEl.className = `badge ${isPool ? 'badge-pool' : commute.badgeClass}`;
+  }
+  const miniHubEl = document.getElementById('miniCardHub');
+  if (miniHubEl) {
+    miniHubEl.innerHTML = `<span>Base: <b>${escapeHtml(activeHubName)}</b> (${uniqueHospBases.length} ${isPool ? 'Candidate Sites' : 'Bases'})</span> <span style="font-weight:700; color:var(--primary);">Details &rarr;</span>`;
+  }
 
   // Background subtle markers for other hospitals
   Object.keys(HOSPITALS).forEach(hName => {
