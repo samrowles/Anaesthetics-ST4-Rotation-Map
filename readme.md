@@ -5,7 +5,9 @@ An interactive, open-source web application designed to help UK Anaesthetics tra
 **Live Tool:** [https://samrowles.github.io/Anaesthetics-ST4-Rotation-Map/](https://samrowles.github.io/Anaesthetics-ST4-Rotation-Map/)
 
 ---
+Loom video explanation [https://www.loom.com/share/a9ee124e77dc449c9553b11f9cb6452d](https://www.loom.com/share/a9ee124e77dc449c9553b11f9cb6452d)
 
+---
 ## Key Features
 
 ### 🏛️ Tertiary vs DGH Training Balance Breakdown
