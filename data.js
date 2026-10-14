@@ -919,7 +919,7 @@ const ROTATIONS_DATA = [
   {
     id: "ncel-l17", code: "NCEL - L17", region: "London - North Central East", title: "Queen Square, UCH, Chelsea & Barts", places: "1",
     hubs: {
-      driver: { name: "Camden / Highbury", coords: [51.5432, -0.1422], desc: "Central location connecting UCH, Queen Square, Barts, and Chelsea.", alert: "Public transit recommended." },
+      driver: { name: "Camden / Highbury", coords: [51.5432, -0.1422], desc: "Central location connecting UCH, Queen Square, Barts, and Chelsea.", alert: "Public transport recommended." },
       transit: { name: "Finsbury Park / Kings Cross", coords: [51.5302, -0.1242], desc: "Piccadilly/Victoria lines to Queen Sq and UCH; Piccadilly line to Chelsea & Westminster; direct to Barts.", alert: "Very central rotation with great Tube links." }
     },
     stages: [
@@ -934,7 +934,7 @@ const ROTATIONS_DATA = [
     id: "ncel-l18", code: "NCEL - L18", region: "London - North Central East", title: "BCF, Stanmore, Chelsea, Barts & Queen Sq", places: "1",
     hubs: {
       driver: { name: "Mill Hill / Golders Green", coords: [51.6162, -0.2242], desc: "A41/A1 corridor. Good car access to Barnet (BCF) and RNOH Stanmore.", alert: "Staff parking at Barnet and Stanmore." },
-      transit: { name: "West Hampstead / Finchley Road", coords: [51.5472, -0.1912], desc: "Jubilee Line to Stanmore (RNOH); Thameslink to central London; Northern line / bus to Barnet (BCF).", alert: "Jubilee line provides 25m transit out to Stanmore." }
+      transit: { name: "West Hampstead / Finchley Road", coords: [51.5472, -0.1912], desc: "Jubilee Line to Stanmore (RNOH); Thameslink to central London; Northern line / bus to Barnet (BCF).", alert: "Jubilee line provides 25m travel out to Stanmore." }
     },
     stages: [
       { stage: "ST4 (3m)", hosp: "Barnet Hospital (BCF)", desc: "General DGH Anaesthetics" },
@@ -1018,7 +1018,7 @@ const ROTATIONS_DATA = [
   {
     id: "ncel-l22", code: "NCEL - L22", region: "London - North Central East", title: "UCH, Romford, Royal London, Barts & Chelsea", places: "1",
     hubs: {
-      driver: { name: "City of London / East End border", coords: [51.5202, -0.0602], desc: "Central location linking UCH, Romford, Royal London, and Chelsea.", alert: "Public transit recommended." },
+      driver: { name: "City of London / East End border", coords: [51.5202, -0.0602], desc: "Central location linking UCH, Romford, Royal London, and Chelsea.", alert: "Public transport recommended." },
       transit: { name: "Whitechapel / Stratford", coords: [51.5192, -0.0593], desc: "Elizabeth line to Romford (18m) and Farringdon/Tottenham Court Rd (UCH/Barts); District line to Chelsea.", alert: "Whitechapel is directly on the Elizabeth line and District line." }
     },
     stages: [
@@ -1034,7 +1034,7 @@ const ROTATIONS_DATA = [
   {
     id: "nwl-l10", code: "NWL - L10", region: "London - North West", title: "Chelsea, Charing Cross, Northwick Park & Hammersmith", places: "1",
     hubs: {
-      driver: { name: "Acton / Ealing", coords: [51.5132, -0.3042], desc: "A40 / North Circular. 20m drive to Northwick Park; 15m to Hammersmith; 20m to Chelsea.", alert: "Driving allows easy cross-suburban transit to Northwick Park." },
+      driver: { name: "Acton / Ealing", coords: [51.5132, -0.3042], desc: "A40 / North Circular. 20m drive to Northwick Park; 15m to Hammersmith; 20m to Chelsea.", alert: "Driving allows easy cross-suburban travel to Northwick Park." },
       transit: { name: "Ealing Broadway / Hammersmith", coords: [51.5142, -0.3022], desc: "Piccadilly/District lines to Charing Cross & Chelsea; Central line to Hammersmith; Metropolitan to Northwick Park.", alert: "Superb West London public transport connectivity." }
     },
     stages: [
@@ -1499,7 +1499,7 @@ const ROTATIONS_DATA = [
     id: "emids-north-1", code: "East Midlands - North 1 (N1)", region: "East Midlands", title: "Boston, Derby, QMC, City & Chesterfield", places: "1",
     hubs: {
       driver: { name: "Long Eaton / Nottingham East", coords: [52.8982, -1.2702], desc: "M1 Junction 25. 15m drive to Derby, 15m to QMC, 35m to Chesterfield, 55m to Boston Pilgrim.", alert: "Central M1 driving hub." },
-      transit: { name: "Nottingham City Centre", coords: [52.9502, -1.1502], desc: "NET Tram to QMC; Medilink bus to City Hospital; 22m train to Derby.", alert: "⚠️ Note: Boston Pilgrim has poor Sunday early public transit." }
+      transit: { name: "Nottingham City Centre", coords: [52.9502, -1.1502], desc: "NET Tram to QMC; Medilink bus to City Hospital; 22m train to Derby.", alert: "⚠️ Note: Boston Pilgrim has poor Sunday early public transport." }
     },
     stages: [
       { stage: "Feb-27", hosp: "Boston Pilgrim Hospital", desc: "General Anaesthesia" },
@@ -1897,7 +1897,7 @@ const ROTATIONS_DATA = [
     id: "north-east-1", code: "North East - 1", region: "North East", title: "North East & North Cumbria Scheme", places: "4",
     hubs: {
       driver: { name: "Newcastle upon Tyne / Durham", coords: [54.9782, -1.6172], desc: "A1(M) spine connecting Newcastle (RVI, Freeman), Sunderland, and James Cook (Middlesbrough).", alert: "Straightforward highway links north and south." },
-      transit: { name: "Newcastle City Centre (Haymarket)", coords: [54.9782, -1.6142], desc: "Walk (8m) to Royal Victoria Infirmary (RVI); Tyne & Wear Metro connects directly to Freeman Hospital and Sunderland.", alert: "Tyne & Wear Metro offers rapid transit to hospitals." }
+      transit: { name: "Newcastle City Centre (Haymarket)", coords: [54.9782, -1.6142], desc: "Walk (8m) to Royal Victoria Infirmary (RVI); Tyne & Wear Metro connects directly to Freeman Hospital and Sunderland.", alert: "Tyne & Wear Metro offers rapid public transport to hospitals." }
     },
     stages: [
       { stage: "North East Network", hosp: "Royal Victoria Infirmary, Newcastle", desc: "Major Trauma & Neuro Base" }

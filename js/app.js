@@ -1377,6 +1377,13 @@ function setCommuteMode(mode) {
   if (currentSelectedId && currentViewMode === 'details') {
     selectRotation(currentSelectedId, false);
   }
+
+  const modeLabels = {
+    driver: 'Base: Driver (Driving)',
+    transit: 'Base: Public Transport (Train / Bus)',
+    custom: 'Base: My Prospective Home Postcode'
+  };
+  showToast(modeLabels[mode] || `Base: ${mode}`);
 }
 
 function setShiftTiming(timing, showFeedback = true) {
@@ -1505,7 +1512,7 @@ function openHospitalProfile(hospName) {
         <div class="hosp-intel-card-body">${escapeHtml(h.parking || 'Staff parking permit scheme')}</div>
       </div>
       <div class="hosp-intel-card">
-        <div class="hosp-intel-card-header">Rail &amp; Transit</div>
+        <div class="hosp-intel-card-header">Rail &amp; Public Transport</div>
         <div class="hosp-intel-card-body">${escapeHtml(h.station || 'Local rail & bus connections')}</div>
       </div>
       <div class="hosp-intel-card">
@@ -1611,7 +1618,7 @@ function selectRotation(id, shouldCloseMobile = false) {
     activeHubName = customHomeBase.name;
   } else if (currentCommuteMode === 'transit') {
     hubBox.className = "hub-box transit-theme";
-    document.getElementById('hubTitlePrefix').textContent = "Suggested Base (Transit):";
+    document.getElementById('hubTitlePrefix').textContent = "Suggested Base (Public Transport):";
     document.getElementById('hubTownName').textContent = activeHub.name;
     document.getElementById('hubDescription').textContent = activeHub.desc;
   } else {
@@ -1677,7 +1684,7 @@ function selectRotation(id, shouldCloseMobile = false) {
     const intelBtn = document.createElement('button');
     intelBtn.className = "hospital-chip-btn";
     intelBtn.textContent = "Profile";
-    intelBtn.title = "View Ground Truth Trust intel, parking, EPR, and transit";
+    intelBtn.title = "View Ground Truth Trust intel, parking, EPR, and public transport";
     intelBtn.dataset.hosp = hName;
     intelBtn.dataset.action = "open-hospital-profile";
     btnGroup.appendChild(intelBtn);
@@ -2857,7 +2864,7 @@ function renderCompareModal() {
             ${rotations.map(r => `
               <td>
                 <div style="font-size:0.76rem;"><b>Driver:</b> ${escapeHtml(r.hubs.driver.name)}</div>
-                <div style="font-size:0.76rem; margin-top:3px; color:var(--text-muted);"><b>Transit:</b> ${escapeHtml(r.hubs.transit.name)}</div>
+                <div style="font-size:0.76rem; margin-top:3px; color:var(--text-muted);"><b>Public Transport:</b> ${escapeHtml(r.hubs.transit.name)}</div>
               </td>
             `).join('')}
           </tr>
@@ -3277,7 +3284,7 @@ function formatCsvCell(val) {
 
 function exportPreferencesCSV() {
   flushPendingNotes();
-  let csv = "OrielCode,TrackTitle,Region,PlacesAvailable,TierPreference,DriverLivingHub,TransitLivingHub,HospitalBases,RatingStars,MorningDriveMins_0730,EveningDriveMins_1800,PersonalNotes\n";
+  let csv = "OrielCode,TrackTitle,Region,PlacesAvailable,TierPreference,DriverLivingHub,PublicTransportLivingHub,HospitalBases,RatingStars,MorningDriveMins_0730,EveningDriveMins_1800,PersonalNotes\n";
   ROTATIONS_DATA.forEach(r => {
     const data = getUserData(r.id);
     const tierStr = data.tier || "UNSET";
@@ -3310,7 +3317,7 @@ function exportShortlistCSV() {
     showToast("No rotations in shortlist to export.");
     return;
   }
-  let csv = "AssignedRank,EnteredInOriel,OrielCode,TrackTitle,Region,PlacesAvailable,TierPreference,DriverLivingHub,TransitLivingHub,HospitalBases,RatingStars,MorningDriveMins_0730,EveningDriveMins_1800,PersonalNotes\n";
+  let csv = "AssignedRank,EnteredInOriel,OrielCode,TrackTitle,Region,PlacesAvailable,TierPreference,DriverLivingHub,PublicTransportLivingHub,HospitalBases,RatingStars,MorningDriveMins_0730,EveningDriveMins_1800,PersonalNotes\n";
   orderedIds.forEach((id, idx) => {
     const r = ROTATIONS_DATA.find(x => x.id === id);
     if (r) {
