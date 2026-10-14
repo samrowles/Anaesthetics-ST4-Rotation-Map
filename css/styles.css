@@ -475,8 +475,58 @@ select:focus, input:focus, textarea:focus {
   background: var(--bg-card);
   color: var(--text-main);
   cursor: pointer;
-  max-width: 105px;
+  max-width: 125px;
   flex-shrink: 0;
+}
+
+.control-subbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.btn-commute-drawer-toggle {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-commute-drawer-toggle:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.btn-commute-drawer-toggle.active {
+  background: var(--primary-subtle, rgba(2, 132, 199, 0.12));
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+#commuteControlsDrawer {
+  margin-top: 6px;
+}
+
+.inspector-commute-switcher-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: var(--bg-card-subtle);
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 12px;
 }
 
 .btn-link-action {
