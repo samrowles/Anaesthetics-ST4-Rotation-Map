@@ -2138,10 +2138,10 @@ select:focus, input:focus, textarea:focus {
 
 /* Clean Muted Base Map Filter (Zero API Key, High-Contrast Route Clarity) */
 .leaflet-layer.map-tiles-muted {
-  filter: saturate(18%) brightness(105%) contrast(93%);
+  filter: saturate(38%) brightness(103%) contrast(95%);
 }
 [data-theme="dark"] .leaflet-layer.map-tiles-muted {
-  filter: saturate(25%);
+  filter: saturate(40%);
 }
 
 /* Hover Stage Badges (1, 2, 3...) & Casing */
