@@ -118,10 +118,16 @@ const map = L.map('map', {
   maxBoundsViscosity: 0.2
 }).setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
 
+const osmCleanMuted = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  className: 'map-tiles-muted',
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
+
 const osmStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
+});
 
 const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
   maxZoom: 19,
@@ -129,7 +135,8 @@ const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.pn
 });
 
 const baseLayers = {
-  "Standard OSM": osmStandard,
+  "Clean Muted (Best for Routes)": osmCleanMuted,
+  "Standard OSM (Road Colours)": osmStandard,
   "Soft Pastel (HOT)": osmHot
 };
 // Positioned at top-left underneath zoom controls to avoid collision with top-right action buttons
@@ -137,6 +144,7 @@ L.control.layers(baseLayers, null, { position: 'topleft' }).addTo(map);
 
 // Distinct Leaflet Layer Groups for Modular Control
 const overviewLinesGroup = L.layerGroup().addTo(map);
+const hoverHighlightGroup = L.layerGroup().addTo(map);
 const backgroundHospitalsGroup = L.layerGroup().addTo(map);
 const activeRouteGroup = L.layerGroup().addTo(map);
 let activeHospitalMarkers = {};
@@ -216,7 +224,7 @@ let activeRegionFilter = 'ALL';
 let currentSortMode = 'DEFAULT';
 let currentSearchTerm = '';
 let currentFilteredList = [...ROTATIONS_DATA];
-let showOverviewLines = true;
+let overviewLinesMode = 'all'; // 'all', 'core', 'off'
 let currentActiveRating = 0;
 let searchDebounceTimer = null;
 let currentUserLocationMarker = null;
@@ -332,7 +340,20 @@ function isPoolRotation(rot) {
   return Boolean(Array.isArray(rot.stages) && rot.stages.length > 1);
 }
 
-// 6a. Overview Line Styling & Corridor Separation Helpers
+// 6a. Overview Line Styling & Categorical Palette
+const TRACK_PALETTE = [
+  '#0284c7', // Cobalt Blue
+  '#e11d48', // Crimson Rose
+  '#0d9488', // Deep Teal
+  '#7c3aed', // Royal Purple
+  '#ea580c', // Burnt Orange
+  '#16a34a', // Emerald Green
+  '#d97706', // Amber Gold
+  '#db2777', // Magenta
+  '#4f46e5', // Indigo
+  '#0891b2'  // Cyan
+];
+
 const ROTATION_DASH_PATTERNS = [
   'none',             // Solid
   '7, 5',             // Crisp medium dash
@@ -342,35 +363,81 @@ const ROTATION_DASH_PATTERNS = [
   '14, 4, 3, 4, 3, 4' // Dash-double-dot
 ];
 
-const ROTATION_TONE_SHIFTS = [
-  0,    // Pure deanery hue
-  16,   // +16% lighter / brighter
-  -16,  // -16% deeper
-  26,   // +26% light/vibrant
-  -24   // -24% dark rich
-];
+function hexToHsl(hex) {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return [200, 80, 50];
+  let clean = hex.replace('#', '');
+  if (clean.length === 3) {
+    clean = clean.split('').map(c => c + c).join('');
+  }
+  const num = parseInt(clean, 16);
+  if (isNaN(num)) return [200, 80, 50];
+  const r = ((num >> 16) & 255) / 255;
+  const g = ((num >> 8) & 255) / 255;
+  const b = (num & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0, s = 0, l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h = h * 60;
+  }
+  return [h, s * 100, l * 100];
+}
 
-function adjustColorTone(hexColor, percent) {
-  if (!hexColor || !hexColor.startsWith('#')) return hexColor;
-  let num = parseInt(hexColor.slice(1), 16);
-  if (isNaN(num)) return hexColor;
-  let r = (num >> 16) + Math.round(255 * (percent / 100));
-  let g = ((num >> 8) & 0x00FF) + Math.round(255 * (percent / 100));
-  let b = (num & 0x0000FF) + Math.round(255 * (percent / 100));
-  r = Math.min(245, Math.max(15, r));
-  g = Math.min(245, Math.max(15, g));
-  b = Math.min(245, Math.max(15, b));
-  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+function hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  const sNorm = Math.max(0, Math.min(100, s)) / 100;
+  const lNorm = Math.max(0, Math.min(100, l)) / 100;
+  const c = (1 - Math.abs(2 * lNorm - 1)) * sNorm;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = lNorm - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (0 <= h && h < 60) { r = c; g = x; b = 0; }
+  else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
+  else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
+  else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
+  else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
+  else if (300 <= h && h < 360) { r = c; g = 0; b = x; }
+  const ri = Math.round((r + m) * 255);
+  const gi = Math.round((g + m) * 255);
+  const bi = Math.round((b + m) * 255);
+  return `#${((1 << 24) + (ri << 16) + (gi << 8) + bi).toString(16).slice(1)}`;
 }
 
 function computeRotationLineStyle(rot) {
   const regColor = (window.REGION_COLORS && window.REGION_COLORS[rot.region]) || (typeof REGION_COLORS !== 'undefined' ? REGION_COLORS[rot.region] : "#0284c7");
-  const regionRots = ROTATIONS_DATA.filter(r => r.region === rot.region);
-  const rotIdx = Math.max(0, regionRots.findIndex(r => r.id === rot.id));
+  const regionRots = (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : []).filter(r => r.region === rot.region && !isPoolRotation(r));
 
-  const dashPattern = ROTATION_DASH_PATTERNS[rotIdx % ROTATION_DASH_PATTERNS.length];
-  const toneShift = ROTATION_TONE_SHIFTS[Math.floor(rotIdx / ROTATION_DASH_PATTERNS.length) % ROTATION_TONE_SHIFTS.length];
-  const color = adjustColorTone(regColor, toneShift);
+  // Determine starting hospital in this region to shift color temperature
+  const startHosp = (rot.stages && rot.stages[0] && rot.stages[0].hosp) || '';
+  const hospSet = [];
+  regionRots.forEach(r => {
+    const h = (r.stages && r.stages[0] && r.stages[0].hosp) || '';
+    if (h && !hospSet.includes(h)) hospSet.push(h);
+  });
+  hospSet.sort();
+
+  const hospIdx = Math.max(0, hospSet.indexOf(startHosp));
+  const sameHospRots = regionRots.filter(r => ((r.stages && r.stages[0] && r.stages[0].hosp) || '') === startHosp);
+  const rotInHospIdx = Math.max(0, sameHospRots.findIndex(r => r.id === rot.id));
+
+  // Shift hue across [-28deg, +28deg] based on starting hospital anchor
+  const numHosps = Math.max(1, hospSet.length);
+  const hueShift = numHosps > 1 ? ((hospIdx / (numHosps - 1)) - 0.5) * 56 : 0;
+
+  // Slight lightness variation for tracks originating from the same starting hospital
+  const lightShift = sameHospRots.length > 1 ? ((rotInHospIdx / (sameHospRots.length - 1)) - 0.5) * 16 : 0;
+
+  const [h, s, l] = hexToHsl(regColor);
+  const color = hslToHex(h + hueShift, s, l + lightShift);
+
+  const dashPattern = ROTATION_DASH_PATTERNS[rotInHospIdx % ROTATION_DASH_PATTERNS.length];
 
   return {
     color,
@@ -504,20 +571,113 @@ function getRotationTrainingSplit(rot) {
 
 function getRotationLineStyle(rot) {
   if (!rot) return { color: '#0284c7', baseColor: '#0284c7', dashPattern: 'none', regColor: '#0284c7', isDashed: false };
-  if (rot._meta && rot._meta.lineStyle) return rot._meta.lineStyle;
+
+  // Use distinct high-contrast categorical palette when filtering to a single region or when filtered results <= 20
+  const useCategorical = (activeRegionFilter !== 'ALL') || (Array.isArray(currentFilteredList) && currentFilteredList.length <= 20);
+
+  if (useCategorical) {
+    const targetList = (activeRegionFilter !== 'ALL')
+      ? (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : []).filter(r => r.region === rot.region && !isPoolRotation(r))
+      : (Array.isArray(currentFilteredList) ? currentFilteredList.filter(r => !isPoolRotation(r)) : []);
+
+    // Group rotations by starting hospital (rot.stages[0].hosp)
+    const hospitalGroups = new Map();
+    targetList.forEach(r => {
+      const h = (r.stages && r.stages[0] && r.stages[0].hosp) || 'Unknown';
+      if (!hospitalGroups.has(h)) hospitalGroups.set(h, []);
+      hospitalGroups.get(h).push(r);
+    });
+
+    // Deterministic sort by hospital name, then by rotation title
+    const sortedHospNames = Array.from(hospitalGroups.keys()).sort();
+    let assignedIndex = 0;
+    let foundIndex = -1;
+    let dashIdx = 0;
+
+    for (const hName of sortedHospNames) {
+      const rotsInHosp = hospitalGroups.get(hName);
+      rotsInHosp.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+      for (let i = 0; i < rotsInHosp.length; i++) {
+        if (rotsInHosp[i].id === rot.id) {
+          foundIndex = assignedIndex;
+          dashIdx = i;
+          break;
+        }
+        assignedIndex++;
+      }
+      if (foundIndex !== -1) break;
+    }
+
+    if (foundIndex !== -1) {
+      const color = TRACK_PALETTE[foundIndex % TRACK_PALETTE.length];
+      const dashPattern = ROTATION_DASH_PATTERNS[dashIdx % ROTATION_DASH_PATTERNS.length];
+      return {
+        color,
+        baseColor: color,
+        dashPattern,
+        regColor: color,
+        isDashed: dashPattern !== 'none'
+      };
+    }
+  }
+
+  // National view with activeRegionFilter === 'ALL' and > 20 rotations: anchor hue-shifted regional colors
   return computeRotationLineStyle(rot);
+}
+
+/**
+ * Filter rotation stages for the National Overview map according to overviewLinesMode.
+ * - 'all': all chronological stage transitions
+ * - 'core': ignores short 3m subspecialty module hops (/\b3\s*m\b/i) and tertiary neuro/cardiac spokes
+ *           when rotation has >= 3 stages, connecting only the primary 6-12m anchor hospitals!
+ * - 'off': empty list (lines hidden)
+ */
+function getOverviewStages(rot, mode = overviewLinesMode) {
+  if (!rot || !rot.stages) return [];
+  if (mode === 'off') return [];
+  if (mode === 'all') return rot.stages;
+
+  // mode === 'core'
+  if (rot.stages.length >= 3) {
+    const isSpecialtyHop = (s) => {
+      const fullText = `${s.stage || ''} ${s.desc || ''}`;
+      const is3m = /\b3\s*m\b/i.test(fullText) || /\b3\s*months?\b/i.test(fullText);
+      const hosp = HOSPITALS[s.hosp];
+      const isTertiary = hosp && hosp.type === 'Tertiary';
+      const isNeuroOrCardiacOrSub = /\b(neuro|cardiac|cardiothoracic|paediatric|paeds|eye|ophthalmic)\b/i.test(fullText) ||
+                                    /\b(papworth|barts|queen square|brompton|walton|moorfields|great ormond)\b/i.test(s.hosp || '');
+
+      return is3m || (isTertiary && isNeuroOrCardiacOrSub && is3m);
+    };
+
+    const core = rot.stages.filter(s => !isSpecialtyHop(s));
+    if (core.length >= 2) {
+      return core;
+    }
+  }
+
+  return rot.stages;
 }
 
 function buildCorridorUsageRegistry(rotationsList) {
   const registry = new Map();
   rotationsList.forEach(rot => {
     if (isPoolRotation(rot)) return;
-    const stages = rot.stages || [];
+    const stages = getOverviewStages(rot);
+    const seenPairs = new Set();
     for (let i = 0; i < stages.length - 1; i++) {
       const h1 = stages[i].hosp;
       const h2 = stages[i + 1].hosp;
       if (h1 && h2 && h1 !== h2 && HOSPITALS[h1] && HOSPITALS[h2]) {
+        // Skip tiny intra-campus micro-segments (< 0.6 miles) on the National Overview map
+        const d = calcDistanceMiles(HOSPITALS[h1].coords, HOSPITALS[h2].coords);
+        if (d < 0.6) continue;
+
+        // Deduplicate undirected stage transitions within each rotation
         const key = h1 < h2 ? `${h1}:::${h2}` : `${h2}:::${h1}`;
+        if (seenPairs.has(key)) continue;
+        seenPairs.add(key);
+
         if (!registry.has(key)) registry.set(key, []);
         const list = registry.get(key);
         if (!list.includes(rot.id)) {
@@ -570,19 +730,28 @@ function generateCurvedSegmentPoints(coordA, coordB, offsetMultiplier, numPoints
 }
 
 function generateRotationCurvedPath(rot, corridorRegistry) {
-  const stages = rot.stages || [];
-  const fullPath = [];
+  const stages = getOverviewStages(rot);
+  const segments = [];
+  const seenPairs = new Set();
 
   for (let i = 0; i < stages.length - 1; i++) {
     const h1 = stages[i].hosp;
     const h2 = stages[i + 1].hosp;
-    if (!h1 || !h2 || !HOSPITALS[h1] || !HOSPITALS[h2]) continue;
+    if (!h1 || !h2 || h1 === h2 || !HOSPITALS[h1] || !HOSPITALS[h2]) continue;
 
     const coord1 = HOSPITALS[h1].coords;
     const coord2 = HOSPITALS[h2].coords;
     if (!coord1 || !coord2) continue;
 
+    // Skip tiny intra-campus micro-segments (< 0.6 miles, e.g. Addenbrooke's <-> Royal Papworth)
+    const dist = calcDistanceMiles(coord1, coord2);
+    if (dist < 0.6) continue;
+
+    // Deduplicate undirected stage transitions within each rotation (seenPairs)
     const key = h1 < h2 ? `${h1}:::${h2}` : `${h2}:::${h1}`;
+    if (seenPairs.has(key)) continue;
+    seenPairs.add(key);
+
     const corridorUsers = corridorRegistry.get(key) || [rot.id];
     const totalUsers = corridorUsers.length;
     const userSlot = corridorUsers.indexOf(rot.id);
@@ -597,38 +766,96 @@ function generateRotationCurvedPath(rot, corridorRegistry) {
     }
 
     const segPoints = generateCurvedSegmentPoints(coord1, coord2, multiplier, 8);
-    if (fullPath.length === 0) {
-      fullPath.push(...segPoints);
-    } else {
-      fullPath.push(...segPoints.slice(1));
-    }
+    segments.push(segPoints);
   }
 
-  return fullPath;
+  return segments;
 }
 
 let overviewPolylinesMap = {};
 
 function highlightOverviewTrack(rotId) {
-  if (!showOverviewLines || currentViewMode !== 'list') return;
+  if (overviewLinesMode === 'off' || currentViewMode !== 'list') return;
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
+  hoverHighlightGroup.clearLayers();
+
+  const rot = (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : []).find(r => r.id === rotId);
+  const entry = overviewPolylinesMap[rotId];
+
+  // 1. Highlight target track; dim all other overview lines
   Object.keys(overviewPolylinesMap).forEach(id => {
-    const entry = overviewPolylinesMap[id];
+    const item = overviewPolylinesMap[id];
     if (id === rotId) {
-      entry.polyline.setStyle({
+      item.polyline.setStyle({
         weight: 4.5,
         opacity: 1.0,
-        color: isDark ? '#38bdf8' : entry.highlightColor
+        color: isDark ? '#38bdf8' : item.highlightColor
       });
-      entry.polyline.bringToFront();
+      item.polyline.bringToFront();
     } else {
-      entry.polyline.setStyle({
+      item.polyline.setStyle({
         opacity: 0.08
       });
     }
   });
 
+  // 2. Add outer casing polyline on hoverHighlightGroup underneath the track
+  if (entry && entry.polyline) {
+    const casingColor = isDark ? '#0f172a' : '#ffffff';
+    const casingPolyline = L.polyline(entry.polyline.getLatLngs(), {
+      color: casingColor,
+      weight: 8,
+      opacity: 0.85,
+      lineCap: 'round',
+      lineJoin: 'round',
+      interactive: false
+    });
+    hoverHighlightGroup.addLayer(casingPolyline);
+
+    // High-contrast highlighted line sits cleanly above casing on hoverHighlightGroup
+    const highlightClone = L.polyline(entry.polyline.getLatLngs(), {
+      color: isDark ? '#38bdf8' : entry.highlightColor,
+      weight: 4.5,
+      opacity: 1.0,
+      lineCap: 'round',
+      lineJoin: 'round',
+      interactive: false
+    });
+    hoverHighlightGroup.addLayer(highlightClone);
+  }
+
+  // 3. Temporarily place numbered stage markers (1, 2, 3...) on hoverHighlightGroup
+  if (rot && rot.stages && rot.stages.length) {
+    const hospStagesMap = new Map();
+    rot.stages.forEach((stg, idx) => {
+      if (!stg.hosp || !HOSPITALS[stg.hosp]) return;
+      if (!hospStagesMap.has(stg.hosp)) hospStagesMap.set(stg.hosp, []);
+      hospStagesMap.get(stg.hosp).push(idx + 1);
+    });
+
+    hospStagesMap.forEach((nums, hName) => {
+      const hosp = HOSPITALS[hName];
+      if (!hosp || !hosp.coords) return;
+
+      const numStr = nums.join(',');
+      const badgeIcon = L.divIcon({
+        className: 'hover-stage-badge-icon',
+        html: `<div class="hover-stage-badge" title="Stage ${numStr}: ${escapeHtml(hName)}">${numStr}</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      const badgeMarker = L.marker(hosp.coords, {
+        icon: badgeIcon,
+        zIndexOffset: 3000,
+        interactive: false
+      });
+      hoverHighlightGroup.addLayer(badgeMarker);
+    });
+  }
+
+  // 4. Highlight sidebar card
   const card = document.getElementById(`feed-card-${rotId}`);
   if (card) {
     card.classList.add('map-highlighted-card');
@@ -639,7 +866,9 @@ function highlightOverviewTrack(rotId) {
 }
 
 function resetOverviewTrackHighlights() {
-  if (!showOverviewLines || currentViewMode !== 'list') return;
+  hoverHighlightGroup.clearLayers();
+  if (overviewLinesMode === 'off' || currentViewMode !== 'list') return;
+
   Object.keys(overviewPolylinesMap).forEach(id => {
     const entry = overviewPolylinesMap[id];
     entry.polyline.setStyle({
@@ -956,6 +1185,8 @@ function renderRotationCardsFeed(list) {
 }
 
 function openDetailsForRotation(id) {
+  flushPendingNotes();
+  if (typeof hoverHighlightGroup !== 'undefined') hoverHighlightGroup.clearLayers();
   if (prefSelect) prefSelect.value = id;
   selectRotation(id, false);
   setViewMode('details');
@@ -1073,6 +1304,7 @@ function setRating(val, isClick = false) {
 // 9. VIEW MODE & COMMUTE MODE SWITCHING
 function showListView() {
   flushPendingNotes();
+  if (typeof hoverHighlightGroup !== 'undefined') hoverHighlightGroup.clearLayers();
   currentViewMode = 'list';
   const listView = document.getElementById('listViewContainer');
   const inspectorCard = document.getElementById('inspectorCard');
@@ -1793,6 +2025,7 @@ function renderAllPlacements({ fitView = true } = {}) {
   activeRouteGroup.clearLayers();
   backgroundHospitalsGroup.clearLayers();
   overviewLinesGroup.clearLayers();
+  hoverHighlightGroup.clearLayers();
   activeHospitalMarkers = {};
 
   const titleEl = document.getElementById('miniCardTitle');
@@ -1809,25 +2042,28 @@ function renderAllPlacements({ fitView = true } = {}) {
   overviewPolylinesMap = {};
 
   // 11a. Separated curved route lines for every rotation in the filtered feed (region, pills, search)
-  if (showOverviewLines) {
+  if (overviewLinesMode !== 'off') {
     const corridorRegistry = buildCorridorUsageRegistry(currentFilteredList);
 
     currentFilteredList.forEach(rot => {
       if (isPoolRotation(rot)) return;
 
-      const curvedPoints = generateRotationCurvedPath(rot, corridorRegistry);
-      if (curvedPoints.length > 1) {
+      const curvedSegments = generateRotationCurvedPath(rot, corridorRegistry);
+      if (curvedSegments.length > 0) {
         const lineStyle = getRotationLineStyle(rot);
         const maxDist = getRotationMaxDistance(rot);
 
-        const polyline = L.polyline(curvedPoints, {
+        const polyline = L.polyline(curvedSegments, {
           color: lineStyle.color,
           weight: 2,
           dashArray: lineStyle.dashPattern === 'none' ? null : lineStyle.dashPattern,
           opacity: 0.42
         });
 
-        const stagesSummary = rot.stages.map(s => escapeHtml(s.hosp)).join(' &rarr; ');
+        const displayStages = getOverviewStages(rot);
+        const stagesSummary = displayStages.map(s => escapeHtml(s.hosp)).join(' &rarr; ');
+        const isFilteredCore = overviewLinesMode === 'core' && displayStages.length < rot.stages.length;
+
         const tooltipContent = `
           <div style="min-width:180px; max-width:290px;">
             <div style="font-weight:800; font-size:0.84rem; color:var(--text-main); margin-bottom:2px;">${escapeHtml(rot.title)}</div>
@@ -1837,6 +2073,7 @@ function renderAllPlacements({ fitView = true } = {}) {
             <div style="font-size:0.72rem; color:var(--primary); font-weight:700; line-height:1.35;">
               ${stagesSummary}
             </div>
+            ${isFilteredCore ? `<div style="font-size:0.68rem; color:var(--text-muted); font-style:italic; margin-top:2px;">Core bases shown (${rot.stages.length - displayStages.length} 3m subspecialty hops filtered)</div>` : ''}
           </div>
         `;
         polyline.bindTooltip(tooltipContent, { sticky: true, className: 'rotation-line-tooltip' });
@@ -1865,7 +2102,7 @@ function renderAllPlacements({ fitView = true } = {}) {
           highlightColor: lineStyle.color
         };
 
-        rot.stages.forEach(s => {
+        displayStages.forEach(s => {
           if (!linesByHospital[s.hosp]) linesByHospital[s.hosp] = [];
           linesByHospital[s.hosp].push({ line: polyline, color: lineStyle.color, dash: lineStyle.dashPattern });
         });
@@ -1910,6 +2147,9 @@ function renderAllPlacements({ fitView = true } = {}) {
       <div class="overview-popup-title">${escapeHtml(hName)}</div>
       <div class="overview-popup-reg" style="color:${regColor};">${escapeHtml(h.region)} • <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.65rem;">${isTertiary ? 'Tertiary' : 'DGH'}</span></div>
       <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Included in <b>${linkedRotations.length}</b> rotation scheme(s).</div>
+      <button class="hospital-chip-btn" style="width:100%; margin-bottom:6px; font-size:0.73rem; padding:4px 8px; background:var(--primary); color:#fff; border-color:var(--primary);" data-action="filter-by-hospital" data-hosp="${escapeHtml(hName)}">
+        Filter Map &amp; Feed to this Hospital (${linkedRotations.length})
+      </button>
       <button class="hospital-chip-btn" style="width:100%; margin-bottom:8px; font-size:0.73rem; padding:4px 8px;" data-action="open-hospital-profile" data-hosp="${escapeHtml(hName)}">Hospital Profile &rarr;</button>
       ${linkedHtml}
     `, { maxWidth: 280 });
@@ -1943,17 +2183,38 @@ function renderAllPlacements({ fitView = true } = {}) {
 }
 
 function toggleOverviewLines() {
-  showOverviewLines = !showOverviewLines;
+  if (overviewLinesMode === 'all') {
+    overviewLinesMode = 'core';
+  } else if (overviewLinesMode === 'core') {
+    overviewLinesMode = 'off';
+  } else {
+    overviewLinesMode = 'all';
+  }
+
   const btnMap = document.getElementById('btnMapLinesToggle');
   if (btnMap) {
-    btnMap.textContent = showOverviewLines ? 'Lines: ON' : 'Lines: OFF';
-    btnMap.classList.toggle('active-btn', showOverviewLines);
+    if (overviewLinesMode === 'all') {
+      btnMap.textContent = 'Lines: All';
+      btnMap.classList.add('active-btn');
+    } else if (overviewLinesMode === 'core') {
+      btnMap.textContent = 'Lines: Core Bases';
+      btnMap.classList.add('active-btn');
+    } else {
+      btnMap.textContent = 'Lines: OFF';
+      btnMap.classList.remove('active-btn');
+    }
   }
 
   if (currentViewMode === 'list') {
     renderAllPlacements({ fitView: false });
   }
-  showToast(`Rotation network lines: ${showOverviewLines ? 'Visible' : 'Hidden'}`);
+
+  const modeLabels = {
+    all: 'All Transitions',
+    core: 'Core Bases Only (3m modules filtered)',
+    off: 'Hidden'
+  };
+  showToast(`Rotation network lines: ${modeLabels[overviewLinesMode]}`);
 }
 
 function diveInFromPopup(id) {
@@ -3156,6 +3417,12 @@ document.addEventListener('click', (e) => {
     openDetailsForRotation(el.dataset.id);
   } else if (action === 'open-hospital-profile') {
     openHospitalProfile(el.dataset.hosp);
+  } else if (action === 'filter-by-hospital') {
+    const hospName = el.dataset.hosp;
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) searchInput.value = hospName;
+    handleSearch(hospName);
+    map.closePopup();
   } else if (action === 'focus-hospital') {
     if (e.target.tagName === 'A') return;
     focusHospitalByName(el.dataset.hosp);
