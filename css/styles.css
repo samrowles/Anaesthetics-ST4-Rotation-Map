@@ -1303,6 +1303,30 @@ select:focus, input:focus, textarea:focus {
   border: 2px solid #ffffff;
 }
 
+/* Reference-only / non-rotation hospital pins (reduced visual weight) */
+.overview-hosp-pin.reference-only-pin { 
+  width: 7px !important; 
+  height: 7px !important; 
+  margin-left: -3.5px !important; 
+  margin-top: -3.5px !important; 
+  opacity: 0.38; 
+  border: 1px solid rgba(255, 255, 255, 0.75) !important; 
+  box-shadow: none; 
+}
+.overview-hosp-pin.reference-only-pin:hover { 
+  opacity: 1 !important; 
+  transform: scale(1.8); 
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); 
+  z-index: 9999 !important; 
+}
+.zoom-detailed .overview-hosp-pin.reference-only-pin {
+  width: 9px !important;
+  height: 9px !important;
+  margin-left: -4.5px !important;
+  margin-top: -4.5px !important;
+  border: 1.2px solid rgba(255, 255, 255, 0.85) !important;
+}
+
 /* Leaflet Layer Switcher Custom Styling */
 .leaflet-control-layers {
   border-radius: 8px !important;
@@ -1329,6 +1353,20 @@ select:focus, input:focus, textarea:focus {
   opacity: 0.65; 
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); 
   cursor: pointer; 
+}
+.bg-site-pin.bg-site-pin-ref { 
+  width: 6px !important; 
+  height: 6px !important; 
+  margin-left: -3px !important; 
+  margin-top: -3px !important; 
+  opacity: 0.25; 
+  background: #94a3b8; 
+  border: 1px solid rgba(255, 255, 255, 0.5); 
+  box-shadow: none; 
+}
+.bg-site-pin.bg-site-pin-ref:hover {
+  opacity: 0.9 !important;
+  transform: scale(1.6);
 }
 
 /* --------------------------------------------------------------------------

@@ -1944,13 +1944,17 @@ function selectRotation(id, shouldCloseMobile = false) {
   Object.keys(HOSPITALS).forEach(hName => {
     if (!uniqueHospBases.includes(hName)) {
       const h = HOSPITALS[hName];
+      const isRef = (hospitalRotationsMap.get(hName) || []).length === 0;
       const bgIcon = L.divIcon({
-        className: 'bg-site-pin',
-        iconSize: [10, 10],
-        iconAnchor: [5, 5]
+        className: isRef ? 'bg-site-pin bg-site-pin-ref' : 'bg-site-pin',
+        iconSize: isRef ? [6, 6] : [10, 10],
+        iconAnchor: isRef ? [3, 3] : [5, 5]
       });
-      const bgMarker = L.marker(h.coords, { icon: bgIcon, zIndexOffset: 100 })
-        .bindPopup(`<b>${hName}</b><br><span style="font-size:0.75rem; color:var(--text-muted);">${h.region}</span>`);
+      const bgMarker = L.marker(h.coords, {
+        icon: bgIcon,
+        zIndexOffset: isRef ? 50 : 100,
+        title: isRef ? `${hName} (Regional Reference Site)` : hName
+      }).bindPopup(`<b>${hName}</b><br><span style="font-size:0.75rem; color:var(--text-muted);">${h.region}${isRef ? ' • Reference Hospital' : ''}</span>`);
       backgroundHospitalsGroup.addLayer(bgMarker);
     }
   });
@@ -2258,14 +2262,16 @@ function renderAllPlacements({ fitView = true } = {}) {
         `).join('')}
        </div>` : '';
 
+    const isTertiary = h.type === 'Tertiary';
+    const isRefSite = (linkedRotations.length === 0);
+
     const icon = L.divIcon({
-      className: 'overview-hosp-pin',
+      className: isRefSite ? 'overview-hosp-pin reference-only-pin' : 'overview-hosp-pin',
       html: `<div style="background-color: ${regColor}; width: 100%; height: 100%; border-radius: 50%;"></div>`,
-      iconSize: [12, 12],
-      iconAnchor: [6, 6]
+      iconSize: isRefSite ? [7, 7] : [12, 12],
+      iconAnchor: isRefSite ? [3.5, 3.5] : [6, 6]
     });
 
-    const isTertiary = h.type === 'Tertiary';
     const hospCountHtml = linkedRotations.length > 0 ? `
       <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Included in <b>${linkedRotations.length}</b> rotation scheme(s).</div>
       <button class="hospital-chip-btn" style="width:100%; margin-bottom:6px; font-size:0.73rem; padding:4px 8px; background:var(--primary); color:#fff; border-color:var(--primary);" data-action="filter-by-hospital" data-hosp="${escapeHtml(hName)}">
@@ -2277,7 +2283,11 @@ function renderAllPlacements({ fitView = true } = {}) {
       </div>
     `;
 
-    const m = L.marker(h.coords, { icon, zIndexOffset: 500 }).bindPopup(`
+    const m = L.marker(h.coords, {
+      icon,
+      zIndexOffset: isRefSite ? 150 : 500,
+      title: isRefSite ? `${hName} (Regional Reference Site — ST5–ST7)` : hName
+    }).bindPopup(`
       <div class="overview-popup-title">${escapeHtml(hName)}</div>
       <div class="overview-popup-reg" style="color:${regColor};">${escapeHtml(h.region)} • <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.65rem;">${isTertiary ? 'Tertiary' : 'DGH'}</span></div>
       ${hospCountHtml}
