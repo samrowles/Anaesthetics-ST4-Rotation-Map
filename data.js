@@ -866,12 +866,165 @@ const HOSPITALS = {
     station: "Haymarket Metro Station (0.3 miles / 5m walk), Newcastle Central (0.8 miles)",
     highlights: "Major Trauma Centre, Great North Children's Hospital, Neurosciences, High-risk Obstetrics"
   },
+  "Royal Sussex County Hospital, Brighton": {
+    coords: [50.8195, -0.1181],
+    region: "Kent, Surrey and Sussex",
+    type: "Tertiary",
+    epr: "CareFlow / Symphony & Nervecentre (UHSussex digital deployment)",
+    parking: "Very limited on-site parking; staff permit waiting list or Brighton Park & Ride / bus corridors used",
+    station: "Brighton Mainline Station (1.4 miles / 10m direct bus #1, #7) or Kemp Town",
+    highlights: "Major Trauma Centre (Sussex), Regional Neurosciences, Sussex Cardiac Centre, New Louisa Martindale Building"
+  },
+  "Eastbourne District General Hospital": {
+    coords: [50.7881, 0.2713],
+    region: "Kent, Surrey and Sussex",
+    type: "DGH",
+    epr: "Cerner Millennium / Oasis EPR (East Sussex Healthcare)",
+    parking: "Abundant on-site staff parking with permit scheme; low congestion",
+    station: "Eastbourne Rail Station (1.8 miles / 10m direct bus or cycle), Hampden Park (1.2 miles)",
+    highlights: "Supportive coastal DGH, Urology Robotic Centre, Day Surgery, General & Orthopaedic theatres"
+  },
+  "Conquest Hospital, Hastings": {
+    coords: [50.8858, 0.5674],
+    region: "Kent, Surrey and Sussex",
+    type: "DGH",
+    epr: "Cerner Millennium / Oasis EPR (East Sussex Healthcare)",
+    parking: "On-site staff parking permits readily available",
+    station: "Hastings Rail Station (2.5 miles / direct bus link), St Leonards Warrior Square",
+    highlights: "Acute Surgical Hub for East Sussex, High-risk Obstetrics, Emergency General & Trauma Surgery, Level 3 ICU"
+  },
+  "Princess Royal Hospital, Haywards Heath": {
+    coords: [50.9942, -0.0928],
+    region: "Kent, Surrey and Sussex",
+    type: "DGH",
+    epr: "CareFlow / UHSussex Clinical Portal",
+    parking: "On-site staff parking permits available; A272 / A23 access",
+    station: "Haywards Heath Rail Station (1.3 miles / 20m walk or 5m bus — 45m fast train to London/Brighton)",
+    highlights: "Hurstwood Park Neurosciences heritage, Elective Orthopaedic & Spinal Hub, Regional Obstetrics, Friendly DGH"
+  },
+  "Worthing Hospital": {
+    coords: [50.8172, -0.3621],
+    region: "Kent, Surrey and Sussex",
+    type: "DGH",
+    epr: "CareFlow / Nervecentre EPR (UHSussex)",
+    parking: "Multi-storey staff parking permit scheme; A27 coastal corridor",
+    station: "Worthing Rail Station (0.7 miles / 12m flat walk), East Worthing (0.6 miles)",
+    highlights: "Highly rated KSS DGH for trainee satisfaction, Acute General Surgery, Obstetrics, Paediatrics, ICU"
+  },
+  "St Richard's Hospital, Chichester": {
+    coords: [50.8447, -0.7672],
+    region: "Kent, Surrey and Sussex",
+    type: "DGH",
+    epr: "CareFlow / Nervecentre EPR (UHSussex)",
+    parking: "Plentiful on-site staff parking with permit scheme; A27 bypass",
+    station: "Chichester Rail Station (1.3 miles / 20m walk or frequent bus)",
+    highlights: "Regional Bariatric Surgery Centre, High-volume Orthopaedic & General theatres, Outstanding trainee feedback"
+  },
+  "Queen Victoria Hospital, East Grinstead": {
+    coords: [51.1328, 0.0094],
+    region: "Kent, Surrey and Sussex",
+    type: "Tertiary",
+    epr: "CareFlow / Electronic Clinical Portal",
+    parking: "Free/low-cost on-site staff parking with easy access",
+    station: "East Grinstead Rail Station (1.2 miles / 20m walk or short bus)",
+    highlights: "World-renowned Specialist Burns, Plastic & Reconstructive Surgery, Complex MaxFax, Difficult Airway & Corneal"
+  },
+  "Royal Surrey County Hospital, Guildford": {
+    coords: [51.2411, -0.6075],
+    region: "Kent, Surrey and Sussex",
+    type: "Tertiary",
+    epr: "Cerner Millennium (Surrey Safe Care - full electronic EPR)",
+    parking: "On-site staff permit scheme; adjacent to A3 corridor and University of Surrey",
+    station: "Guildford Mainline Station (1.4 miles / frequent hospital shuttle & bus links)",
+    highlights: "Regional Cancer & Oncology Centre, World-leading Robotic Urology & Gynae-Oncology, HPB & Oesophagogastric"
+  },
+  "East Surrey Hospital, Redhill": {
+    coords: [51.2192, -0.1631],
+    region: "Kent, Surrey and Sussex",
+    type: "DGH",
+    epr: "Cerner Millennium (Surrey Safe Care EPR)",
+    parking: "Staff car park with permit system; A23 / M23 / M25 corridor",
+    station: "Earlswood Rail Station (0.9 miles / 15m walk), Redhill Junction (1.8 miles / direct bus)",
+    highlights: "High-acuity Trauma Unit serving Gatwick & M23/M25, Busy Emergency Floor, High-risk Obstetrics, Large ICU"
+  },
+  "St Peter's Hospital, Chertsey": {
+    coords: [51.3768, -0.5278],
+    region: "Kent, Surrey and Sussex",
+    type: "DGH",
+    epr: "Cerner Millennium (Surrey Safe Care EPR)",
+    parking: "Multi-storey staff parking on site; M25 Junction 11 access",
+    station: "Chertsey Rail Station (1.5 miles / bus link), Woking Mainline (4.5 miles / direct hospital bus)",
+    highlights: "Tertiary Level 3 NICU, Regional Vascular Hub, Bariatric Surgery, Busy Acute & Obstetric Anaesthesia"
+  },
+  "Frimley Park Hospital": {
+    coords: [51.3186, -0.7412],
+    region: "Kent, Surrey and Sussex",
+    type: "DGH",
+    epr: "Epic Systems (Frimley Health flagship full electronic EPR)",
+    parking: "On-site multi-storey staff parking; M3 Junction 4 direct access",
+    station: "Frimley Rail Station (0.8 miles / 15m walk), Farnborough Main (2.2 miles / fast bus)",
+    highlights: "Full Epic EPR hospital, Major Trauma Unit, Regional Vascular & Renal, Military hospital integration, High morale"
+  },
+  "Tunbridge Wells Hospital, Pembury": {
+    coords: [51.1422, 0.3061],
+    region: "Kent, Surrey and Sussex",
+    type: "DGH",
+    epr: "Sunrise EPR (Allscripts - Maidstone & Tunbridge Wells Trust)",
+    parking: "On-site multi-storey staff car park; direct A21 dual carriageway access",
+    station: "High Brooms (2.2 miles / frequent bus), Tonbridge Junction (4.5 miles / direct hospital bus)",
+    highlights: "Modern 100% single-room PFI acute hospital, Trauma Unit, High-risk Obstetrics, Emergency General & Ortho"
+  },
+  "Maidstone Hospital": {
+    coords: [51.2741, 0.4832],
+    region: "Kent, Surrey and Sussex",
+    type: "DGH",
+    epr: "Sunrise EPR (Allscripts)",
+    parking: "On-site staff parking permits available; M20 Junction 5 access",
+    station: "Barming Rail Station (0.7 miles / 12m walk), Maidstone West/East (2.2 miles)",
+    highlights: "Kent Oncology Centre, Major Gynae-Oncology & Urology, Dedicated Barn Theatre Orthopaedic Centre"
+  },
+  "Medway Maritime Hospital, Gillingham": {
+    coords: [51.3782, 0.5422],
+    region: "Kent, Surrey and Sussex",
+    type: "DGH",
+    epr: "Sunrise EPR (Allscripts)",
+    parking: "On-site staff permit scheme and Park & Ride",
+    station: "Gillingham (Kent) Station (0.8 miles / 15m walk — HS1 high-speed rail to London)",
+    highlights: "Level 3 Neonatal ICU, High-volume Emergency Surgery, Foetal Medicine Hub, Busy Critical Care"
+  },
+  "William Harvey Hospital, Ashford": {
+    coords: [51.1425, 0.9162],
+    region: "Kent, Surrey and Sussex",
+    type: "DGH",
+    epr: "Sunrise EPR (East Kent Hospitals)",
+    parking: "On-site staff parking adjacent to M20 Junction 10",
+    station: "Ashford International (2.8 miles / direct bus — 38m HS1 high-speed train to St Pancras)",
+    highlights: "East Kent Trauma Unit, 24/7 Primary PCI Cardiac Centre, Head & Neck, Busy Emergency & Obstetric Theatres"
+  },
+  "Queen Elizabeth The Queen Mother Hospital, Margate": {
+    coords: [51.3752, 1.3892],
+    region: "Kent, Surrey and Sussex",
+    type: "DGH",
+    epr: "Sunrise EPR (East Kent Hospitals)",
+    parking: "Ample on-site staff parking; low local congestion",
+    station: "Margate Rail Station (1.2 miles / 20m walk or short bus)",
+    highlights: "Supportive coastal DGH, Gynae-Oncology, General & Orthopaedic Trauma, High clinical autonomy"
+  },
+  "Darent Valley Hospital, Dartford": {
+    coords: [51.4368, 0.2562],
+    region: "Kent, Surrey and Sussex",
+    type: "DGH",
+    epr: "CareFlow / Dartford & Gravesham EPR",
+    parking: "On-site staff car parking permits; immediate A2 / M25 Dartford Crossing access",
+    station: "Greenhithe for Bluewater (1.4 miles / fast Fastrack bus), Ebbsfleet International (3.0 miles), Dartford (2.2 miles)",
+    highlights: "Busy M25/A2 corridor acute DGH, General & Vascular surgery, High-throughput elective & trauma lists"
+  },
 };
 
 const ROTATIONS_DATA = [
   // ==================== WESSEX ====================
   {
-    id: "wessex-west", code: "Wessex - West (Posts 1, 2 & 3)", region: "Wessex", title: "Wessex West Rotational Scheme", places: "7 total",
+    id: "wessex-west", code: "Wessex - West (Posts 1, 2 & 3)", region: "Wessex", title: "Wessex West Rotational Scheme", places: "8 total",
     isPool: true,
     hubs: {
       driver: { name: "Wimborne Minster / Ringwood", coords: [50.8000, -1.9860], desc: "A31/A338. Commute: 20m to Poole/Bournemouth, 32m to Southampton, 40m to Salisbury/Dorchester.", alert: "Central base across Dorset and Hampshire." },
@@ -886,7 +1039,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "wessex-east", code: "Wessex - East (Posts 4, 5 & 6)", region: "Wessex", title: "Wessex East Rotational Scheme", places: "7 total",
+    id: "wessex-east", code: "Wessex - East (Posts 4, 5 & 6)", region: "Wessex", title: "Wessex East Rotational Scheme", places: "8 total",
     isPool: true,
     hubs: {
       driver: { name: "Winchester", coords: [51.0632, -1.3080], desc: "M3/M27/A34 junction. Driving: 18m to Southampton General, 28m to Portsmouth (QA), 22m to Basingstoke.", alert: "Premier driving base for Wessex East." },
@@ -1884,7 +2037,7 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "nw-gt-manchester", code: "North West - Gt Manchester 2 & 2E", region: "North West", title: "Greater Manchester Scheme", places: "16 total",
+    id: "nw-gt-manchester", code: "North West - Gt Manchester 2 & 2E", region: "North West", title: "Greater Manchester Scheme", places: "18 total",
     hubs: {
       driver: { name: "South Manchester (Didsbury / Altrincham)", coords: [53.4102, -2.2302], desc: "M60/M56. Commute: 20m to MRI, 15m to Wythenshawe, 22m to Salford Royal.", alert: "Good parking options in South Manchester." },
       transit: { name: "Manchester City Centre (Oxford Road)", coords: [53.4732, -2.2412], desc: "Oxford Road is walking distance to MRI; Metrolink tram connects to Salford Royal and Wythenshawe.", alert: "Metrolink tram makes non-driving commutes very easy." }
@@ -1902,6 +2055,69 @@ const ROTATIONS_DATA = [
     stages: [
       { stage: "North East Network", hosp: "Royal Victoria Infirmary, Newcastle", desc: "Major Trauma & Neuro Base" }
     ]
+  },
+  // ==================== KENT, SURREY & SUSSEX ====================
+  {
+    id: "kss-sussex-k1",
+    code: "Kent, Surrey and Sussex - Sussex - ST4 - Feb - K1",
+    region: "Kent, Surrey and Sussex",
+    title: "KSS Sussex K1 — Brighton (UHSussex) Starting Base",
+    places: "2",
+    hubs: {
+      driver: {
+        name: "Burgess Hill / Hassocks / Haywards Heath",
+        coords: [50.9552, -0.1322],
+        desc: "A23/A27 corridor. Commute: 20m drive to Brighton (RSCH), 10m to Haywards Heath (PRH), 25m to East Grinstead (QVH), 30m to Worthing/Eastbourne.",
+        alert: "Living just north of the South Downs on the A23/A27 avoids central Brighton parking restrictions while keeping all Sussex ST5–ST7 sites within 30 mins."
+      },
+      transit: {
+        name: "Brighton Central / Preston Park",
+        coords: [50.8292, -0.1412],
+        desc: "Frequent 24/7 city buses (#1, #7) or 15m cycle to Royal Sussex County Hospital; Thameslink mainline connects directly to Haywards Heath (15m) and London.",
+        alert: "Superb rail and bus links along the Sussex coast (Worthing/Eastbourne) and north on the Brighton Main Line."
+      }
+    },
+    stages: [
+      {
+        stage: "ST4 (12m)",
+        hosp: "Royal Sussex County Hospital, Brighton",
+        desc: "[1+2] University Hospitals Sussex NHS FT (Brighton MTC, Neuro & Cardiac). ST5–ST7 Sussex placements TBC."
+      }
+    ]
+  },
+  {
+    id: "kss-sussex-k2",
+    code: "Kent, Surrey and Sussex - Sussex - ST4 - Feb - K2",
+    region: "Kent, Surrey and Sussex",
+    title: "KSS Sussex K2 — East Sussex Healthcare Starting Base",
+    places: "1",
+    isPool: true,
+    hubs: {
+      driver: {
+        name: "Polegate / Lewes / Hailsham",
+        coords: [50.8212, 0.2452],
+        desc: "A27/A22 junction. Commute: 10m drive to Eastbourne DGH, 25m to Conquest (Hastings), 28m to Brighton (RSCH) for tertiary modules.",
+        alert: "A27 corridor links Eastbourne, Hastings, and Brighton smoothly for onward ST5–ST7 rotations."
+      },
+      transit: {
+        name: "Eastbourne / Lewes",
+        coords: [50.7682, 0.2842],
+        desc: "Eastbourne & Lewes rail stations connect directly on East Coastway line between Hastings, Eastbourne, and Brighton (RSCH).",
+        alert: "Direct coastal trains connect Eastbourne, Hastings, and Brighton."
+      }
+    },
+    stages: [
+      {
+        stage: "ST4 (12m)",
+        hosp: "Eastbourne District General Hospital",
+        desc: "[3] East Sussex Healthcare NHS Trust (Eastbourne DGH / Conquest Hastings). ST5–ST7 Sussex placements TBC."
+      },
+      {
+        stage: "ST4 Trust Site",
+        hosp: "Conquest Hospital, Hastings",
+        desc: "East Sussex Healthcare acute site (ST5–ST7 placements TBC)."
+      }
+    ]
   }
 ];
 
@@ -1911,6 +2127,7 @@ const REGION_COLORS = {
   "London - North Central East": "#dc2626",
   "London - North West": "#e11d48",
   "London - South": "#b91c1c",
+  "Kent, Surrey and Sussex": "#059669",
   "Wessex": "#2563eb",
   "Thames Valley": "#8b5cf6",
   "South West - Severn": "#0891b2",

@@ -1621,13 +1621,17 @@ function openHospitalProfile(hospName) {
 
     <div class="hosp-rotations-box">
       <div class="hosp-rotations-title">Rotations that include this hospital (${linked.length}):</div>
-      <div class="hosp-rot-pills">
-        ${linked.map(r => `
-          <button class="hosp-rot-btn" data-action="dive-in-modal" data-id="${r.id}">
-            <b>${escapeHtml(r.code)}</b>: ${escapeHtml(r.title)} &rarr;
-          </button>
-        `).join('')}
-      </div>
+      ${linked.length > 0 ? `
+        <div class="hosp-rot-pills">
+          ${linked.map(r => `
+            <button class="hosp-rot-btn" data-action="dive-in-modal" data-id="${r.id}">
+              <b>${escapeHtml(r.code)}</b>: ${escapeHtml(r.title)} &rarr;
+            </button>
+          `).join('')}
+        </div>
+      ` : `
+        <div style="font-size:0.74rem; color:var(--text-muted); font-style:italic;">Reference regional training hospital (ST5–ST7 rotations TBC / no direct ST4 starting post in this Oriel window).</div>
+      `}
     </div>
   `;
 
@@ -2262,13 +2266,21 @@ function renderAllPlacements({ fitView = true } = {}) {
     });
 
     const isTertiary = h.type === 'Tertiary';
-    const m = L.marker(h.coords, { icon, zIndexOffset: 500 }).bindPopup(`
-      <div class="overview-popup-title">${escapeHtml(hName)}</div>
-      <div class="overview-popup-reg" style="color:${regColor};">${escapeHtml(h.region)} • <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.65rem;">${isTertiary ? 'Tertiary' : 'DGH'}</span></div>
+    const hospCountHtml = linkedRotations.length > 0 ? `
       <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Included in <b>${linkedRotations.length}</b> rotation scheme(s).</div>
       <button class="hospital-chip-btn" style="width:100%; margin-bottom:6px; font-size:0.73rem; padding:4px 8px; background:var(--primary); color:#fff; border-color:var(--primary);" data-action="filter-by-hospital" data-hosp="${escapeHtml(hName)}">
         Filter Map &amp; Feed to this Hospital (${linkedRotations.length})
       </button>
+    ` : `
+      <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">
+        <span style="font-style:italic;">Regional Anaesthesia Training Hospital (ST5–ST7 / reference site — no ST4 starting posts in this round).</span>
+      </div>
+    `;
+
+    const m = L.marker(h.coords, { icon, zIndexOffset: 500 }).bindPopup(`
+      <div class="overview-popup-title">${escapeHtml(hName)}</div>
+      <div class="overview-popup-reg" style="color:${regColor};">${escapeHtml(h.region)} • <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.65rem;">${isTertiary ? 'Tertiary' : 'DGH'}</span></div>
+      ${hospCountHtml}
       <button class="hospital-chip-btn" style="width:100%; margin-bottom:8px; font-size:0.73rem; padding:4px 8px;" data-action="open-hospital-profile" data-hosp="${escapeHtml(hName)}">Hospital Profile &rarr;</button>
       ${linkedHtml}
     `, { maxWidth: 280 });
