@@ -3,7 +3,7 @@
  * Provides offline resilience for hospital basements, theatres, and poor connectivity environments.
  */
 
-const CACHE_NAME = 'st4-explorer-v7';
+const CACHE_NAME = 'st4-explorer-v8';
 const STATIC_ASSETS = [
   './',
   './index.html',

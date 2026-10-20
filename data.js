@@ -699,10 +699,10 @@ const HOSPITALS = {
     coords: [52.4972, -1.9672],
     region: "West Midlands",
     type: "DGH",
-    epr: "Unity (Cerner Millennium - fully digital new hospital)",
+    epr: "Unity (Cerner Millennium EPR across Sandwell & West Birmingham Hospitals NHS Trust / SWBH)",
     parking: "Modern multi-storey staff car parking with permit system",
     station: "Smethwick Rolfe Street (0.8 miles / 15m walk), Smethwick Galton Bridge",
-    highlights: "Brand-new acute hospital, Modern theatre suites, High-volume Acute Surgery & Trauma"
+    highlights: "Brand-new Sandwell & West Birmingham Hospitals NHS Trust (SWBH) acute hospital, Modern theatre suites, High-volume Acute Surgery & Trauma"
   },
   "Royal Shrewsbury Hospital": {
     coords: [52.7062, -2.7842],
@@ -739,6 +739,60 @@ const HOSPITALS = {
     parking: "Staff car parking permits available; M40 corridor",
     station: "Warwick Rail Station (0.4 miles / 8m walk)",
     highlights: "Friendly Warwickshire DGH, Elective Orthopaedic Centre, General surgery, Great team spirit"
+  },
+  "Hereford County Hospital": {
+    coords: [52.0569, -2.7055],
+    region: "West Midlands",
+    type: "DGH",
+    epr: "IMS MAXIMS (openMAXIMS EPR) & Better Meds ePMA",
+    parking: "Staff permit parking on-site with barrier access; rural A49/A438 road links",
+    station: "Hereford Rail Station (0.3 miles / 6m walk)",
+    highlights: "Wye Valley NHS Trust acute hospital, Intensive Care, Obstetric Anaesthesia, General & Trauma surgery, Welsh border catchment"
+  },
+  "Worcestershire Royal Hospital": {
+    coords: [52.1909, -2.1816],
+    region: "West Midlands",
+    type: "DGH",
+    epr: "Sunrise EPR (Altera Digital Health) & ePMA",
+    parking: "On-site multi-storey and surface staff permit parking; direct access from M5 Junctions 6 & 7",
+    station: "Worcester Shrub Hill (1.8 miles) / Worcester Foregate Street (2.3 miles / direct hospital buses)",
+    highlights: "Worcestershire Acute Hospitals NHS Trust acute flagship, Level 3 Critical Care, Major Trauma unit, High-risk Obstetrics, Vascular surgery"
+  },
+  "Russells Hall Hospital, Dudley": {
+    coords: [52.5024, -2.1191],
+    region: "West Midlands",
+    type: "DGH",
+    epr: "Sunrise EPR (Altera Digital Health) & electronic prescribing",
+    parking: "Multi-storey and surface staff permit parking on-site; convenient access via A4101",
+    station: "Dudley Port Rail Station (3.2 miles) / frequent bus connections from Dudley Bus Station",
+    highlights: "The Dudley Group NHS FT acute hospital, Dedicated Day Case Centre, Emergency & Trauma surgery, High-risk Maternity, Level 2/3 Critical Care"
+  },
+  "Alexandra Hospital, Redditch": {
+    coords: [52.2800, -1.9127],
+    region: "West Midlands",
+    type: "DGH",
+    epr: "Sunrise EPR (Altera Digital Health) & ePMA (Worcestershire Acute Hospitals NHS Trust)",
+    parking: "On-site staff permit parking; convenient access from A441 and M42 Junction 2",
+    station: "Redditch Rail Station (2.0 miles / direct bus link)",
+    highlights: "Worcestershire Acute Hospitals NHS Trust elective surgical centre, Dedicated orthopaedic & urology theatres, Endoscopy unit, Day-case anaesthesia"
+  },
+  "Birmingham Heartlands Hospital": {
+    coords: [52.4788, -1.8295],
+    region: "West Midlands",
+    type: "Tertiary",
+    epr: "PICS (Prescribing, Information & Communication System - custom digital EPR)",
+    parking: "Multi-storey and surface permit parking via University Hospitals Birmingham (UHB) scheme",
+    station: "Stechford Rail Station (1.2 miles / frequent local bus routes along Bordesley Green)",
+    highlights: "University Hospitals Birmingham (UHB), Regional Thoracic Surgery, Infectious Diseases & Cystic Fibrosis Centre, High-volume Acute Surgery & Paediatrics"
+  },
+  "Good Hope Hospital, Sutton Coldfield": {
+    coords: [52.5670, -1.8120],
+    region: "West Midlands",
+    type: "DGH",
+    epr: "PICS (Prescribing, Information & Communication System - custom digital EPR)",
+    parking: "On-site multi-storey and barrier staff permit parking; near A5127 and M6 Toll corridor",
+    station: "Sutton Coldfield Rail Station (0.9 miles / 15m walk or quick bus)",
+    highlights: "University Hospitals Birmingham (UHB) north acute hospital, Busy emergency department, High-throughput elective surgery, Supportive training environment"
   },
   "Hull Royal Infirmary": {
     coords: [53.7442, -0.3582],
@@ -1920,13 +1974,18 @@ const ROTATIONS_DATA = [
     ]
   },
   {
-    id: "wmid-2-birmingham", code: "West Midlands - ST4 - Feb - 2", region: "West Midlands", title: "Birmingham Scheme", places: "9",
+    id: "wmid-2-birmingham", code: "West Midlands - ST4 - Feb - 2", region: "West Midlands", title: "Birmingham & West Midlands South/West Scheme", places: "9",
+    isPool: true,
     hubs: {
-      driver: { name: "Harborne / Edgbaston / Solihull", coords: [52.4512, -1.9602], desc: "Central location for Queen Elizabeth Hospital Birmingham, Heartlands, Worcester, and Dudley.", alert: "Central base across the West Midlands." },
-      transit: { name: "Birmingham City Centre / Selly Oak", coords: [52.4772, -1.8982], desc: "CrossCity rail line stops at University station right inside Queen Elizabeth Hospital (7m from New St).", alert: "University station is on the QE hospital grounds." }
+      driver: { name: "Harborne / Edgbaston / M5 Corridor", coords: [52.4512, -1.9602], desc: "Strategic M5 corridor driving base. Commute: 10-15m to Queen Elizabeth Hospital Birmingham and Midlands Met University Hospital (SWBH), 25m to Russells Hall Hospital, Dudley, 35m to Worcestershire Royal Hospital, and ~60-70m to Hereford County Hospital via M5/A4103.", alert: "M5 corridor links Birmingham, Dudley, and Worcester; note Hereford County Hospital involves a longer commute distance if allocated there." },
+      transit: { name: "Birmingham New Street / City Centre", coords: [52.4772, -1.8982], desc: "CrossCity rail line directly serves University station for QE Birmingham (7m from New Street); direct buses/trams connect to Midlands Met (SWBH) and Russells Hall Hospital, Dudley; direct West Midlands Railway connects Birmingham New Street to Worcester (Foregate St/Shrub Hill) and Hereford.", alert: "Direct rail links Birmingham New Street to Worcester and Hereford; note Hereford requires a ~85m train journey from Birmingham city centre." }
     },
     stages: [
-      { stage: "Birmingham Network", hosp: "Queen Elizabeth Hospital Birmingham", desc: "Major Trauma & Tertiary Base" }
+      { stage: "Candidate Base", hosp: "Queen Elizabeth Hospital Birmingham", desc: "Tertiary & Major Trauma Centre base (Could be Hereford/Worcestershire/Russells Hall/SWBH/QE according to educational needs)" },
+      { stage: "Candidate Base", hosp: "Midlands Met University Hospital", desc: "Sandwell & West Birmingham NHS Trust / SWBH acute hospital" },
+      { stage: "Candidate Base", hosp: "Russells Hall Hospital, Dudley", desc: "Dudley Group NHS FT acute DGH" },
+      { stage: "Candidate Base", hosp: "Worcestershire Royal Hospital", desc: "Worcestershire Acute Hospitals NHS Trust" },
+      { stage: "Candidate Base", hosp: "Hereford County Hospital", desc: "Wye Valley NHS Trust DGH" }
     ]
   },
   {
