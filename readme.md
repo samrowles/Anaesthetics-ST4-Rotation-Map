@@ -15,6 +15,7 @@ An interactive, open-source web application designed to help UK Anaesthetics tra
 - **Visual Balance Bar:** Two-tone progress bar in the rotation inspector and compact badge pills (`XX% Tert • YY% DGH`) on rotation feed cards.
 
 ### ℹ️ Hospital Trust Profiles
+- **Comprehensive National Dataset:** Profiles for 118 unique hospital bases in `HOSPITALS` across 78 rotation entries in `ROTATIONS_DATA`.
   - 📋 **Electronic Patient Records (EPR):** System deployed (Epic, Cerner Millennium, CareFlow, Sunrise, Nervecentre, Meditech, Welsh Clinical Portal, etc.).
   - 🚗 **Doctor Parking Policies:** Barrier schemes, multi-storeys, staff permit rules, and Park & Ride options.
   - 🚆 **Rail & Transit Connections:** Nearest stations, walking times, and transit connections.
@@ -61,11 +62,13 @@ An interactive, open-source web application designed to help UK Anaesthetics tra
 
 ## Automated Data Validation
 
-The repository includes an automated validation suite (`validate_data.py`) that checks `data.js` for:
+The repository includes an automated validation suite (`validate_data.py`) that checks `data.js` across 78 rotation entries in ROTATIONS_DATA and 118 unique hospital bases in HOSPITALS (reflecting the addition of Kent, Surrey and Sussex and expanded West Midlands schemes/reference hospitals) for:
+- Non-empty rotation codes, titles, places, and placement stages (minimum 1 stage per rotation)
 - Unique rotation IDs
-- 100% stage-to-hospital dictionary mapping
+- 100% stage-to-hospital dictionary mapping (323 stage references)
 - Valid UK geographical bounding coordinates (`49.0°N–61.5°N`, `-9.5°W–3.0°E`)
 - Schema completeness across all declared hospitals
+- Valid Service Worker cache configuration (`sw.js`)
 
 To run checks locally:
 ```bash

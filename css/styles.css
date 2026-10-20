@@ -380,22 +380,6 @@ select:focus, input:focus, textarea:focus {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); 
 }
 
-.mode-toggle-group { 
-  display: flex; 
-  flex-direction: column; 
-  gap: 4px; 
-}
-
-.mode-label { 
-  font-size: 0.68rem; 
-  font-weight: 800; 
-  color: var(--text-muted); 
-  text-transform: uppercase; 
-  letter-spacing: 0.04em; 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-}
 
 .transport-toggle { 
   display: flex; 
@@ -582,10 +566,6 @@ select:focus, input:focus, textarea:focus {
   gap: 4px;
 }
 
-.nav-stepper { 
-  display: flex; 
-  gap: 4px; 
-}
 
 .btn-step { 
   background: var(--border-color); 
@@ -1252,6 +1232,7 @@ select:focus, input:focus, textarea:focus {
 .pool-site-pin { 
   background: #0284c7; 
   color: #ffffff; 
+  font-weight: 800;
   font-size: 13px; 
   border-radius: 50%; 
   width: 28px !important; 
@@ -1499,42 +1480,6 @@ select:focus, input:focus, textarea:focus {
 .modal-header h2 { font-size: 1.05rem; font-weight: 800; color: var(--text-main); }
 .modal-body { padding: 16px 18px; overflow-y: auto; flex-grow: 1; }
 
-.compare-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
-}
-
-.compare-card {
-  background: var(--bg-card);
-  border: 1.5px solid var(--border-color);
-  border-radius: 8px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.compare-card-title {
-  font-size: 0.95rem;
-  font-weight: 800;
-  color: var(--text-main);
-  line-height: 1.25;
-}
-
-.compare-row-label {
-  font-size: 0.68rem;
-  font-weight: 800;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  margin-bottom: 2px;
-}
-
-.compare-row-val {
-  font-size: 0.78rem;
-  color: var(--text-main);
-  line-height: 1.35;
-}
 
 /* Shortlist Drag-and-Drop Items */
 .shortlist-item {

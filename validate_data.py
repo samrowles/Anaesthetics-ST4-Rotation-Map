@@ -2,13 +2,42 @@
 """
 Automated Data Integrity & Schema Validation Suite for ST4 Anaesthetics Explorer
 Runs client-side checks on data.js to ensure zero missing hospitals, valid coordinates,
-proper schema keys, valid regions, hospital types, and unique rotation identifiers.
+proper schema keys, valid regions, hospital types, unique rotation identifiers, complete
+rotation metadata, and valid service worker caching configuration.
 """
 
 import sys
 import re
 
-def validate_data_js(file_path="data.js"):
+def validate_sw_js(file_path="sw.js"):
+    print(f"--> Validating {file_path}...")
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except Exception as e:
+        print(f"[FAIL] Could not read service worker file: {e}")
+        return False
+
+    errors = []
+    cache_match = re.search(r'const\s+CACHE_NAME\s*=\s*["\']([^"\']+)["\']', content)
+    if not cache_match:
+        errors.append("const CACHE_NAME declaration missing from sw.js")
+    else:
+        cache_name = cache_match.group(1).strip()
+        if not cache_name:
+            errors.append("CACHE_NAME in sw.js is empty")
+        elif not re.match(r'^st4-explorer-v\d+$', cache_name):
+            errors.append(f"CACHE_NAME '{cache_name}' does not match expected versioned pattern 'st4-explorer-v<N>'")
+        else:
+            print(f"[PASS] Service Worker defines valid CACHE_NAME: '{cache_name}'.")
+
+    if errors:
+        for err in errors:
+            print(f"  [X] {err}")
+        return False
+    return True
+
+def validate_data_js(file_path="data.js", sw_path="sw.js"):
     print(f"--> Validating {file_path}...")
     try:
         with open(file_path, "r", encoding="utf-8") as f:
@@ -92,7 +121,45 @@ def validate_data_js(file_path="data.js"):
     else:
         print(f"[PASS] All {len(rot_ids)} rotation IDs are unique.")
 
-    # Verify driver and transit hub coordinates for all rotations
+    # 6. Check Rotation Schema Completeness (code, title, places, stages)
+    id_matches = list(re.finditer(r'\{\s*\n?\s*id:\s*["\']([^"\']+)["\']', rot_block))
+    rot_schema_errors = 0
+    for i, m in enumerate(id_matches):
+        rot_id = m.group(1)
+        start_pos = m.start()
+        end_pos = id_matches[i + 1].start() if i + 1 < len(id_matches) else rot_block.rfind("];")
+        chunk = rot_block[start_pos:end_pos]
+
+        code_m = re.search(r'code:\s*["\']([^"\']*)["\']', chunk)
+        if not code_m or not code_m.group(1).strip():
+            errors.append(f"Rotation '{rot_id}' is missing a valid non-empty 'code'")
+            rot_schema_errors += 1
+
+        title_m = re.search(r'title:\s*["\']([^"\']*)["\']', chunk)
+        if not title_m or not title_m.group(1).strip():
+            errors.append(f"Rotation '{rot_id}' is missing a valid non-empty 'title'")
+            rot_schema_errors += 1
+
+        places_m = re.search(r'places:\s*["\']([^"\']*)["\']', chunk)
+        if not places_m or not places_m.group(1).strip():
+            errors.append(f"Rotation '{rot_id}' is missing a valid non-empty 'places'")
+            rot_schema_errors += 1
+
+        stages_m = re.search(r'stages:\s*\[(.*?)\]\s*(?:,|\n\s*\})', chunk, re.DOTALL)
+        if stages_m:
+            stage_hosps = re.findall(r'hosp:\s*["\']([^"\']+)["\']', stages_m.group(1))
+            stage_count = len(stage_hosps)
+        else:
+            stage_count = 0
+
+        if stage_count < 1:
+            errors.append(f"Rotation '{rot_id}' must have at least 1 stage in 'stages' (found {stage_count})")
+            rot_schema_errors += 1
+
+    if rot_schema_errors == 0:
+        print(f"[PASS] All {len(id_matches)} rotations have non-empty code, title, places, and at least 1 stage.")
+
+    # 7. Verify driver and transit hub coordinates for all rotations
     driver_hub_matches = re.findall(r'driver:\s*\{\s*name:\s*"[^"]+",\s*coords:\s*\[([0-9\.\-]+),\s*([0-9\.\-]+)\]', rot_block)
     transit_hub_matches = re.findall(r'transit:\s*\{\s*name:\s*"[^"]+",\s*coords:\s*\[([0-9\.\-]+),\s*([0-9\.\-]+)\]', rot_block)
 
@@ -113,7 +180,7 @@ def validate_data_js(file_path="data.js"):
 
     print(f"[PASS] All {len(driver_hub_matches)} driver and {len(transit_hub_matches)} transit hubs have valid UK coordinates.")
 
-    # 6. Check Referenced Hospitals in Rotation Stages
+    # 8. Check Referenced Hospitals in Rotation Stages
     referenced_hosps = re.findall(r'hosp:\s*"([^"]+)"', rot_block)
     missing = set(referenced_hosps) - set(declared_hosps.keys())
     if missing:
@@ -121,13 +188,18 @@ def validate_data_js(file_path="data.js"):
     else:
         print(f"[PASS] All {len(referenced_hosps)} stage references map cleanly to declared hospitals.")
 
-    # 7. Check Rotation Regions in REGION_COLORS
+    # 9. Check Rotation Regions in REGION_COLORS
     regions_in_rotations = set(re.findall(r'region:\s*"([^"]+)"', rot_block))
     missing_rot_regions = regions_in_rotations - declared_colors
     if missing_rot_regions:
         errors.append(f"Rotations have regions missing from REGION_COLORS: {missing_rot_regions}")
     else:
         print(f"[PASS] All {len(regions_in_rotations)} NHS rotation regions map to REGION_COLORS.")
+
+    # 10. Service Worker CACHE_NAME Validation
+    if sw_path:
+        if not validate_sw_js(sw_path):
+            errors.append("sw.js validation checks failed.")
 
     if errors:
         print("\n=== VALIDATION FAILED ===")

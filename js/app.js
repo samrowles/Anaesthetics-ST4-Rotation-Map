@@ -348,6 +348,20 @@ function isPoolRotation(rot) {
   return Boolean(Array.isArray(rot.stages) && rot.stages.length > 1);
 }
 
+function formatPlacesLabel(places, compact = false) {
+  if (places === null || places === undefined) return '';
+  const str = String(places).trim();
+  if (/^\d+$/.test(str)) {
+    const n = parseInt(str, 10);
+    if (compact) {
+      return `${n} pl`;
+    }
+    return n === 1 ? '1 post' : `${n} posts`;
+  }
+  return str;
+}
+
+
 // 6a. Overview Line Styling & Categorical Palette
 const TRACK_PALETTE = [
   '#0284c7', // Cobalt Blue
@@ -510,6 +524,26 @@ function computeRotationTrainingSplit(rot) {
 }
 
 /**
+ * Calculate maximum pairwise distance between hospital stages in a rotation.
+ * Returns 0 if rotation has fewer than 2 distinct stages or coordinates.
+ */
+function computeIntrinsicSpread(rot) {
+  if (!rot || !rot.stages || !Array.isArray(rot.stages) || rot.stages.length < 2) return 0;
+  if (typeof HOSPITALS === 'undefined') return 0;
+  const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
+  if (coords.length < 2) return 0;
+
+  let maxDist = 0;
+  for (let i = 0; i < coords.length; i++) {
+    for (let j = i + 1; j < coords.length; j++) {
+      const d = calcDistanceMiles(coords[i], coords[j]);
+      if (d > maxDist) maxDist = d;
+    }
+  }
+  return maxDist;
+}
+
+/**
  * Startup Data Normalization & Pre-Computation.
  * Runs once over ROTATIONS_DATA and attaches immutable metadata to rot._meta.
  */
@@ -524,6 +558,12 @@ function initRotationMetadata() {
     Object.keys(HOSPITALS).forEach(hName => {
       hospitalRotationsMap.set(hName, []);
     });
+  }
+  if (typeof regionCategoricalStyleCache !== 'undefined') {
+    regionCategoricalStyleCache.clear();
+  }
+  if (typeof filteredListCategoricalCache !== 'undefined') {
+    filteredListCategoricalCache = { ref: null, map: null };
   }
 
   ROTATIONS_DATA.forEach(rot => {
@@ -543,7 +583,7 @@ function initRotationMetadata() {
     const split = computeRotationTrainingSplit(rot);
     const lineStyle = computeRotationLineStyle(rot);
     const placesNum = parseInt(rot.places, 10) || 0;
-    const intrinsicSpread = getRotationMaxDistance(rot);
+    const intrinsicSpread = computeIntrinsicSpread(rot);
 
     const driverHub = (rot.hubs && rot.hubs.driver && rot.hubs.driver.name) || '';
     const transitHub = (rot.hubs && rot.hubs.transit && rot.hubs.transit.name) || '';
@@ -582,6 +622,41 @@ function getRotationTrainingSplit(rot) {
   return computeRotationTrainingSplit(rot);
 }
 
+// Categorical line styling cache: region maps are static; filtered lists are memoized by reference
+const regionCategoricalStyleCache = new Map();
+let filteredListCategoricalCache = { ref: null, map: null };
+
+function buildCategoricalStylesMap(targetList) {
+  const hospitalGroups = new Map();
+  targetList.forEach(r => {
+    const h = (r.stages && r.stages[0] && r.stages[0].hosp) || 'Unknown';
+    if (!hospitalGroups.has(h)) hospitalGroups.set(h, []);
+    hospitalGroups.get(h).push(r);
+  });
+
+  const sortedHospNames = Array.from(hospitalGroups.keys()).sort();
+  let assignedIndex = 0;
+  const styleMap = new Map();
+
+  for (const hName of sortedHospNames) {
+    const rotsInHosp = hospitalGroups.get(hName).slice();
+    rotsInHosp.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    for (let i = 0; i < rotsInHosp.length; i++) {
+      const color = TRACK_PALETTE[assignedIndex % TRACK_PALETTE.length];
+      const dashPattern = ROTATION_DASH_PATTERNS[i % ROTATION_DASH_PATTERNS.length];
+      styleMap.set(rotsInHosp[i].id, {
+        color,
+        baseColor: color,
+        dashPattern,
+        regColor: color,
+        isDashed: dashPattern !== 'none'
+      });
+      assignedIndex++;
+    }
+  }
+  return styleMap;
+}
+
 function getRotationLineStyle(rot) {
   if (!rot) return { color: '#0284c7', baseColor: '#0284c7', dashPattern: 'none', regColor: '#0284c7', isDashed: false };
 
@@ -589,53 +664,33 @@ function getRotationLineStyle(rot) {
   const useCategorical = (activeRegionFilter !== 'ALL') || (Array.isArray(currentFilteredList) && currentFilteredList.length <= 20);
 
   if (useCategorical) {
-    const targetList = (activeRegionFilter !== 'ALL')
-      ? (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : []).filter(r => r.region === rot.region && !isPoolRotation(r))
-      : (Array.isArray(currentFilteredList) ? currentFilteredList.filter(r => !isPoolRotation(r)) : []);
-
-    // Group rotations by starting hospital (rot.stages[0].hosp)
-    const hospitalGroups = new Map();
-    targetList.forEach(r => {
-      const h = (r.stages && r.stages[0] && r.stages[0].hosp) || 'Unknown';
-      if (!hospitalGroups.has(h)) hospitalGroups.set(h, []);
-      hospitalGroups.get(h).push(r);
-    });
-
-    // Deterministic sort by hospital name, then by rotation title
-    const sortedHospNames = Array.from(hospitalGroups.keys()).sort();
-    let assignedIndex = 0;
-    let foundIndex = -1;
-    let dashIdx = 0;
-
-    for (const hName of sortedHospNames) {
-      const rotsInHosp = hospitalGroups.get(hName);
-      rotsInHosp.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-      for (let i = 0; i < rotsInHosp.length; i++) {
-        if (rotsInHosp[i].id === rot.id) {
-          foundIndex = assignedIndex;
-          dashIdx = i;
-          break;
-        }
-        assignedIndex++;
+    let styleMap;
+    if (activeRegionFilter !== 'ALL') {
+      const region = rot.region || activeRegionFilter;
+      styleMap = regionCategoricalStyleCache.get(region);
+      if (!styleMap) {
+        const targetList = (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : []).filter(r => r.region === region && !isPoolRotation(r));
+        styleMap = buildCategoricalStylesMap(targetList);
+        regionCategoricalStyleCache.set(region, styleMap);
       }
-      if (foundIndex !== -1) break;
+    } else {
+      if (filteredListCategoricalCache.ref !== currentFilteredList || !filteredListCategoricalCache.map) {
+        const targetList = Array.isArray(currentFilteredList) ? currentFilteredList.filter(r => !isPoolRotation(r)) : [];
+        filteredListCategoricalCache = {
+          ref: currentFilteredList,
+          map: buildCategoricalStylesMap(targetList)
+        };
+      }
+      styleMap = filteredListCategoricalCache.map;
     }
 
-    if (foundIndex !== -1) {
-      const color = TRACK_PALETTE[foundIndex % TRACK_PALETTE.length];
-      const dashPattern = ROTATION_DASH_PATTERNS[dashIdx % ROTATION_DASH_PATTERNS.length];
-      return {
-        color,
-        baseColor: color,
-        dashPattern,
-        regColor: color,
-        isDashed: dashPattern !== 'none'
-      };
+    if (styleMap && styleMap.has(rot.id)) {
+      return styleMap.get(rot.id);
     }
   }
 
   // National view with activeRegionFilter === 'ALL' and > 20 rotations: anchor hue-shifted regional colors
-  return computeRotationLineStyle(rot);
+  return (rot._meta && rot._meta.lineStyle) ? rot._meta.lineStyle : computeRotationLineStyle(rot);
 }
 
 /**
@@ -836,34 +891,56 @@ function highlightOverviewTrack(rotId) {
     hoverHighlightGroup.addLayer(highlightClone);
   }
 
-  // 3. Temporarily place numbered stage markers (1, 2, 3...) on hoverHighlightGroup
+  // 3. Temporarily place numbered stage markers (1, 2, 3...) or pool badges on hoverHighlightGroup
   if (rot && rot.stages && rot.stages.length) {
-    const hospStagesMap = new Map();
-    rot.stages.forEach((stg, idx) => {
-      if (!stg.hosp || !HOSPITALS[stg.hosp]) return;
-      if (!hospStagesMap.has(stg.hosp)) hospStagesMap.set(stg.hosp, []);
-      hospStagesMap.get(stg.hosp).push(idx + 1);
-    });
-
-    hospStagesMap.forEach((nums, hName) => {
-      const hosp = HOSPITALS[hName];
-      if (!hosp || !hosp.coords) return;
-
-      const numStr = nums.join(',');
-      const badgeIcon = L.divIcon({
-        className: 'hover-stage-badge-icon',
-        html: `<div class="hover-stage-badge" title="Stage ${numStr}: ${escapeHtml(hName)}">${numStr}</div>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
+    if (isPoolRotation(rot)) {
+      const bases = getRotationHospitalBases(rot);
+      bases.forEach(hName => {
+        const hosp = HOSPITALS[hName];
+        if (!hosp || !hosp.coords) return;
+        const isTertiary = hosp.type === 'Tertiary';
+        const badgeText = isTertiary ? 'T' : 'H';
+        const badgeIcon = L.divIcon({
+          className: 'hover-stage-badge-icon',
+          html: `<div class="pool-site-pin ${isTertiary ? 'tertiary-pool-pin' : ''}" style="pointer-events:none;" title="Candidate Base: ${escapeHtml(hName)}">${badgeText}</div>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
+        });
+        const badgeMarker = L.marker(hosp.coords, {
+          icon: badgeIcon,
+          zIndexOffset: 3000,
+          interactive: false
+        });
+        hoverHighlightGroup.addLayer(badgeMarker);
+      });
+    } else {
+      const hospStagesMap = new Map();
+      rot.stages.forEach((stg, idx) => {
+        if (!stg.hosp || !HOSPITALS[stg.hosp]) return;
+        if (!hospStagesMap.has(stg.hosp)) hospStagesMap.set(stg.hosp, []);
+        hospStagesMap.get(stg.hosp).push(idx + 1);
       });
 
-      const badgeMarker = L.marker(hosp.coords, {
-        icon: badgeIcon,
-        zIndexOffset: 3000,
-        interactive: false
+      hospStagesMap.forEach((nums, hName) => {
+        const hosp = HOSPITALS[hName];
+        if (!hosp || !hosp.coords) return;
+
+        const numStr = nums.join(',');
+        const badgeIcon = L.divIcon({
+          className: 'hover-stage-badge-icon',
+          html: `<div class="hover-stage-badge" title="Stage ${numStr}: ${escapeHtml(hName)}">${numStr}</div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        });
+
+        const badgeMarker = L.marker(hosp.coords, {
+          icon: badgeIcon,
+          zIndexOffset: 3000,
+          interactive: false
+        });
+        hoverHighlightGroup.addLayer(badgeMarker);
       });
-      hoverHighlightGroup.addLayer(badgeMarker);
-    });
+    }
   }
 
   // 4. Highlight sidebar card
@@ -897,31 +974,33 @@ function resetOverviewTrackHighlights() {
 
 function getRotationMaxDistance(rot) {
   if (!rot || !rot.stages) return 0;
+  if (rot._meta && typeof rot._meta.intrinsicSpread === 'number' && rot._meta.intrinsicSpread > 0) {
+    return rot._meta.intrinsicSpread;
+  }
+
+  const intrinsicSpread = (rot._meta && typeof rot._meta.intrinsicSpread === 'number')
+    ? rot._meta.intrinsicSpread
+    : computeIntrinsicSpread(rot);
+
+  if (intrinsicSpread > 0) {
+    return intrinsicSpread;
+  }
+
+  // Single-site scheme fallback: calculate commute distance to living base
+  if (typeof HOSPITALS === 'undefined') return 1;
   const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
   if (!coords.length) return 0;
 
-  let maxDist = 0;
-  for (let i = 0; i < coords.length; i++) {
-    for (let j = i + 1; j < coords.length; j++) {
-      const d = calcDistanceMiles(coords[i], coords[j]);
-      if (d > maxDist) maxDist = d;
-    }
+  let hubCoords = null;
+  if (currentCommuteMode === 'transit' && rot.hubs && rot.hubs.transit && rot.hubs.transit.coords) {
+    hubCoords = rot.hubs.transit.coords;
+  } else if (rot.hubs && rot.hubs.driver && rot.hubs.driver.coords) {
+    hubCoords = rot.hubs.driver.coords;
   }
-  // Single-site scheme fallback: calculate commute distance to living base
-  if (maxDist === 0 && coords.length > 0) {
-    let hubCoords = null;
-    if (currentCommuteMode === 'transit' && rot.hubs && rot.hubs.transit && rot.hubs.transit.coords) {
-      hubCoords = rot.hubs.transit.coords;
-    } else if (rot.hubs && rot.hubs.driver && rot.hubs.driver.coords) {
-      hubCoords = rot.hubs.driver.coords;
-    }
-    if (hubCoords) {
-      maxDist = Math.max(1, calcDistanceMiles(hubCoords, coords[0]));
-    } else {
-      maxDist = 1;
-    }
+  if (hubCoords) {
+    return Math.max(1, calcDistanceMiles(hubCoords, coords[0]));
   }
-  return maxDist;
+  return 1;
 }
 
 function getRotationMaxCommuteFromBase(rot) {
@@ -1009,7 +1088,7 @@ function populateRegionDropdown() {
 
   let html = `<option value="ALL">All Regions (${ROTATIONS_DATA.length} Rotations)</option>`;
   Object.keys(regionCounts).sort().forEach(reg => {
-    html += `<option value="${reg}">${reg} (${regionCounts[reg]})</option>`;
+    html += `<option value="${escapeHtml(reg)}">${escapeHtml(reg)} (${regionCounts[reg]})</option>`;
   });
   regSelect.innerHTML = html;
   if (activeRegionFilter) regSelect.value = activeRegionFilter;
@@ -1245,7 +1324,7 @@ function renderRotationCardsFeed(list) {
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
         <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
           <span class="badge badge-code">${escapeHtml(r.code)}</span>
-          <span class="badge badge-places">${escapeHtml(r.places)}</span>
+          <span class="badge badge-places">${escapeHtml(formatPlacesLabel(r.places, false))}</span>
           ${swatchHtml}
           ${isPool ? '<span class="badge badge-pool">Pool</span>' : ''}
           <span class="badge badge-split" title="Training Balance: ${split.tertiary}% Tertiary, ${split.dgh}% DGH">${split.tertiary}% Tert • ${split.dgh}% DGH</span>
@@ -1479,7 +1558,7 @@ function setCommuteMode(mode) {
   showToast(modeLabels[mode] || `Base: ${mode}`);
 }
 
-function setShiftTiming(timing, showFeedback = true) {
+function setShiftTiming(timing, showFeedback = true, render = true) {
   currentShiftTiming = timing || '0730';
   localStorage.setItem(`${STORAGE_PREFIX}shift_timing`, currentShiftTiming);
 
@@ -1496,22 +1575,19 @@ function setShiftTiming(timing, showFeedback = true) {
     if (el) el.classList.toggle('active', currentShiftTiming === 'offpeak');
   });
 
-  let labelText = 'Arrive 07:30 (Handover)';
   let toastText = 'Commute model: Arrive by 07:30 (Morning Handover)';
   if (currentShiftTiming === '1800') {
-    labelText = 'Leave 18:00 (Rush)';
     toastText = 'Commute model: Depart at 18:00 (Evening Rush Hour)';
   } else if (currentShiftTiming === 'offpeak') {
-    labelText = 'Off-Peak Baseline';
     toastText = 'Commute model: Off-Peak Baseline Drive';
   }
-  const lbl = document.getElementById('shiftTimingLabel');
-  if (lbl) lbl.textContent = labelText;
 
-  renderRotationCardsFeed(currentFilteredList);
+  if (render) {
+    renderRotationCardsFeed(currentFilteredList);
 
-  if (currentSelectedId && currentViewMode === 'details') {
-    selectRotation(currentSelectedId, false);
+    if (currentSelectedId && currentViewMode === 'details') {
+      selectRotation(currentSelectedId, false);
+    }
   }
 
   if (showFeedback) {
@@ -1563,11 +1639,6 @@ function focusHospitalByName(hospName) {
   }
 }
 
-function focusHospitalBaseFromBtn(btn) {
-  if (btn && btn.dataset && btn.dataset.hosp) {
-    focusHospitalByName(btn.dataset.hosp);
-  }
-}
 
 /**
  * Opens Ground Truth Intel Profile Modal for a specific hospital.
@@ -1667,8 +1738,6 @@ function selectRotation(id, shouldCloseMobile = false) {
     window.location.hash = id;
   }
 
-  const welcomeMessage = document.getElementById('welcomeMessage');
-  if (welcomeMessage) welcomeMessage.style.display = 'none';
   const listView = document.getElementById('listViewContainer');
   if (listView) listView.style.display = 'none';
   const inspectorCard = document.getElementById('inspectorCard');
@@ -1687,7 +1756,7 @@ function selectRotation(id, shouldCloseMobile = false) {
   overviewLinesGroup.clearLayers();
 
   document.getElementById('cardCode').textContent = rot.code;
-  document.getElementById('cardPlaces').textContent = `Places: ${rot.places}`;
+  document.getElementById('cardPlaces').textContent = formatPlacesLabel(rot.places, false);
   document.getElementById('cardTitle').textContent = rot.title;
 
   const cardPoolBadge = document.getElementById('cardPoolBadge');
@@ -1954,7 +2023,7 @@ function selectRotation(id, shouldCloseMobile = false) {
         icon: bgIcon,
         zIndexOffset: isRef ? 50 : 100,
         title: isRef ? `${hName} (Regional Reference Site)` : hName
-      }).bindPopup(`<b>${hName}</b><br><span style="font-size:0.75rem; color:var(--text-muted);">${h.region}${isRef ? ' • Reference Hospital' : ''}</span>`);
+      }).bindPopup(`<b>${escapeHtml(hName)}</b><br><span style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(h.region)}${isRef ? ' • Reference Hospital' : ''}</span>`);
       backgroundHospitalsGroup.addLayer(bgMarker);
     }
   });
@@ -2195,7 +2264,7 @@ function renderAllPlacements({ fitView = true } = {}) {
           <div style="min-width:180px; max-width:290px;">
             <div style="font-weight:800; font-size:0.84rem; color:var(--text-main); margin-bottom:2px;">${escapeHtml(rot.title)}</div>
             <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:4px;">
-              <span class="badge badge-code" style="padding:1px 4px; font-size:0.68rem;">${escapeHtml(rot.code)}</span> • ${escapeHtml(rot.places)} • Max Spread: ${maxDist} mi
+              <span class="badge badge-code" style="padding:1px 4px; font-size:0.68rem;">${escapeHtml(rot.code)}</span> • ${escapeHtml(formatPlacesLabel(rot.places, false))} • Max Spread: ${maxDist} mi
             </div>
             <div style="font-size:0.72rem; color:var(--primary); font-weight:700; line-height:1.35;">
               ${stagesSummary}
@@ -2255,9 +2324,9 @@ function renderAllPlacements({ fitView = true } = {}) {
       `<div class="overview-popup-rot-list">
         <span style="font-size:0.7rem; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Click a rotation to view route:</span>
         ${linkedRotations.map(r => `
-          <button class="popup-rotation-btn" data-action="dive-in" data-id="${r.id}">
-            <span>${r.code}</span>
-            <span style="font-size:0.7rem; color:var(--text-muted);">${r.places} pl &rarr;</span>
+          <button class="popup-rotation-btn" data-action="dive-in" data-id="${escapeHtml(r.id)}">
+            <span>${escapeHtml(r.code)}</span>
+            <span style="font-size:0.7rem; color:var(--text-muted);">${escapeHtml(formatPlacesLabel(r.places, true))} &rarr;</span>
           </button>
         `).join('')}
        </div>` : '';
@@ -2684,7 +2753,7 @@ function printShortlistReport() {
         <td style="font-weight:bold; font-family:monospace; font-size:0.9rem; width:150px;">${escapeHtml(r.code)}</td>
         <td>
           <div style="font-weight:bold;">${escapeHtml(r.title)}</div>
-          <div style="font-size:0.75rem; color:#444;">${escapeHtml(r.region)} • <b>${escapeHtml(r.places)}</b></div>
+          <div style="font-size:0.75rem; color:#444;">${escapeHtml(r.region)} • <b>${escapeHtml(formatPlacesLabel(r.places, false))}</b></div>
         </td>
         <td style="font-size:0.75rem;">
           <div><b>Base:</b> ${escapeHtml(r.hubs.driver.name)}</div>
@@ -2827,7 +2896,7 @@ function renderShortlistModal() {
       <div style="font-size:0.75rem; color:var(--text-muted);">
         <span>Driving Base: <b>${escapeHtml(r.hubs.driver.name)}</b></span> • 
         <span>Region: <b>${escapeHtml(r.region)}</b></span> • 
-        <span>Places: <b>${escapeHtml(r.places)}</b></span>
+        <span>Places: <b>${escapeHtml(formatPlacesLabel(r.places, false))}</b></span>
       </div>
       ${data.notes ? `<div style="margin-top:6px; font-size:0.74rem; background:var(--bg-card-subtle); border:1px solid var(--border-color); color:var(--text-main); padding:6px 9px; border-radius:4px; font-style:italic;">"${escapeHtml(data.notes)}"</div>` : ''}
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:6px; border-top:1px solid var(--border-color);">
@@ -2885,10 +2954,6 @@ function removeShortlistItem(id) {
 }
 
 // 14. SIDE-BY-SIDE ROTATION COMPARISON
-function toggleCompareCard(event, id) {
-  event.stopPropagation();
-  toggleCompare(id);
-}
 
 function toggleCompareFromCard() {
   if (currentSelectedId) toggleCompare(currentSelectedId);
@@ -2959,7 +3024,7 @@ function renderCompareModal() {
                   <button style="border:none; background:none; color:#b91c1c; font-size:0.75rem; font-weight:800; cursor:pointer;" data-action="remove-compare" data-id="${r.id}">✕ Remove</button>
                 </div>
                 <div style="font-weight:800; font-size:0.88rem; margin-bottom:2px;">${escapeHtml(r.title)}</div>
-                <div style="font-size:0.72rem; color:var(--text-muted); font-weight:normal;">${escapeHtml(r.region)} • <b>${escapeHtml(r.places)} places</b></div>
+                <div style="font-size:0.72rem; color:var(--text-muted); font-weight:normal;">${escapeHtml(r.region)} • <b>${escapeHtml(formatPlacesLabel(r.places, false))}</b></div>
               </th>
             `).join('')}
           </tr>
@@ -3514,10 +3579,13 @@ function toggleMobileSidebar(open) {
 // 19. ACCESSIBILITY, KEYBOARD SHORTCUTS & MODAL BACKDROPS
 document.addEventListener('keydown', (e) => {
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+  const isModalOpen = Array.from(document.querySelectorAll('.modal-overlay')).some(m => m.style.display === 'flex');
   if (e.key === 'ArrowRight') {
+    if (isModalOpen) return;
     e.preventDefault();
     stepRotation(1);
   } else if (e.key === 'ArrowLeft') {
+    if (isModalOpen) return;
     e.preventDefault();
     stepRotation(-1);
   } else if (e.key === 'Escape') {
@@ -3651,7 +3719,7 @@ window.addEventListener('DOMContentLoaded', () => {
   applyTheme();
   populateRegionDropdown();
   populateDropdown(ROTATIONS_DATA);
-  setShiftTiming(currentShiftTiming, false);
+  setShiftTiming(currentShiftTiming, false, false);
   updateShortlistBadge();
   updateCompareBadge();
   updateCustomBaseUI();
