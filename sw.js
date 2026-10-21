@@ -3,7 +3,11 @@
  * Provides offline resilience for hospital basements, theatres, and poor connectivity environments.
  */
 
-const CACHE_NAME = 'st4-explorer-v9';
+const CACHE_PREFIX = 'st4-';
+const CACHE_NAME = 'st4-explorer-v10';
+const TILE_CACHE = 'st4-map-tiles';
+const MAX_TILES = 1500;
+
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -14,6 +18,16 @@ const STATIC_ASSETS = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
 ];
+
+async function trimCache(cacheName, maxItems) {
+  try {
+    const cache = await caches.open(cacheName);
+    const keys = await cache.keys();
+    for (let i = 0; i < keys.length - maxItems; i++) {
+      await cache.delete(keys[i]);
+    }
+  } catch (e) {}
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -27,7 +41,9 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME && key !== 'st4-map-tiles').map((key) => caches.delete(key))
+        keys
+          .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME && key !== TILE_CACHE)
+          .map((key) => caches.delete(key))
       );
     }).then(() => self.clients.claim())
   );
@@ -36,27 +52,33 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // For OpenStreetMap and external tiles: Cache-first
+  // For OpenStreetMap and external tiles: Cache-first with bounded LRU trimming
   if (url.hostname.includes('tile.openstreetmap') || url.hostname.includes('hotosm.org')) {
     event.respondWith(
-      caches.open('st4-map-tiles').then((cache) => {
+      caches.open(TILE_CACHE).then((cache) => {
         return cache.match(event.request).then((cachedResponse) => {
           if (cachedResponse) return cachedResponse;
           return fetch(event.request)
             .then((networkResponse) => {
               if (networkResponse && networkResponse.status === 200) {
                 cache.put(event.request, networkResponse.clone());
+                trimCache(TILE_CACHE, MAX_TILES);
               }
               return networkResponse;
             })
-            .catch(() => cachedResponse);
+            .catch(() => cachedResponse || Response.error());
         });
       })
     );
     return;
   }
 
-  // Network-First (with cache fallback) for core app shell assets (HTML, JS, CSS, data)
+  // Only cache same-origin assets or unpkg libraries (never cache live geocoding API calls)
+  if (url.origin !== self.location.origin && !url.hostname.includes('unpkg.com')) {
+    return;
+  }
+
+  // Network-First (with 3.5s timeout and cache fallback) for core app shell assets (HTML, JS, CSS, data)
   const isCoreAsset = url.pathname.endsWith('index.html') ||
                       url.pathname.endsWith('data.js') ||
                       url.pathname.endsWith('js/app.js') ||
@@ -69,7 +91,10 @@ self.addEventListener('fetch', (event) => {
 
   if (isCoreAsset) {
     event.respondWith(
-      fetch(event.request)
+      Promise.race([
+        fetch(event.request),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3500))
+      ])
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
             const resClone = networkResponse.clone();
@@ -79,13 +104,10 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => caches.match(event.request, { ignoreSearch: true }))
+        .catch(() =>
+          caches.match(event.request, { ignoreSearch: true }).then((r) => r || fetch(event.request))
+        )
     );
-    return;
-  }
-
-  // Only cache same-origin assets or unpkg libraries (never cache live geocoding API calls)
-  if (url.origin !== self.location.origin && !url.hostname.includes('unpkg.com')) {
     return;
   }
 
@@ -101,7 +123,7 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => cachedResponse);
+        .catch(() => cachedResponse || Response.error());
       return cachedResponse || fetchPromise;
     })
   );

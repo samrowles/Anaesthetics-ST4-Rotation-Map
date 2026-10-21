@@ -30,8 +30,10 @@
   <meta property="og:type" content="website">
 
   <!-- Leaflet Dependencies -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
   <!-- Modular Stylesheet -->
   <link rel="stylesheet" href="css/styles.css" />
@@ -39,7 +41,7 @@
 <body>
 
 <!-- Toast Notification -->
-<div id="toast">Saved</div>
+<div id="toast" role="status" aria-live="polite">Saved</div>
 
 <!-- Mobile Floating Trigger -->
 <button id="mobileFabOpen" onclick="toggleMobileSidebar(true)" aria-label="Open Filters and Rotations Menu">
@@ -47,7 +49,7 @@
 </button>
 
 <!-- Mobile Mini Summary Bar -->
-<div id="mobileMiniCard" onclick="toggleMobileSidebar(true)">
+<div id="mobileMiniCard" role="button" tabindex="0" onclick="toggleMobileSidebar(true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleMobileSidebar(true);}">
   <div style="width:32px; height:4px; background:var(--border-subtle); border-radius:999px; margin:0 auto 6px auto;"></div>
   <div style="display:flex; justify-content:space-between; align-items:center;">
     <strong id="miniCardTitle" style="font-size:0.85rem; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70%;">National Overview</strong>
@@ -94,13 +96,13 @@
     <!-- Quick Filter Pills -->
     <div class="filter-pills-row">
       <div class="filter-pills">
-        <button class="filter-pill-btn active" id="pillAll" onclick="setQuickFilter('ALL')">All (<span id="listCountBadge">78</span>)</button>
-        <button class="filter-pill-btn" id="pillStarred" onclick="setQuickFilter('STARRED')">Starred</button>
-        <button class="filter-pill-btn" id="pillTier1" onclick="setQuickFilter('TIER1')">Tier 1</button>
-        <button class="filter-pill-btn" id="pillTier2" onclick="setQuickFilter('TIER2')">Tier 2</button>
-        <button class="filter-pill-btn" id="pillTier3" onclick="setQuickFilter('TIER3')">Tier 3</button>
-        <button class="filter-pill-btn" id="pillExcluded" onclick="setQuickFilter('EXCLUDED')">Excluded</button>
-        <button class="filter-pill-btn" id="pillLowSpread" onclick="setQuickFilter('LOW_SPREAD')">&le; 25 mi</button>
+        <button class="filter-pill-btn active" id="pillAll" aria-pressed="true" onclick="setQuickFilter('ALL')">All (<span id="listCountBadge">78</span>)</button>
+        <button class="filter-pill-btn" id="pillStarred" aria-pressed="false" onclick="setQuickFilter('STARRED')">Starred</button>
+        <button class="filter-pill-btn" id="pillTier1" aria-pressed="false" onclick="setQuickFilter('TIER1')">Tier 1</button>
+        <button class="filter-pill-btn" id="pillTier2" aria-pressed="false" onclick="setQuickFilter('TIER2')">Tier 2</button>
+        <button class="filter-pill-btn" id="pillTier3" aria-pressed="false" onclick="setQuickFilter('TIER3')">Tier 3</button>
+        <button class="filter-pill-btn" id="pillExcluded" aria-pressed="false" onclick="setQuickFilter('EXCLUDED')">Excluded</button>
+        <button class="filter-pill-btn" id="pillLowSpread" aria-pressed="false" onclick="setQuickFilter('LOW_SPREAD')">&le; 25 mi</button>
       </div>
       <button class="btn-reset-filters" onclick="resetAllFilters()" title="Reset all search queries and filters">↺</button>
     </div>
@@ -199,23 +201,23 @@
         </div>
 
         <!-- Sleek Segmented Tab Navigation -->
-        <div class="inspector-tabs-nav">
-          <button class="inspector-tab-btn active" id="tabBtnPlacements" onclick="switchInspectorTab('placements')">
+        <div class="inspector-tabs-nav" role="tablist">
+          <button class="inspector-tab-btn active" id="tabBtnPlacements" role="tab" aria-selected="true" aria-controls="tabPanePlacements" onclick="switchInspectorTab('placements')">
             Placements
           </button>
-          <button class="inspector-tab-btn" id="tabBtnCommute" onclick="switchInspectorTab('commute')">
+          <button class="inspector-tab-btn" id="tabBtnCommute" role="tab" aria-selected="false" aria-controls="tabPaneCommute" onclick="switchInspectorTab('commute')">
             Commute &amp; Base
           </button>
-          <button class="inspector-tab-btn" id="tabBtnIntel" onclick="switchInspectorTab('intel')">
+          <button class="inspector-tab-btn" id="tabBtnIntel" role="tab" aria-selected="false" aria-controls="tabPaneIntel" onclick="switchInspectorTab('intel')">
             Trust Profiles
           </button>
-          <button class="inspector-tab-btn" id="tabBtnNotes" onclick="switchInspectorTab('notes')">
+          <button class="inspector-tab-btn" id="tabBtnNotes" role="tab" aria-selected="false" aria-controls="tabPaneNotes" onclick="switchInspectorTab('notes')">
             Notes &amp; Tier
           </button>
         </div>
 
         <!-- TAB PANE 1: Placements (Default & Hero Focus) -->
-        <div id="tabPanePlacements" class="tab-pane active">
+        <div id="tabPanePlacements" class="tab-pane active" role="tabpanel" aria-labelledby="tabBtnPlacements">
           <!-- Overview Strip: Training Balance & Metrics -->
           <div class="placements-overview-strip">
             <div class="split-bar-box" style="margin-bottom:8px;">
@@ -260,7 +262,7 @@
         </div>
 
         <!-- TAB PANE 2: Commute & Base -->
-        <div id="tabPaneCommute" class="tab-pane">
+        <div id="tabPaneCommute" class="tab-pane" role="tabpanel" aria-labelledby="tabBtnCommute">
           <!-- Inspector Local Base & Shift Switcher Bar -->
           <div class="inspector-commute-switcher-strip">
             <div class="strip-row" style="margin-bottom:6px;">
@@ -308,7 +310,7 @@
         </div>
 
         <!-- TAB PANE 3: Trust Profiles -->
-        <div id="tabPaneIntel" class="tab-pane">
+        <div id="tabPaneIntel" class="tab-pane" role="tabpanel" aria-labelledby="tabBtnIntel">
           <div class="hospitals-box">
             <div class="hospitals-box-title">
               <span id="hospitalsBoxTitleText">Hospitals in this Rotation:</span>
@@ -319,7 +321,7 @@
         </div>
 
         <!-- TAB PANE 4: Notes & Tier -->
-        <div id="tabPaneNotes" class="tab-pane">
+        <div id="tabPaneNotes" class="tab-pane" role="tabpanel" aria-labelledby="tabBtnNotes">
           <div class="rating-section" style="border:none; padding:4px 0 0 0; background:transparent;">
             <div style="font-weight: 800; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 6px;">ASSIGN PREFERENCE TIER:</div>
             <div class="tier-selector-row">
@@ -331,11 +333,11 @@
 
             <div style="font-weight: 800; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 4px;">YOUR RATING &amp; NOTES:</div>
             <div class="star-row" id="starContainer">
-              <span class="star" onclick="setRating(1, true)">★</span>
-              <span class="star" onclick="setRating(2, true)">★</span>
-              <span class="star" onclick="setRating(3, true)">★</span>
-              <span class="star" onclick="setRating(4, true)">★</span>
-              <span class="star" onclick="setRating(5, true)">★</span>
+              <button type="button" class="star" onclick="setRating(1, true)" aria-label="Rate 1 star" aria-pressed="false">★</button>
+              <button type="button" class="star" onclick="setRating(2, true)" aria-label="Rate 2 stars" aria-pressed="false">★</button>
+              <button type="button" class="star" onclick="setRating(3, true)" aria-label="Rate 3 stars" aria-pressed="false">★</button>
+              <button type="button" class="star" onclick="setRating(4, true)" aria-label="Rate 4 stars" aria-pressed="false">★</button>
+              <button type="button" class="star" onclick="setRating(5, true)" aria-label="Rate 5 stars" aria-pressed="false">★</button>
               <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 6px;" id="ratingText">(Unrated)</span>
             </div>
             <textarea class="notes-input" id="partnerNotes" oninput="debounceSaveNotes()" placeholder="Personal notes (e.g., manageable commute, excellent cardiac block)..."></textarea>

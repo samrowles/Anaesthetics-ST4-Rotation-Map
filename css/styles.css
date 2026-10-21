@@ -666,6 +666,12 @@ select:focus, input:focus, textarea:focus {
   box-shadow: 0 2px 6px rgba(2, 132, 199, 0.12);
 }
 
+.rotation-list-card:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-color: var(--primary);
+}
+
 .rotation-list-card.active-card {
   border-color: var(--primary);
   background: var(--bg-card-hover);
@@ -1091,7 +1097,7 @@ select:focus, input:focus, textarea:focus {
 [data-theme="dark"] .tier-btn.active.tier-3 { background: #7f1d1d; border-color: #ef4444; color: #fca5a5; }
 
 .star-row { display: flex; gap: 4px; align-items: center; margin-bottom: 6px; }
-.star { font-size: 1.35rem; cursor: pointer; color: var(--border-subtle); transition: color 0.15s ease; }
+.star { font-size: 1.35rem; cursor: pointer; color: var(--border-subtle); transition: color 0.15s ease; background: none; border: none; padding: 0; font-family: inherit; line-height: 1; }
 .star.selected { color: #f59e0b; }
 .notes-input { width: 100%; height: 55px; font-size: 0.78rem; resize: vertical; margin-top: 4px; }
 .btn-save { background: var(--primary); color: white; border: none; border-radius: 5px; padding: 6px 12px; font-size: 0.74rem; font-weight: 700; cursor: pointer; margin-top: 6px; transition: background 0.15s; }
@@ -1105,6 +1111,11 @@ select:focus, input:focus, textarea:focus {
   height: 100%; 
   width: 100%; 
   position: relative; 
+}
+
+.map-picking,
+.map-picking .leaflet-interactive {
+  cursor: crosshair !important;
 }
 
 .map-floating-overlay {

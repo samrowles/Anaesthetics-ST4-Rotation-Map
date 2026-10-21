@@ -6,18 +6,20 @@
 
 // 1. CONFIGURATION & DEFENSIVE DATA INTEGRITY CHECK
 const CONFIG = (typeof window !== 'undefined' && window.APP_CONFIG) || (typeof APP_CONFIG !== 'undefined' ? APP_CONFIG : {
-  storagePrefix: "anaesth_",
+  storagePrefix: "st4_",
   appTitle: "ST4 Anaesthetics National Rotation & Commute Explorer",
   cycleName: "Aug 2026 / Feb 2027",
   defaultCenter: [52.8, -1.8],
   defaultZoom: 6
 });
-const STORAGE_PREFIX = CONFIG.storagePrefix || 'anaesth_';
+const STORAGE_PREFIX = CONFIG.storagePrefix || 'st4_';
+const THEME_KEY = 'anaesth_theme_pref';
 const DEFAULT_MAP_CENTER = CONFIG.defaultCenter || [52.8, -1.8];
 const DEFAULT_MAP_ZOOM = CONFIG.defaultZoom || 6;
 
 if (typeof ROTATIONS_DATA === 'undefined' || typeof HOSPITALS === 'undefined') {
   alert("Error: data.js failed to load. Please verify that data.js is in the same directory as index.html.");
+  throw new Error("data.js failed to load");
 }
 
 // 2. MATHEMATICAL & STRING UTILITIES
@@ -107,6 +109,14 @@ function escapeHtml(str) {
 }
 
 // 3. LEAFLET MAP INITIALIZATION & LAYER GROUPS
+if (typeof L === 'undefined') {
+  document.body.insertAdjacentHTML(
+    'afterbegin',
+    '<div style="padding:20px;background:#fef2f2;color:#991b1b;font-weight:700;">Map library (Leaflet) failed to load. Please check your internet connection and reload.</div>'
+  );
+  throw new Error('Leaflet failed to load');
+}
+
 const map = L.map('map', { 
   zoomControl: true,
   minZoom: 5,
@@ -120,17 +130,20 @@ const map = L.map('map', {
 
 const osmCleanMuted = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
+  crossOrigin: true,
   className: 'map-tiles-muted',
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
 const osmStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
+  crossOrigin: true,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 });
 
 const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
   maxZoom: 19,
+  crossOrigin: true,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, Tiles courtesy of <a href="https://www.hotosm.org/">HOT</a>'
 });
 
@@ -152,8 +165,84 @@ let activeHospitalMarkers = {};
 // Fast Lookup Maps
 const hospitalRotationsMap = new Map();
 
+// Safe LocalStorage Wrapper (Protects against Private Browsing / SecurityError / QuotaExceededError)
+const safeStorage = {
+  get(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  },
+  set(key, val) {
+    try { localStorage.setItem(key, val); return true; } catch (e) { return false; }
+  },
+  remove(key) {
+    try { localStorage.removeItem(key); } catch (e) {}
+  }
+};
+
+function safeGetStorageJson(key, defaultVal) {
+  try {
+    const raw = safeStorage.get(key);
+    return raw ? JSON.parse(raw) : defaultVal;
+  } catch (e) {
+    return defaultVal;
+  }
+}
+
+const KNOWN_IDS = new Set(
+  (typeof ROTATIONS_DATA !== 'undefined' && Array.isArray(ROTATIONS_DATA) ? ROTATIONS_DATA : []).map(r => r.id)
+);
+const VALID_TIERS = ['TIER1', 'TIER2', 'TIER3', 'EXCLUDE', 'UNSET'];
+
+function normalizePref(p) {
+  const obj = (p && typeof p === 'object' && !Array.isArray(p)) ? p : {};
+  const r = Number.isInteger(obj.rating) ? Math.min(5, Math.max(0, obj.rating)) : 0;
+  const t = VALID_TIERS.includes(obj.tier) ? obj.tier : 'UNSET';
+  const n = typeof obj.notes === 'string' ? obj.notes.slice(0, 4000) : '';
+  return { rating: r, notes: n, tier: t };
+}
+
+function normalizeCustomBase(b) {
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return null;
+  if (!Array.isArray(b.coords) || b.coords.length !== 2) return null;
+  const lat = Number(b.coords[0]);
+  const lng = Number(b.coords[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  const name = (typeof b.name === 'string' && b.name.trim()) ? b.name.trim().slice(0, 80) : 'Custom Base';
+  return { name, coords: [lat, lng] };
+}
+
+function migrateLegacyStorage() {
+  try {
+    if (STORAGE_PREFIX === 'anaesth_' || safeStorage.get(`${STORAGE_PREFIX}migrated_v1`)) return;
+    ROTATIONS_DATA.forEach(r => {
+      const oldPref = safeStorage.get(`anaesth_pref_${r.id}`);
+      if (oldPref && !safeStorage.get(`${STORAGE_PREFIX}pref_${r.id}`)) {
+        safeStorage.set(`${STORAGE_PREFIX}pref_${r.id}`, oldPref);
+      }
+    });
+    ['shortlist_order', 'compare_list', 'oriel_checked'].forEach(k => {
+      const raw = safeStorage.get(`anaesth_${k}`);
+      if (raw && !safeStorage.get(`${STORAGE_PREFIX}${k}`)) {
+        try {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) {
+            const filtered = arr.filter(id => typeof id === 'string' && KNOWN_IDS.has(id));
+            safeStorage.set(`${STORAGE_PREFIX}${k}`, JSON.stringify(filtered));
+          }
+        } catch (e) {}
+      }
+    });
+    ['custom_home', 'shift_timing', 'tip_dismissed'].forEach(k => {
+      const val = safeStorage.get(`anaesth_${k}`);
+      if (val && !safeStorage.get(`${STORAGE_PREFIX}${k}`)) {
+        safeStorage.set(`${STORAGE_PREFIX}${k}`, val);
+      }
+    });
+    safeStorage.set(`${STORAGE_PREFIX}migrated_v1`, '1');
+  } catch (e) {}
+}
+
 // 4. THEME MANAGEMENT (Auto OS detection with manual override)
-let currentThemeMode = localStorage.getItem(`${STORAGE_PREFIX}theme_pref`) || 'auto'; // 'auto', 'dark', 'light'
+let currentThemeMode = safeStorage.get(THEME_KEY) || safeStorage.get(`${STORAGE_PREFIX}theme_pref`) || 'auto'; // 'auto', 'dark', 'light'
 
 function getEffectiveTheme() {
   if (currentThemeMode === 'dark') return 'dark';
@@ -196,7 +285,7 @@ function cycleTheme() {
   } else {
     currentThemeMode = 'auto';
   }
-  localStorage.setItem(`${STORAGE_PREFIX}theme_pref`, currentThemeMode);
+  safeStorage.set(THEME_KEY, currentThemeMode);
   applyTheme();
 
   const label = currentThemeMode === 'auto'
@@ -207,17 +296,23 @@ function cycleTheme() {
 
 // Real-time system theme preference change listener
 if (window.matchMedia) {
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const onThemeChange = () => {
     if (currentThemeMode === 'auto') {
       applyTheme();
     }
-  });
+  };
+  if (mq.addEventListener) {
+    mq.addEventListener('change', onThemeChange);
+  } else if (mq.addListener) {
+    mq.addListener(onThemeChange);
+  }
 }
 
-// 4. APPLICATION STATE
+// 4b. APPLICATION STATE
 let currentSelectedId = null;
 let currentCommuteMode = 'driver'; // 'driver', 'transit', or 'custom'
-let currentShiftTiming = localStorage.getItem(`${STORAGE_PREFIX}shift_timing`) || '0730'; // '0730' (Arrive 07:30), '1800' (Leave 18:00), or 'offpeak'
+let currentShiftTiming = '0730'; // '0730' (Arrive 07:30), '1800' (Leave 18:00), or 'offpeak'
 let currentViewMode = 'list';       // 'list' (feed + national map) or 'details' (inspector)
 let showCommuteOverlay = false;    // Progressive disclosure: false = rotations-first, true = commute & bases
 let currentInspectorTab = 'placements'; // 'placements', 'commute', 'intel', 'notes'
@@ -237,20 +332,45 @@ let currentCommuteCircle = null;
 let currentPlottedHospitalPoints = [];
 let currentActiveHubCoords = null;
 
-// Safe Local Storage Deserialization
-function safeGetStorageJson(key, defaultVal) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : defaultVal;
-  } catch (e) {
-    return defaultVal;
+let compareList = [];
+let shortlistOrder = [];
+let customHomeBase = null;
+let orielCheckedSet = new Set();
+
+function loadPersistedState() {
+  const rawTiming = safeStorage.get(`${STORAGE_PREFIX}shift_timing`);
+  currentShiftTiming = ['0730', '1800', 'offpeak'].includes(rawTiming) ? rawTiming : '0730';
+
+  const rawCompare = safeGetStorageJson(`${STORAGE_PREFIX}compare_list`, []);
+  compareList = (Array.isArray(rawCompare) ? rawCompare : [])
+    .filter((id, i, a) => typeof id === 'string' && KNOWN_IDS.has(id) && a.indexOf(id) === i)
+    .slice(0, 3);
+
+  const rawShortlist = safeGetStorageJson(`${STORAGE_PREFIX}shortlist_order`, []);
+  shortlistOrder = (Array.isArray(rawShortlist) ? rawShortlist : [])
+    .filter((id, i, a) => typeof id === 'string' && KNOWN_IDS.has(id) && a.indexOf(id) === i);
+
+  customHomeBase = normalizeCustomBase(safeGetStorageJson(`${STORAGE_PREFIX}custom_home`, null));
+
+  const rawOriel = safeGetStorageJson(`${STORAGE_PREFIX}oriel_checked`, []);
+  orielCheckedSet = new Set(
+    (Array.isArray(rawOriel) ? rawOriel : []).filter(id => typeof id === 'string' && KNOWN_IDS.has(id))
+  );
+
+  const rawMode = safeStorage.get(`${STORAGE_PREFIX}commute_mode`);
+  if (rawMode === 'custom' && customHomeBase && customHomeBase.coords) {
+    currentCommuteMode = 'custom';
+  } else if (rawMode === 'transit') {
+    currentCommuteMode = 'transit';
+  } else if (customHomeBase && customHomeBase.coords && !rawMode) {
+    currentCommuteMode = 'custom';
+  } else {
+    currentCommuteMode = 'driver';
   }
 }
 
-let compareList = safeGetStorageJson(`${STORAGE_PREFIX}compare_list`, []);
-let shortlistOrder = safeGetStorageJson(`${STORAGE_PREFIX}shortlist_order`, []);
-let customHomeBase = safeGetStorageJson(`${STORAGE_PREFIX}custom_home`, null);
-let orielCheckedSet = new Set(safeGetStorageJson(`${STORAGE_PREFIX}oriel_checked`, []));
+migrateLegacyStorage();
+loadPersistedState();
 
 // 5. TOAST NOTIFICATIONS
 let toastTimer = null;
@@ -272,50 +392,36 @@ function initUserPrefsCache() {
     ROTATIONS_DATA.forEach(r => {
       let pref = null;
       try {
-        const raw = localStorage.getItem(`${STORAGE_PREFIX}pref_${r.id}`);
+        const raw = safeStorage.get(`${STORAGE_PREFIX}pref_${r.id}`);
         if (raw) pref = JSON.parse(raw);
       } catch (e) {}
-      userPrefsCache.set(r.id, {
-        rating: (pref && typeof pref.rating === 'number') ? pref.rating : 0,
-        notes: (pref && typeof pref.notes === 'string') ? pref.notes : "",
-        tier: (pref && ['TIER1', 'TIER2', 'TIER3', 'EXCLUDE', 'UNSET'].includes(pref.tier)) ? pref.tier : 'UNSET'
-      });
+      userPrefsCache.set(r.id, normalizePref(pref));
     });
   }
 }
 
 function getUserData(id) {
-  if (!id) return { rating: 0, notes: "", tier: "UNSET" };
+  if (!id || !KNOWN_IDS.has(id)) return { rating: 0, notes: "", tier: "UNSET" };
   let data = userPrefsCache.get(id);
   if (!data) {
+    let parsed = null;
     try {
-      const raw = localStorage.getItem(`${STORAGE_PREFIX}pref_${id}`);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        data = {
-          rating: typeof parsed.rating === 'number' ? parsed.rating : 0,
-          notes: typeof parsed.notes === 'string' ? parsed.notes : "",
-          tier: parsed.tier || "UNSET"
-        };
-      }
+      const raw = safeStorage.get(`${STORAGE_PREFIX}pref_${id}`);
+      if (raw) parsed = JSON.parse(raw);
     } catch (e) {}
-    if (!data) data = { rating: 0, notes: "", tier: "UNSET" };
+    data = normalizePref(parsed);
     userPrefsCache.set(id, data);
   }
   return data;
 }
 
 function setUserData(id, partialUpdate) {
-  if (!id) return;
+  if (!id || !KNOWN_IDS.has(id)) return;
   const current = getUserData(id);
-  Object.assign(current, partialUpdate);
-  userPrefsCache.set(id, current);
-  try {
-    localStorage.setItem(`${STORAGE_PREFIX}pref_${id}`, JSON.stringify(current));
-  } catch (e) {
-    console.error("Failed to persist user preference to localStorage", e);
-  }
-  return current;
+  const updated = normalizePref({ ...current, ...partialUpdate });
+  userPrefsCache.set(id, updated);
+  safeStorage.set(`${STORAGE_PREFIX}pref_${id}`, JSON.stringify(updated));
+  return updated;
 }
 
 // User preference check: returns true if the rotation has any rating, notes, or non-default tier (including EXCLUDE)
@@ -338,7 +444,7 @@ function syncShortlistOrder() {
   const ordered = (Array.isArray(shortlistOrder) ? shortlistOrder : []).filter((id, i, arr) => activeSet.has(id) && arr.indexOf(id) === i);
   active.forEach(id => { if (!ordered.includes(id)) ordered.push(id); });
   shortlistOrder = ordered;
-  localStorage.setItem(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
+  safeStorage.set(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
   return shortlistOrder;
 }
 
@@ -495,10 +601,14 @@ function computeRotationTrainingSplit(rot) {
     const isTertiary = h && h.type === 'Tertiary';
     let months = 6;
     const fullText = `${stg.stage || ''} ${stg.desc || ''}`;
-    const match = fullText.match(/\b(\d+)\s*m\b/i);
-    if (match) {
-      const parsed = parseInt(match[1], 10);
-      if (parsed > 0 && parsed <= 24) months = parsed;
+    const mMatch = fullText.match(/\b(\d+)\s*(?:m|mo|mths?|months?)\b/i);
+    const yMatch = fullText.match(/\b(\d+)\s*(?:yr|yrs|years?)\b/i);
+    if (mMatch) {
+      const parsed = parseInt(mMatch[1], 10);
+      if (parsed > 0 && parsed <= 48) months = parsed;
+    } else if (yMatch) {
+      const parsed = parseInt(yMatch[1], 10) * 12;
+      if (parsed > 0 && parsed <= 48) months = parsed;
     }
 
     if (isTertiary) {
@@ -608,6 +718,10 @@ function initRotationMetadata() {
       searchText
     };
   });
+
+  currentFilteredList = [...ROTATIONS_DATA];
+  const countBadge = document.getElementById('listCountBadge');
+  if (countBadge) countBadge.textContent = ROTATIONS_DATA.length;
 }
 
 function getRotationHospitalBases(rot) {
@@ -1168,7 +1282,10 @@ function switchInspectorTab(tabKey) {
     const btn = document.getElementById(tabMap[key].btn);
     const pane = document.getElementById(tabMap[key].pane);
     const isActive = (key === tabKey);
-    if (btn) btn.classList.toggle('active', isActive);
+    if (btn) {
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    }
     if (pane) pane.classList.toggle('active', isActive);
   });
 
@@ -1274,10 +1391,19 @@ function renderRotationCardsFeed(list) {
     const isExcluded = userData.tier === 'EXCLUDE';
     card.className = `rotation-list-card ${isSelected ? 'active-card' : ''} ${isExcluded ? 'excluded-card' : ''}`.trim();
     card.id = `feed-card-${r.id}`;
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', `${r.code}: ${r.title}`);
     card.onclick = (e) => {
       if (e.target.closest('button')) return;
       openDetailsForRotation(r.id);
     };
+    card.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('button')) {
+        e.preventDefault();
+        openDetailsForRotation(r.id);
+      }
+    });
 
     const lineStyle = getRotationLineStyle(r);
     const swatchHtml = isPool ? '' : `
@@ -1292,6 +1418,12 @@ function renderRotationCardsFeed(list) {
       highlightOverviewTrack(r.id);
     });
     card.addEventListener('mouseleave', () => {
+      resetOverviewTrackHighlights();
+    });
+    card.addEventListener('focus', () => {
+      highlightOverviewTrack(r.id);
+    });
+    card.addEventListener('blur', () => {
       resetOverviewTrackHighlights();
     });
 
@@ -1451,7 +1583,9 @@ function setRating(val, isClick = false) {
   currentActiveRating = val;
   const stars = document.querySelectorAll('#starContainer .star');
   stars.forEach((s, idx) => {
-    s.classList.toggle('selected', idx < val);
+    const isSelected = idx < val;
+    s.classList.toggle('selected', isSelected);
+    s.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
   });
   document.getElementById('ratingText').textContent = val > 0 ? `(${val} / 5 Stars)` : `(Unrated)`;
 
@@ -1465,8 +1599,9 @@ function setRating(val, isClick = false) {
 }
 
 // 9. VIEW MODE & COMMUTE MODE SWITCHING
-function showListView() {
+function showListView({ fitView = false } = {}) {
   flushPendingNotes();
+  cancelMapPick();
   if (typeof hoverHighlightGroup !== 'undefined') hoverHighlightGroup.clearLayers();
   currentViewMode = 'list';
   const listView = document.getElementById('listViewContainer');
@@ -1475,7 +1610,7 @@ function showListView() {
   if (inspectorCard) inspectorCard.style.display = 'none';
 
   // Drop the #rotation-id from the URL so a reload returns to the list (Back still returns to the rotation)
-  if (window.location.hash) {
+  if (/^#[^=]+$/.test(window.location.hash)) {
     history.pushState(null, '', window.location.pathname + window.location.search);
   }
 
@@ -1486,25 +1621,21 @@ function showListView() {
       if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 50);
   }
-  renderAllPlacements({ fitView: true });
+  renderAllPlacements({ fitView });
   setTimeout(() => { map.invalidateSize(); }, 120);
 }
 
 function dismissTipBanner() {
   const banner = document.getElementById('appTipBanner');
   if (banner) banner.style.display = 'none';
-  try {
-    localStorage.setItem(`${STORAGE_PREFIX}tip_dismissed`, 'true');
-  } catch (e) {}
+  safeStorage.set(`${STORAGE_PREFIX}tip_dismissed`, 'true');
 }
 
 function checkTipBannerStatus() {
-  try {
-    if (localStorage.getItem(`${STORAGE_PREFIX}tip_dismissed`) === 'true') {
-      const banner = document.getElementById('appTipBanner');
-      if (banner) banner.style.display = 'none';
-    }
-  } catch (e) {}
+  if (safeStorage.get(`${STORAGE_PREFIX}tip_dismissed`) === 'true') {
+    const banner = document.getElementById('appTipBanner');
+    if (banner) banner.style.display = 'none';
+  }
 }
 
 function setViewMode(mode) {
@@ -1525,12 +1656,7 @@ function setViewMode(mode) {
   setTimeout(() => { map.invalidateSize(); }, 120);
 }
 
-function setCommuteMode(mode) {
-  if (mode === 'custom' && (!customHomeBase || !customHomeBase.coords)) {
-    openCustomBaseModal();
-    return;
-  }
-  currentCommuteMode = mode;
+function syncCommuteModeUI(mode) {
   ['btnModeDriver', 'btnCardModeDriver'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('active', mode === 'driver');
@@ -1543,6 +1669,16 @@ function setCommuteMode(mode) {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('active', mode === 'custom');
   });
+}
+
+function setCommuteMode(mode) {
+  if (mode === 'custom' && (!customHomeBase || !customHomeBase.coords)) {
+    openCustomBaseModal();
+    return;
+  }
+  currentCommuteMode = mode;
+  safeStorage.set(`${STORAGE_PREFIX}commute_mode`, mode);
+  syncCommuteModeUI(mode);
 
   renderRotationCardsFeed(currentFilteredList);
 
@@ -1559,8 +1695,8 @@ function setCommuteMode(mode) {
 }
 
 function setShiftTiming(timing, showFeedback = true, render = true) {
-  currentShiftTiming = timing || '0730';
-  localStorage.setItem(`${STORAGE_PREFIX}shift_timing`, currentShiftTiming);
+  currentShiftTiming = ['0730', '1800', 'offpeak'].includes(timing) ? timing : '0730';
+  safeStorage.set(`${STORAGE_PREFIX}shift_timing`, currentShiftTiming);
 
   ['btnTimingMorning', 'btnCardTimingMorning'].forEach(id => {
     const el = document.getElementById(id);
@@ -1706,7 +1842,7 @@ function openHospitalProfile(hospName) {
     </div>
   `;
 
-  modal.style.display = 'flex';
+  openModal('hospitalProfileModal');
 }
 
 function copyDirectShareLink() {
@@ -1725,6 +1861,7 @@ function copyDirectShareLink() {
 function selectRotation(id, shouldCloseMobile = false) {
   if (!id) return;
   flushPendingNotes();
+  cancelMapPick();
 
   currentSelectedId = id;
   currentViewMode = 'details';
@@ -2455,7 +2592,11 @@ const QUICK_FILTER_PILLS = {
 function updateQuickFilterPills() {
   Object.entries(QUICK_FILTER_PILLS).forEach(([key, elId]) => {
     const el = document.getElementById(elId);
-    if (el) el.classList.toggle('active', activeQuickFilter === key);
+    if (el) {
+      const isActive = activeQuickFilter === key;
+      el.classList.toggle('active', isActive);
+      el.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    }
   });
 }
 
@@ -2585,7 +2726,7 @@ function applyFiltersAndSearch({ fitView = false } = {}) {
 function openShortlistModal() {
   flushPendingNotes();
   renderShortlistModal();
-  document.getElementById('shortlistModal').style.display = 'flex';
+  openModal('shortlistModal');
 }
 
 function updateOrielProgressBar() {
@@ -2617,12 +2758,13 @@ function updateOrielProgressBar() {
 }
 
 function toggleOrielEntered(id) {
+  if (!KNOWN_IDS.has(id)) return;
   if (orielCheckedSet.has(id)) {
     orielCheckedSet.delete(id);
   } else {
     orielCheckedSet.add(id);
   }
-  localStorage.setItem(`${STORAGE_PREFIX}oriel_checked`, JSON.stringify([...orielCheckedSet]));
+  safeStorage.set(`${STORAGE_PREFIX}oriel_checked`, JSON.stringify([...orielCheckedSet]));
   updateOrielProgressBar();
 
   const card = document.getElementById(`shortlist-card-${id}`);
@@ -2643,7 +2785,7 @@ function resetOrielChecks() {
   }
   if (confirm("Reset all 'Entered in Oriel' checkboxes?")) {
     orielCheckedSet.clear();
-    localStorage.removeItem(`${STORAGE_PREFIX}oriel_checked`);
+    safeStorage.remove(`${STORAGE_PREFIX}oriel_checked`);
     renderShortlistModal();
     showToast("Oriel checkmarks reset");
   }
@@ -2862,7 +3004,7 @@ function renderShortlistModal() {
       if (fromIdx !== toIdx) {
         const item = shortlistOrder.splice(fromIdx, 1)[0];
         shortlistOrder.splice(toIdx, 0, item);
-        localStorage.setItem(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
+        safeStorage.set(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
         renderShortlistModal();
       }
     };
@@ -2920,7 +3062,7 @@ function changeRankInput(fromIdx, newRankVal) {
   const toIdx = targetRank - 1;
   const item = shortlistOrder.splice(fromIdx, 1)[0];
   shortlistOrder.splice(toIdx, 0, item);
-  localStorage.setItem(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
+  safeStorage.set(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
   renderShortlistModal();
 }
 
@@ -2930,7 +3072,7 @@ function moveShortlistItem(index, dir) {
   const temp = shortlistOrder[index];
   shortlistOrder[index] = shortlistOrder[newIndex];
   shortlistOrder[newIndex] = temp;
-  localStorage.setItem(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
+  safeStorage.set(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
   renderShortlistModal();
 }
 
@@ -2940,9 +3082,9 @@ function removeShortlistItem(id) {
   if (!confirm(`Remove ${label} from your shortlist?\n\nThis clears its star rating, tier and notes.`)) return;
 
   shortlistOrder = shortlistOrder.filter(x => x !== id);
-  localStorage.setItem(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
+  safeStorage.set(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
   orielCheckedSet.delete(id);
-  localStorage.setItem(`${STORAGE_PREFIX}oriel_checked`, JSON.stringify([...orielCheckedSet]));
+  safeStorage.set(`${STORAGE_PREFIX}oriel_checked`, JSON.stringify([...orielCheckedSet]));
   setUserData(id, { rating: 0, tier: 'UNSET', notes: "" });
   updateShortlistBadge();
   applyFiltersAndSearch();
@@ -2960,6 +3102,7 @@ function toggleCompareFromCard() {
 }
 
 function toggleCompare(id) {
+  if (!KNOWN_IDS.has(id)) return;
   const idx = compareList.indexOf(id);
   if (idx !== -1) {
     compareList.splice(idx, 1);
@@ -2972,7 +3115,7 @@ function toggleCompare(id) {
     compareList.push(id);
     showToast("Added to compare tray");
   }
-  localStorage.setItem(`${STORAGE_PREFIX}compare_list`, JSON.stringify(compareList));
+  safeStorage.set(`${STORAGE_PREFIX}compare_list`, JSON.stringify(compareList));
   updateCompareBadge();
   renderRotationCardsFeed(currentFilteredList);
   if (currentSelectedId && currentViewMode === 'details') {
@@ -2988,7 +3131,7 @@ function toggleCompare(id) {
 function openCompareModal() {
   flushPendingNotes();
   renderCompareModal();
-  document.getElementById('compareModal').style.display = 'flex';
+  openModal('compareModal');
 }
 
 function renderCompareModal() {
@@ -3129,13 +3272,26 @@ function renderCompareModal() {
 }
 
 // 15. CUSTOM HOME BASE CALCULATOR
+let pendingMapPick = null;
+let pendingMapPickTimer = null;
+
+function cancelMapPick() {
+  if (pendingMapPick) {
+    map.off('click', pendingMapPick);
+    pendingMapPick = null;
+  }
+  if (pendingMapPickTimer) {
+    clearTimeout(pendingMapPickTimer);
+    pendingMapPickTimer = null;
+  }
+  const container = map.getContainer();
+  if (container) container.classList.remove('map-picking');
+}
+
 function openCustomBaseModal() {
+  cancelMapPick();
   updateCustomBaseUI();
-  document.getElementById('customBaseModal').style.display = 'flex';
-  setTimeout(() => {
-    const input = document.getElementById('customPostcodeInput');
-    if (input) input.focus();
-  }, 100);
+  openModal('customBaseModal', 'customPostcodeInput');
 }
 
 function lookupCustomPostcode() {
@@ -3203,26 +3359,39 @@ function useGpsForCustomBase() {
 }
 
 function startMapPickBase() {
+  cancelMapPick();
   closeModal('customBaseModal');
   if (window.innerWidth <= 768) toggleMobileSidebar(false);
-  showToast("Click anywhere on the map to set your home base");
-  map.once('click', (e) => {
+  const container = map.getContainer();
+  if (container) container.classList.add('map-picking');
+  showToast("Click anywhere on the map to set your home base (Esc to cancel)");
+  pendingMapPick = (e) => {
+    cancelMapPick();
     saveCustomHomeBase("Custom Map Pin", [e.latlng.lat, e.latlng.lng]);
-  });
+  };
+  map.once('click', pendingMapPick);
+  pendingMapPickTimer = setTimeout(() => {
+    cancelMapPick();
+  }, 30000);
 }
 
 function saveCustomHomeBase(name, coords) {
-  customHomeBase = { name, coords };
-  localStorage.setItem(`${STORAGE_PREFIX}custom_home`, JSON.stringify(customHomeBase));
+  const normalized = normalizeCustomBase({ name, coords });
+  if (!normalized) {
+    showToast("Invalid coordinates for custom base.");
+    return;
+  }
+  customHomeBase = normalized;
+  safeStorage.set(`${STORAGE_PREFIX}custom_home`, JSON.stringify(customHomeBase));
   updateCustomBaseUI();
   setCommuteMode('custom');
   closeModal('customBaseModal');
-  showToast(`Custom Base saved: ${name}`);
+  showToast(`Custom Base saved: ${customHomeBase.name}`);
 }
 
 function clearCustomHomeBase() {
   customHomeBase = null;
-  localStorage.removeItem(`${STORAGE_PREFIX}custom_home`);
+  safeStorage.remove(`${STORAGE_PREFIX}custom_home`);
   updateCustomBaseUI();
   setCommuteMode('driver');
   closeModal('customBaseModal');
@@ -3283,17 +3452,44 @@ function buildBackupObject() {
   };
 }
 
+let lastFocusedElement = null;
+
+function openModal(id, preferredFocusId = null) {
+  const modal = document.getElementById(id);
+  if (!modal) return;
+  if (document.activeElement && document.activeElement !== document.body && !document.activeElement.closest('.modal-overlay')) {
+    lastFocusedElement = document.activeElement;
+  }
+  modal.style.display = 'flex';
+  setTimeout(() => {
+    const preferred = preferredFocusId ? document.getElementById(preferredFocusId) : null;
+    if (preferred && typeof preferred.focus === 'function') {
+      preferred.focus();
+      return;
+    }
+    const focusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (focusable && typeof focusable.focus === 'function') {
+      focusable.focus();
+    }
+  }, 50);
+}
+
 function openSyncModal() {
   flushPendingNotes();
-  const modal = document.getElementById('syncModal');
   const area = document.getElementById('syncJsonArea');
-  area.value = JSON.stringify(buildBackupObject(), null, 2);
-  modal.style.display = 'flex';
+  if (area) area.value = JSON.stringify(buildBackupObject(), null, 2);
+  openModal('syncModal');
 }
 
 function closeModal(id) {
   const modal = document.getElementById(id);
-  if (modal) modal.style.display = 'none';
+  if (!modal || modal.style.display === 'none') return;
+  modal.style.display = 'none';
+  const anyOpen = Array.from(document.querySelectorAll('.modal-overlay')).some(m => m.style.display === 'flex');
+  if (!anyOpen && lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+    lastFocusedElement.focus();
+    lastFocusedElement = null;
+  }
 }
 
 function copySyncData() {
@@ -3336,6 +3532,11 @@ function downloadJsonBackup() {
 function handleBackupFileUpload(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
+  if (file.size > 1_000_000) {
+    showToast("Backup file too large (max 1 MB).");
+    event.target.value = '';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
@@ -3355,7 +3556,7 @@ function handleBackupFileUpload(event) {
 }
 
 function applyParsedBackup(parsed) {
-  if (!parsed || typeof parsed !== 'object') {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     showToast("Invalid backup format");
     return;
   }
@@ -3364,39 +3565,48 @@ function applyParsedBackup(parsed) {
   if (typeof ROTATIONS_DATA !== 'undefined' && Array.isArray(ROTATIONS_DATA)) {
     ROTATIONS_DATA.forEach(r => {
       userPrefsCache.set(r.id, { rating: 0, notes: "", tier: "UNSET" });
-      try {
-        localStorage.removeItem(`${STORAGE_PREFIX}pref_${r.id}`);
-      } catch (e) {}
+      safeStorage.remove(`${STORAGE_PREFIX}pref_${r.id}`);
     });
   }
 
-  if (parsed.ratings && typeof parsed.ratings === 'object') {
+  if (parsed.ratings && typeof parsed.ratings === 'object' && !Array.isArray(parsed.ratings)) {
     Object.keys(parsed.ratings).forEach(k => {
-      setUserData(k, parsed.ratings[k]);
+      if (KNOWN_IDS.has(k)) {
+        setUserData(k, normalizePref(parsed.ratings[k]));
+      }
     });
   }
   if (Array.isArray(parsed.shortlistOrder)) {
-    shortlistOrder = parsed.shortlistOrder;
+    shortlistOrder = parsed.shortlistOrder.filter((id, i, a) => typeof id === 'string' && KNOWN_IDS.has(id) && a.indexOf(id) === i);
   } else {
     shortlistOrder = [];
   }
   syncShortlistOrder();
 
   if (parsed.orielChecked && Array.isArray(parsed.orielChecked)) {
-    orielCheckedSet = new Set(parsed.orielChecked);
-    localStorage.setItem(`${STORAGE_PREFIX}oriel_checked`, JSON.stringify([...orielCheckedSet]));
+    orielCheckedSet = new Set(parsed.orielChecked.filter(id => typeof id === 'string' && KNOWN_IDS.has(id)));
+    safeStorage.set(`${STORAGE_PREFIX}oriel_checked`, JSON.stringify([...orielCheckedSet]));
   } else {
     orielCheckedSet.clear();
-    localStorage.removeItem(`${STORAGE_PREFIX}oriel_checked`);
+    safeStorage.remove(`${STORAGE_PREFIX}oriel_checked`);
   }
 
-  if (parsed.customHomeBase) {
-    customHomeBase = parsed.customHomeBase;
-    localStorage.setItem(`${STORAGE_PREFIX}custom_home`, JSON.stringify(customHomeBase));
+  const validBase = normalizeCustomBase(parsed.customHomeBase);
+  if (validBase) {
+    customHomeBase = validBase;
+    safeStorage.set(`${STORAGE_PREFIX}custom_home`, JSON.stringify(customHomeBase));
+    currentCommuteMode = 'custom';
+    safeStorage.set(`${STORAGE_PREFIX}commute_mode`, 'custom');
+    syncCommuteModeUI('custom');
     updateCustomBaseUI();
   } else {
     customHomeBase = null;
-    localStorage.removeItem(`${STORAGE_PREFIX}custom_home`);
+    safeStorage.remove(`${STORAGE_PREFIX}custom_home`);
+    if (currentCommuteMode === 'custom') {
+      currentCommuteMode = 'driver';
+      safeStorage.set(`${STORAGE_PREFIX}commute_mode`, 'driver');
+      syncCommuteModeUI('driver');
+    }
     updateCustomBaseUI();
   }
 
@@ -3411,11 +3621,16 @@ function applyParsedBackup(parsed) {
 function encodeBase64Utf8(str) {
   return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(match, p1) {
     return String.fromCharCode(parseInt(p1, 16));
-  }));
+  }))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 }
 
 function decodeBase64Utf8(str) {
-  return decodeURIComponent(Array.prototype.map.call(atob(str), function(c) {
+  let clean = decodeURIComponent(str.trim()).replace(/-/g, '+').replace(/_/g, '/');
+  while (clean.length % 4) clean += '=';
+  return decodeURIComponent(Array.prototype.map.call(atob(clean), function(c) {
     return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
   }).join(''));
 }
@@ -3427,6 +3642,16 @@ function generatePartnerShareLink() {
   if (count === 0 && !backup.customHomeBase) {
     showToast("No preferences or custom base to share yet.");
     return;
+  }
+  if (backup.customHomeBase) {
+    const includeBase = confirm("Include your custom home base location in the share link?\n\n(Click Cancel to share only your ratings, tiers, and shortlist.)");
+    if (!includeBase) {
+      backup.customHomeBase = null;
+      if (count === 0) {
+        showToast("No preferences to share.");
+        return;
+      }
+    }
   }
   const jsonStr = JSON.stringify(backup);
   try {
@@ -3452,13 +3677,18 @@ function checkForSharedLink() {
   const hash = window.location.hash;
   if (!hash || !hash.startsWith('#share=')) return;
   const rawEncoded = hash.substring(7);
+  if (history.replaceState) {
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+  } else {
+    window.location.hash = '';
+  }
   if (!rawEncoded) return;
 
   try {
     const jsonStr = decodeBase64Utf8(rawEncoded);
     const parsed = JSON.parse(jsonStr);
     
-    if (parsed && (parsed.ratings || parsed.shortlistOrder)) {
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && (parsed.ratings || parsed.shortlistOrder || parsed.customHomeBase)) {
       setTimeout(() => {
         const count = Object.keys(parsed.ratings || {}).length;
         const accepted = confirm(`A partner has shared their Anaesthetics rotation preferences (${count} rotations shortlisted).\n\nWould you like to import their ratings, tiers, and notes? (This will update your current local preferences)`);
@@ -3466,15 +3696,13 @@ function checkForSharedLink() {
           applyParsedBackup(parsed);
           showToast("Partner preferences successfully loaded!");
         }
-        if (history.replaceState) {
-          history.replaceState(null, '', window.location.pathname + window.location.search);
-        } else {
-          window.location.hash = '';
-        }
-      }, 500);
+      }, 300);
+    } else {
+      showToast("Invalid or corrupted share link");
     }
   } catch(e) {
     console.error("Failed to parse shared partner link", e);
+    showToast("Invalid or corrupted share link");
   }
 }
 
@@ -3565,7 +3793,7 @@ function downloadBlob(content, filename, mimeType) {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
 // 18. MOBILE DRAWER NAVIGATION
@@ -3578,23 +3806,53 @@ function toggleMobileSidebar(open) {
 
 // 19. ACCESSIBILITY, KEYBOARD SHORTCUTS & MODAL BACKDROPS
 document.addEventListener('keydown', (e) => {
-  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
-  const isModalOpen = Array.from(document.querySelectorAll('.modal-overlay')).some(m => m.style.display === 'flex');
-  if (e.key === 'ArrowRight') {
-    if (isModalOpen) return;
-    e.preventDefault();
-    stepRotation(1);
-  } else if (e.key === 'ArrowLeft') {
-    if (isModalOpen) return;
-    e.preventDefault();
-    stepRotation(-1);
-  } else if (e.key === 'Escape') {
+  const openModals = Array.from(document.querySelectorAll('.modal-overlay')).filter(m => m.style.display === 'flex');
+  const activeModal = openModals.length ? openModals[openModals.length - 1] : null;
+
+  if (e.key === 'Escape') {
+    if (pendingMapPick) {
+      cancelMapPick();
+      showToast("Map pin selection cancelled");
+    }
     closeModal('shortlistModal');
     closeModal('compareModal');
     closeModal('customBaseModal');
     closeModal('syncModal');
     closeModal('hospitalProfileModal');
     if (window.innerWidth <= 768) toggleMobileSidebar(false);
+    return;
+  }
+
+  if (e.key === 'Tab' && activeModal) {
+    const focusables = Array.from(
+      activeModal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+    ).filter(el => !el.disabled && el.offsetParent !== null);
+    if (focusables.length > 0) {
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    return;
+  }
+
+  const activeTag = document.activeElement ? document.activeElement.tagName : '';
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeTag)) return;
+  if (e.target && e.target.closest && e.target.closest('.leaflet-container')) return;
+
+  if (e.key === 'ArrowRight') {
+    if (activeModal) return;
+    e.preventDefault();
+    stepRotation(1);
+  } else if (e.key === 'ArrowLeft') {
+    if (activeModal) return;
+    e.preventDefault();
+    stepRotation(-1);
   }
 });
 
@@ -3678,7 +3936,7 @@ window.addEventListener('hashchange', () => {
     return;
   }
   const hashId = window.location.hash.replace('#', '');
-  if (hashId && hashId !== currentSelectedId && ROTATIONS_DATA.some(r => r.id === hashId)) {
+  if (hashId && ROTATIONS_DATA.some(r => r.id === hashId) && (hashId !== currentSelectedId || currentViewMode !== 'details')) {
     const prefSel = document.getElementById('prefSelect');
     if (prefSel) prefSel.value = hashId;
     selectRotation(hashId, false);
@@ -3715,11 +3973,14 @@ map.on('click', () => {
 // 21. APPLICATION ENTRY POINT
 window.addEventListener('DOMContentLoaded', () => {
   initRotationMetadata();
+  migrateLegacyStorage();
+  loadPersistedState();
   initUserPrefsCache();
   applyTheme();
   populateRegionDropdown();
-  populateDropdown(ROTATIONS_DATA);
+  syncCommuteModeUI(currentCommuteMode);
   setShiftTiming(currentShiftTiming, false, false);
+  applyFiltersAndSearch();
   updateShortlistBadge();
   updateCompareBadge();
   updateCustomBaseUI();
@@ -3729,7 +3990,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Check for 1-Click partner share link in URL hash
   if (window.location.hash.startsWith('#share=')) {
     checkForSharedLink();
-    showListView();
+    showListView({ fitView: true });
   } else {
     const hashId = window.location.hash.replace('#', '');
     if (hashId && ROTATIONS_DATA.some(r => r.id === hashId)) {
@@ -3738,7 +3999,7 @@ window.addEventListener('DOMContentLoaded', () => {
       selectRotation(hashId, false);
       setViewMode('details');
     } else {
-      showListView();
+      showListView({ fitView: true });
     }
   }
 
