@@ -1241,7 +1241,7 @@ select:focus, input:focus, textarea:focus {
 }
 
 .pool-site-pin { 
-  background: #0284c7; 
+  background: var(--pool-pin-color, #0284c7); 
   color: #ffffff; 
   font-weight: 800;
   font-size: 13px; 
@@ -1260,17 +1260,18 @@ select:focus, input:focus, textarea:focus {
 
 .pool-site-pin:hover {
   transform: scale(1.18);
-  box-shadow: 0 5px 14px rgba(2, 132, 199, 0.5);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.45);
   z-index: 9999 !important;
 }
 
 .pool-site-pin.tertiary-pool-pin {
-  background: #7c3aed;
-  box-shadow: 0 3px 8px rgba(124, 58, 237, 0.4);
+  background: var(--pool-pin-color, #7c3aed);
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 0 0 2px var(--pool-pin-color, #7c3aed), 0 3px 10px rgba(0, 0, 0, 0.45);
 }
 
 .pool-site-pin.tertiary-pool-pin:hover {
-  box-shadow: 0 5px 14px rgba(124, 58, 237, 0.6);
+  box-shadow: 0 0 0 2.5px var(--pool-pin-color, #7c3aed), 0 5px 14px rgba(0, 0, 0, 0.55);
 }
 
 .overview-hosp-pin { 

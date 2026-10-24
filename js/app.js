@@ -538,8 +538,63 @@ function hslToHex(h, s, l) {
   return `#${((1 << 24) + (ri << 16) + (gi << 8) + bi).toString(16).slice(1)}`;
 }
 
+function getGeographicPoolGroupsForRegion(region) {
+  const naturalCompare = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare;
+  const regionPools = (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : [])
+    .filter(r => r.region === region && isPoolRotation(r))
+    .slice()
+    .sort((a, b) => naturalCompare(a.code || a.title, b.code || b.title));
+
+  const groups = [];
+  regionPools.forEach(pool => {
+    const bases = computeRotationHospitalBases(pool);
+    const baseSet = new Set(bases);
+    let matchedGroup = null;
+    for (const grp of groups) {
+      let intersection = 0;
+      baseSet.forEach(h => { if (grp.hospSet.has(h)) intersection++; });
+      const union = grp.hospSet.size + baseSet.size - intersection;
+      const jaccard = union > 0 ? intersection / union : 1;
+      if (jaccard >= 0.75) {
+        matchedGroup = grp;
+        break;
+      }
+    }
+    if (matchedGroup) {
+      matchedGroup.rotations.push(pool);
+      baseSet.forEach(h => matchedGroup.hospSet.add(h));
+    } else {
+      groups.push({
+        rotations: [pool],
+        hospSet: new Set(bases)
+      });
+    }
+  });
+  return groups;
+}
+
 function computeRotationLineStyle(rot) {
   const regColor = (window.REGION_COLORS && window.REGION_COLORS[rot.region]) || (typeof REGION_COLORS !== 'undefined' ? REGION_COLORS[rot.region] : "#0284c7");
+  if (isPoolRotation(rot)) {
+    const poolGroups = getGeographicPoolGroupsForRegion(rot.region);
+    const numGroups = poolGroups.length;
+    let color = regColor;
+    if (numGroups >= 2) {
+      const groupIdx = Math.max(0, poolGroups.findIndex(g => g.rotations.some(r => r.id === rot.id)));
+      const t = (groupIdx / (numGroups - 1)) - 0.5;
+      const hueShift = -t * 24;
+      const lightShift = t * 22;
+      const [h, s, l] = hexToHsl(regColor);
+      color = hslToHex(h + hueShift, s, Math.max(26, Math.min(72, l + lightShift)));
+    }
+    return {
+      color,
+      baseColor: color,
+      dashPattern: 'none',
+      regColor,
+      isDashed: false
+    };
+  }
   const regionRots = (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : []).filter(r => r.region === rot.region && !isPoolRotation(r));
 
   // Determine starting hospital in this region to shift color temperature
@@ -773,6 +828,9 @@ function buildCategoricalStylesMap(targetList) {
 
 function getRotationLineStyle(rot) {
   if (!rot) return { color: '#0284c7', baseColor: '#0284c7', dashPattern: 'none', regColor: '#0284c7', isDashed: false };
+  if (isPoolRotation(rot)) {
+    return (rot._meta && rot._meta.lineStyle) ? rot._meta.lineStyle : computeRotationLineStyle(rot);
+  }
 
   // Use distinct high-contrast categorical palette when filtering to a single region or when filtered results <= 20
   const useCategorical = (activeRegionFilter !== 'ALL') || (Array.isArray(currentFilteredList) && currentFilteredList.length <= 20);
@@ -1009,6 +1067,7 @@ function highlightOverviewTrack(rotId) {
   if (rot && rot.stages && rot.stages.length) {
     if (isPoolRotation(rot)) {
       const bases = getRotationHospitalBases(rot);
+      const poolColor = getRotationLineStyle(rot).color;
       bases.forEach(hName => {
         const hosp = HOSPITALS[hName];
         if (!hosp || !hosp.coords) return;
@@ -1016,7 +1075,7 @@ function highlightOverviewTrack(rotId) {
         const badgeText = isTertiary ? 'T' : 'H';
         const badgeIcon = L.divIcon({
           className: 'hover-stage-badge-icon',
-          html: `<div class="pool-site-pin ${isTertiary ? 'tertiary-pool-pin' : ''}" style="pointer-events:none;" title="Candidate Base: ${escapeHtml(hName)}">${badgeText}</div>`,
+          html: `<div class="pool-site-pin ${isTertiary ? 'tertiary-pool-pin' : ''}" style="background-color:${poolColor}; --pool-pin-color:${poolColor}; pointer-events:none;" title="Candidate Base: ${escapeHtml(hName)}">${badgeText}</div>`,
           iconSize: [28, 28],
           iconAnchor: [14, 14]
         });
@@ -1406,7 +1465,11 @@ function renderRotationCardsFeed(list) {
     });
 
     const lineStyle = getRotationLineStyle(r);
-    const swatchHtml = isPool ? '' : `
+    const swatchHtml = isPool ? `
+      <span class="card-line-swatch" title="Pool pin colour on map">
+        <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${lineStyle.color}; border:1.5px solid #ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.3);"></span>
+      </span>
+    ` : `
       <span class="card-line-swatch" title="Line signature on overview map (${lineStyle.isDashed ? 'dashed' : 'solid'})">
         <svg width="22" height="6" viewBox="0 0 22 6" style="display:block;">
           <line x1="1" y1="3" x2="21" y2="3" stroke="${lineStyle.color}" ${lineStyle.dashPattern === 'none' ? '' : `stroke-dasharray="${lineStyle.dashPattern}"`} stroke-width="2.5" stroke-linecap="round"/>
@@ -2067,6 +2130,7 @@ function selectRotation(id, shouldCloseMobile = false) {
 
   const timeline = document.getElementById('timelineContainer');
   const fragTimeline = document.createDocumentFragment();
+  const poolColor = isPool ? getRotationLineStyle(rot).color : '';
 
   rot.stages.forEach((stg, idx) => {
     const step = document.createElement('div');
@@ -2083,7 +2147,7 @@ function selectRotation(id, shouldCloseMobile = false) {
       : encodeURIComponent(stg.hosp + ', UK');
 
     const dotHtml = isPool ? '•' : (idx + 1);
-    const dotStyle = isPool ? 'style="background:var(--slate-500); font-size:11px;"' : '';
+    const dotStyle = isPool ? `style="background:${poolColor}; font-size:11px;"` : '';
 
     step.innerHTML = `
       <div class="timeline-dot" ${dotStyle}>${dotHtml}</div>
@@ -2240,8 +2304,8 @@ function selectRotation(id, shouldCloseMobile = false) {
     let icon;
     if (isPool) {
       icon = L.divIcon({
-        className: 'pool-site-pin' + (isTertiary ? ' tertiary-pool-pin' : ''),
-        html: isTertiary ? 'T' : 'H',
+        className: 'hover-stage-badge-icon',
+        html: `<div class="pool-site-pin${isTertiary ? ' tertiary-pool-pin' : ''}" style="background-color:${poolColor}; --pool-pin-color:${poolColor};">${isTertiary ? 'T' : 'H'}</div>`,
         iconSize: [28, 28],
         iconAnchor: [14, 14]
       });
@@ -2456,6 +2520,27 @@ function renderAllPlacements({ fitView = true } = {}) {
 
     allPoints.push(h.coords);
     const regColor = regionColorsMap[h.region] || "#0284c7";
+    const linkedPoolsInRegion = linkedRotations.filter(r => isPoolRotation(r) && r.region === h.region);
+    const poolPinColors = [];
+    linkedPoolsInRegion.forEach(p => {
+      const c = getRotationLineStyle(p).color;
+      if (c && !poolPinColors.includes(c)) poolPinColors.push(c);
+    });
+
+    let pinBgStyle = `background-color: ${regColor};`;
+    let popupRegColor = regColor;
+    if (poolPinColors.length === 1) {
+      pinBgStyle = `background-color: ${poolPinColors[0]};`;
+      popupRegColor = poolPinColors[0];
+    } else if (poolPinColors.length === 2) {
+      pinBgStyle = `background: linear-gradient(135deg, ${poolPinColors[0]} 0% 50%, ${poolPinColors[1]} 50% 100%);`;
+      popupRegColor = poolPinColors[0];
+    } else if (poolPinColors.length > 2) {
+      const step = 360 / poolPinColors.length;
+      const stops = poolPinColors.map((c, idx) => `${c} ${Math.round(idx * step)}deg ${Math.round((idx + 1) * step)}deg`).join(', ');
+      pinBgStyle = `background: conic-gradient(${stops});`;
+      popupRegColor = poolPinColors[0];
+    }
 
     const linkedHtml = linkedRotations.length ? 
       `<div class="overview-popup-rot-list">
@@ -2473,7 +2558,7 @@ function renderAllPlacements({ fitView = true } = {}) {
 
     const icon = L.divIcon({
       className: isRefSite ? 'overview-hosp-pin reference-only-pin' : 'overview-hosp-pin',
-      html: `<div style="background-color: ${regColor}; width: 100%; height: 100%; border-radius: 50%;"></div>`,
+      html: `<div style="${pinBgStyle} width: 100%; height: 100%; border-radius: 50%;"></div>`,
       iconSize: isRefSite ? [7, 7] : [12, 12],
       iconAnchor: isRefSite ? [3.5, 3.5] : [6, 6]
     });
@@ -2495,7 +2580,7 @@ function renderAllPlacements({ fitView = true } = {}) {
       title: isRefSite ? `${hName} (Regional Reference Site — ST5–ST7)` : hName
     }).bindPopup(`
       <div class="overview-popup-title">${escapeHtml(hName)}</div>
-      <div class="overview-popup-reg" style="color:${regColor};">${escapeHtml(h.region)} • <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.65rem;">${isTertiary ? 'Tertiary' : 'DGH'}</span></div>
+      <div class="overview-popup-reg" style="color:${popupRegColor};">${escapeHtml(h.region)} • <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.65rem;">${isTertiary ? 'Tertiary' : 'DGH'}</span></div>
       ${hospCountHtml}
       <button class="hospital-chip-btn" style="width:100%; margin-bottom:8px; font-size:0.73rem; padding:4px 8px;" data-action="open-hospital-profile" data-hosp="${escapeHtml(hName)}">Hospital Profile &rarr;</button>
       ${linkedHtml}

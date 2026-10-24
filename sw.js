@@ -4,7 +4,7 @@
  */
 
 const CACHE_PREFIX = 'st4-';
-const CACHE_NAME = 'st4-explorer-v10';
+const CACHE_NAME = 'st4-explorer-v11';
 const TILE_CACHE = 'st4-map-tiles';
 const MAX_TILES = 1500;
 
