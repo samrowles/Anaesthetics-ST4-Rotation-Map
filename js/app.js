@@ -434,15 +434,47 @@ function isShortlisted(d) {
   return !!d && d.tier !== 'EXCLUDE' && (d.rating > 0 || (d.tier && d.tier !== 'UNSET') || (d.notes && d.notes.trim() !== ''));
 }
 
+const TIER_PRIORITY = { TIER1: 1, TIER2: 2, TIER3: 3, UNSET: 4 };
+function getTierPriority(tier) {
+  return TIER_PRIORITY[tier] || 4;
+}
+
+function insertIntoShortlistByTier(list, id) {
+  const targetPriority = getTierPriority(getUserData(id).tier);
+  let insertAt = -1;
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (getTierPriority(getUserData(list[i]).tier) === targetPriority) {
+      insertAt = i + 1;
+      break;
+    }
+  }
+  if (insertAt === -1) {
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (getTierPriority(getUserData(list[i]).tier) < targetPriority) {
+        insertAt = i + 1;
+        break;
+      }
+    }
+  }
+  if (insertAt === -1) {
+    insertAt = 0;
+  }
+  list.splice(insertAt, 0, id);
+}
+
 /**
  * Reconciles the saved rank order with the current shortlist: drops rotations that
- * are no longer shortlisted and appends newly shortlisted ones at the end.
+ * are no longer shortlisted and inserts newly shortlisted ones at the end of their tier group.
  */
 function syncShortlistOrder() {
   const active = ROTATIONS_DATA.filter(r => isShortlisted(getUserData(r.id))).map(r => r.id);
   const activeSet = new Set(active);
   const ordered = (Array.isArray(shortlistOrder) ? shortlistOrder : []).filter((id, i, arr) => activeSet.has(id) && arr.indexOf(id) === i);
-  active.forEach(id => { if (!ordered.includes(id)) ordered.push(id); });
+  active.forEach(id => {
+    if (!ordered.includes(id)) {
+      insertIntoShortlistByTier(ordered, id);
+    }
+  });
   shortlistOrder = ordered;
   safeStorage.set(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
   return shortlistOrder;
@@ -655,15 +687,28 @@ function computeRotationTrainingSplit(rot) {
     const h = HOSPITALS[stg.hosp];
     const isTertiary = h && h.type === 'Tertiary';
     let months = 6;
-    const fullText = `${stg.stage || ''} ${stg.desc || ''}`;
-    const mMatch = fullText.match(/\b(\d+)\s*(?:m|mo|mths?|months?)\b/i);
-    const yMatch = fullText.match(/\b(\d+)\s*(?:yr|yrs|years?)\b/i);
-    if (mMatch) {
-      const parsed = parseInt(mMatch[1], 10);
+    const stageText = String(stg.stage || '');
+    const descText = String(stg.desc || '');
+    const stgMonthMatch = stageText.match(/\b(\d+)\s*(?:m|mo|mths?|months?)\b/i);
+    const stgYearMatch = stageText.match(/\b(\d+)\s*(?:yr|yrs|years?)\b/i);
+    if (stgMonthMatch) {
+      const parsed = parseInt(stgMonthMatch[1], 10);
       if (parsed > 0 && parsed <= 48) months = parsed;
-    } else if (yMatch) {
-      const parsed = parseInt(yMatch[1], 10) * 12;
+    } else if (stgYearMatch) {
+      const parsed = parseInt(stgYearMatch[1], 10) * 12;
       if (parsed > 0 && parsed <= 48) months = parsed;
+    } else {
+      const descMonthMatches = Array.from(descText.matchAll(/\b(\d+)\s*(?:m|mo|mths?|months?)\b/gi));
+      if (descMonthMatches.length > 0) {
+        const sum = descMonthMatches.reduce((acc, m) => acc + (parseInt(m[1], 10) || 0), 0);
+        if (sum > 0 && sum <= 48) months = sum;
+      } else {
+        const descYearMatch = descText.match(/\b(\d+)\s*(?:yr|yrs|years?)\b/i);
+        if (descYearMatch) {
+          const parsed = parseInt(descYearMatch[1], 10) * 12;
+          if (parsed > 0 && parsed <= 48) months = parsed;
+        }
+      }
     }
 
     if (isTertiary) {
@@ -1559,6 +1604,9 @@ function setTier(tierVal) {
   const current = getUserData(currentSelectedId);
   const nextTier = (current.tier === tierVal) ? 'UNSET' : tierVal;
   setUserData(currentSelectedId, { tier: nextTier });
+  if (current.tier !== nextTier) {
+    shortlistOrder = (Array.isArray(shortlistOrder) ? shortlistOrder : []).filter(id => id !== currentSelectedId);
+  }
   syncShortlistOrder();
 
   updateTierButtons(nextTier);
@@ -1656,7 +1704,7 @@ function setRating(val, isClick = false) {
     setUserData(currentSelectedId, { rating: val });
     syncShortlistOrder();
     updateShortlistBadge();
-    applyFiltersAndSearch();
+    applyFiltersAndSearch({ redrawMap: activeQuickFilter === 'STARRED' });
     showToast(val > 0 ? `Rated ${val}★` : "Rating cleared");
   }
 }
@@ -2659,12 +2707,12 @@ function diveInFromPopup(id) {
  * Called after any user-driven filter/search/sort change. Re-filters the feed and,
  * if a rotation was being inspected, returns to the feed so the new results are visible.
  */
-function refreshAfterFilterChange(fitView = false) {
+function refreshAfterFilterChange(fitView = false, redrawMap = true) {
   if (currentViewMode === 'details') {
-    applyFiltersAndSearch();
+    applyFiltersAndSearch({ redrawMap: false });
     showListView();
   } else {
-    applyFiltersAndSearch({ fitView });
+    applyFiltersAndSearch({ fitView, redrawMap });
   }
 }
 
@@ -2720,7 +2768,7 @@ function clearSearch() {
 
 function handleSortChange(sortVal) {
   currentSortMode = sortVal;
-  refreshAfterFilterChange();
+  refreshAfterFilterChange(false, false);
 }
 
 function resetAllFilters() {
@@ -2746,7 +2794,7 @@ function resetAllFilters() {
   showToast("All filters reset");
 }
 
-function applyFiltersAndSearch({ fitView = false } = {}) {
+function applyFiltersAndSearch({ fitView = false, redrawMap = true } = {}) {
   let list = [...ROTATIONS_DATA];
 
   // Region Filter
@@ -2802,7 +2850,7 @@ function applyFiltersAndSearch({ fitView = false } = {}) {
   renderRotationCardsFeed(list);
 
   // Keep the national map's route lines in step with the feed
-  if (currentViewMode === 'list') {
+  if (currentViewMode === 'list' && redrawMap) {
     renderAllPlacements({ fitView });
   }
 }
@@ -3646,6 +3694,15 @@ function applyParsedBackup(parsed) {
     return;
   }
 
+  const rawRatingKeys = (parsed.ratings && typeof parsed.ratings === 'object' && !Array.isArray(parsed.ratings)) ? Object.keys(parsed.ratings) : [];
+  const rawShortlist = Array.isArray(parsed.shortlistOrder) ? parsed.shortlistOrder : [];
+  const matchingIds = [...rawRatingKeys, ...rawShortlist].filter(id => typeof id === 'string' && KNOWN_IDS.has(id));
+  const validBase = normalizeCustomBase(parsed.customHomeBase);
+  if ((rawRatingKeys.length > 0 || rawShortlist.length > 0) && matchingIds.length === 0 && !validBase) {
+    showToast("Backup belongs to a different rotation programme (no matching IDs).");
+    return;
+  }
+
   // True Overwrite: Reset all rotations in userPrefsCache and clear existing pref keys from localStorage
   if (typeof ROTATIONS_DATA !== 'undefined' && Array.isArray(ROTATIONS_DATA)) {
     ROTATIONS_DATA.forEach(r => {
@@ -3676,7 +3733,6 @@ function applyParsedBackup(parsed) {
     safeStorage.remove(`${STORAGE_PREFIX}oriel_checked`);
   }
 
-  const validBase = normalizeCustomBase(parsed.customHomeBase);
   if (validBase) {
     customHomeBase = validBase;
     safeStorage.set(`${STORAGE_PREFIX}custom_home`, JSON.stringify(customHomeBase));
@@ -3774,9 +3830,22 @@ function checkForSharedLink() {
     const parsed = JSON.parse(jsonStr);
     
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && (parsed.ratings || parsed.shortlistOrder || parsed.customHomeBase)) {
+      const validRatingKeys = (parsed.ratings && typeof parsed.ratings === 'object' && !Array.isArray(parsed.ratings))
+        ? Object.keys(parsed.ratings).filter(k => KNOWN_IDS.has(k) && hasUserPreference(normalizePref(parsed.ratings[k])))
+        : [];
+      const validShortlistKeys = Array.isArray(parsed.shortlistOrder)
+        ? parsed.shortlistOrder.filter(id => typeof id === 'string' && KNOWN_IDS.has(id))
+        : [];
+      const validCustomBase = normalizeCustomBase(parsed.customHomeBase);
+      const validCount = new Set([...validRatingKeys, ...validShortlistKeys]).size;
+
+      if (validCount === 0 && !validCustomBase) {
+        showToast("Share link contains no valid rotations for this programme");
+        return;
+      }
+
       setTimeout(() => {
-        const count = Object.keys(parsed.ratings || {}).length;
-        const accepted = confirm(`A partner has shared their Anaesthetics rotation preferences (${count} rotations shortlisted).\n\nWould you like to import their ratings, tiers, and notes? (This will update your current local preferences)`);
+        const accepted = confirm(`A partner has shared their Anaesthetics rotation preferences (${validCount} rotation${validCount === 1 ? '' : 's'} shortlisted).\n\nWould you like to import their ratings, tiers, and notes? (This will update your current local preferences)`);
         if (accepted) {
           applyParsedBackup(parsed);
           showToast("Partner preferences successfully loaded!");

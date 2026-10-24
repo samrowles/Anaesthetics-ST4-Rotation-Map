@@ -4,7 +4,7 @@
  */
 
 const CACHE_PREFIX = 'st4-';
-const CACHE_NAME = 'st4-explorer-v11';
+const CACHE_NAME = 'st4-explorer-v12';
 const TILE_CACHE = 'st4-map-tiles';
 const MAX_TILES = 1500;
 
@@ -19,14 +19,22 @@ const STATIC_ASSETS = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
 ];
 
+let isTrimming = false;
 async function trimCache(cacheName, maxItems) {
+  if (isTrimming) return;
+  isTrimming = true;
   try {
     const cache = await caches.open(cacheName);
     const keys = await cache.keys();
-    for (let i = 0; i < keys.length - maxItems; i++) {
-      await cache.delete(keys[i]);
+    if (keys.length > maxItems) {
+      for (let i = 0; i < keys.length - maxItems; i++) {
+        await cache.delete(keys[i]);
+      }
     }
-  } catch (e) {}
+  } catch (e) {
+  } finally {
+    isTrimming = false;
+  }
 }
 
 self.addEventListener('install', (event) => {
@@ -91,11 +99,8 @@ self.addEventListener('fetch', (event) => {
 
   if (isCoreAsset) {
     event.respondWith(
-      Promise.race([
-        fetch(event.request),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3500))
-      ])
-        .then((networkResponse) => {
+      (async () => {
+        const fetchPromise = fetch(event.request).then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
             const resClone = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
@@ -103,10 +108,18 @@ self.addEventListener('fetch', (event) => {
             });
           }
           return networkResponse;
-        })
-        .catch(() =>
-          caches.match(event.request, { ignoreSearch: true }).then((r) => r || fetch(event.request))
-        )
+        });
+        try {
+          return await Promise.race([
+            fetchPromise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3500))
+          ]);
+        } catch (err) {
+          const cached = await caches.match(event.request, { ignoreSearch: true });
+          if (cached) return cached;
+          return fetchPromise;
+        }
+      })()
     );
     return;
   }
