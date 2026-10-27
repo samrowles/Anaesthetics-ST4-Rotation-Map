@@ -364,6 +364,14 @@
       Fullscreen
     </button>
   </div>
+
+  <!-- Collapsible On-Map Pin & Colour Key -->
+  <div class="map-legend" id="mapLegend">
+    <button type="button" class="map-legend-toggle" id="btnMapLegendToggle" onclick="toggleMapLegend()" aria-expanded="false" title="Show/hide map pin and colour key">
+      <span>Map Key</span> <span id="mapLegendChevron">▴</span>
+    </button>
+    <div class="map-legend-body" id="mapLegendBody" style="display:none;"></div>
+  </div>
 </div>
 
 <!-- Modal 1: Starred Shortlist, Oriel Ranking & Submission Companion -->
@@ -443,6 +451,24 @@
       </div>
       <div id="customBaseStatusBox" style="font-size:0.76rem; color:var(--text-muted); background:var(--bg-card-subtle); padding:8px 10px; border-radius:6px; border:1px solid var(--border-color);">
         Current Base: <b>None set</b> (using suggested programme hubs).
+      </div>
+
+      <div style="border-top:1px solid var(--border-color); margin-top:14px; padding-top:12px;">
+        <div style="font-weight:800; font-size:0.84rem; color:var(--text-main); margin-bottom:4px;">Partner Workplace (Dual-Commute Analysis)</div>
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:8px; line-height:1.35;">
+          Optional: Set your partner's workplace postcode or town to see their commute from each rotation's living base alongside yours.
+        </p>
+        <div style="display:flex; gap:6px; margin-bottom:8px;">
+          <input type="text" id="partnerPostcodeInput" placeholder="e.g. OX3 9DU, SO16 6YD, Manchester..." onkeydown="if(event.key === 'Enter') lookupPartnerPostcode();" style="flex:1;">
+          <button class="btn-top btn-export" onclick="lookupPartnerPostcode()" style="padding:6px 14px;">Find</button>
+        </div>
+        <div style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
+          <button class="btn-top btn-sync" onclick="startMapPickPartnerBase()">Click on Map</button>
+          <button class="btn-top btn-sync" onclick="clearPartnerWorkBase()" style="color:#b91c1c;">Clear Partner Pin</button>
+        </div>
+        <div id="partnerBaseStatusBox" style="font-size:0.75rem; color:var(--text-muted); background:var(--bg-card-subtle); padding:8px 10px; border-radius:6px; border:1px solid var(--border-color);">
+          Partner Workplace: <b>None set</b>
+        </div>
       </div>
     </div>
   </div>

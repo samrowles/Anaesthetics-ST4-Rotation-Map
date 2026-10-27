@@ -2230,3 +2230,392 @@ select:focus, input:focus, textarea:focus {
     opacity: 1;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Pool Demarcation: Spotlight Dimming, Halo & Floating Hospital Labels
+   -------------------------------------------------------------------------- */
+.dimmed-overview-pin {
+  opacity: 0.16 !important;
+  filter: grayscale(65%);
+  transition: opacity 0.18s ease, filter 0.18s ease;
+}
+
+.pool-hover-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.pool-spotlight-halo {
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.92), 0 0 0 7px var(--pool-pin-color, #0284c7), 0 4px 12px rgba(0, 0, 0, 0.45) !important;
+  transform: scale(1.08);
+}
+
+[data-theme="dark"] .pool-spotlight-halo {
+  box-shadow: 0 0 0 3px #0f172a, 0 0 0 6px var(--pool-pin-color, #38bdf8), 0 4px 14px rgba(0, 0, 0, 0.75) !important;
+}
+
+.pool-hover-label {
+  position: absolute;
+  left: 33px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  font-size: 0.67rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+  z-index: 2600;
+}
+
+[data-theme="dark"] .pool-hover-label {
+  background: rgba(30, 41, 59, 0.96);
+  border-color: #475569;
+  color: #f8fafc;
+}
+
+/* --------------------------------------------------------------------------
+   Quick-Triage Controls on Feed Cards (Inline Stars & Tier Pills)
+   -------------------------------------------------------------------------- */
+.card-quick-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.card-quick-star {
+  background: transparent;
+  border: none;
+  padding: 0 1px;
+  font-size: 0.84rem;
+  line-height: 1;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: transform 0.12s ease, color 0.12s ease;
+}
+
+.card-quick-star:hover {
+  transform: scale(1.2);
+  color: var(--amber);
+}
+
+.card-quick-star.active {
+  color: var(--amber);
+}
+
+.card-quick-tiers {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.card-quick-tier-btn {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.63rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  line-height: 1.25;
+  transition: all 0.12s ease;
+}
+
+.card-quick-tier-btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text-main);
+}
+
+.card-quick-tier-btn.t1.active {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
+}
+.card-quick-tier-btn.t2.active {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #7dd3fc;
+}
+.card-quick-tier-btn.t3.active {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fcd34d;
+}
+.card-quick-tier-btn.tx.active {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+[data-theme="dark"] .card-quick-tier-btn.t1.active {
+  background: #14532d;
+  color: #86efac;
+  border-color: #22c55e;
+}
+[data-theme="dark"] .card-quick-tier-btn.t2.active {
+  background: #0c4a6e;
+  color: #7dd3fc;
+  border-color: #0284c7;
+}
+[data-theme="dark"] .card-quick-tier-btn.t3.active {
+  background: #78350f;
+  color: #fcd34d;
+  border-color: #f59e0b;
+}
+[data-theme="dark"] .card-quick-tier-btn.tx.active {
+  background: #7f1d1d;
+  color: #fca5a5;
+  border-color: #ef4444;
+}
+
+/* --------------------------------------------------------------------------
+   Shortlist Tier Dividers & Auto-Sort Toolbar
+   -------------------------------------------------------------------------- */
+.shortlist-autosort-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 11px;
+  margin-bottom: 10px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.shortlist-tier-divider {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px;
+  margin: 12px 0 6px 0;
+  border-radius: 5px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  border-left: 4px solid var(--border-color);
+  background: var(--bg-card-subtle);
+  color: var(--text-main);
+}
+
+.shortlist-tier-divider:first-of-type {
+  margin-top: 2px;
+}
+
+.shortlist-tier-divider.tier-div-tier1 {
+  border-left-color: #16a34a;
+  background: rgba(22, 163, 74, 0.09);
+}
+.shortlist-tier-divider.tier-div-tier2 {
+  border-left-color: #0284c7;
+  background: rgba(2, 132, 199, 0.09);
+}
+.shortlist-tier-divider.tier-div-tier3 {
+  border-left-color: #d97706;
+  background: rgba(217, 119, 6, 0.09);
+}
+
+.shortlist-tier-count {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Partner Workplace Pin & Dual-Commute Badge
+   -------------------------------------------------------------------------- */
+.badge-partner-commute {
+  background: #ffe4e6;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+  font-weight: 700;
+}
+
+[data-theme="dark"] .badge-partner-commute {
+  background: #4c0519;
+  color: #fda4af;
+  border-color: #881337;
+}
+
+.partner-work-pin {
+  background: #e11d48;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* --------------------------------------------------------------------------
+   Collapsible On-Map Legend (Pins, Routes & Regional Colour Key)
+   -------------------------------------------------------------------------- */
+.map-legend {
+  position: absolute;
+  bottom: 24px;
+  left: 14px;
+  z-index: 900;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  max-width: 265px;
+  font-size: 0.72rem;
+  color: var(--text-main);
+  overflow: hidden;
+}
+
+.map-legend-toggle {
+  width: 100%;
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: none;
+  padding: 6px 11px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.map-legend-toggle:hover {
+  background: var(--bg-card-subtle);
+}
+
+.map-legend-body {
+  padding: 8px 11px 10px 11px;
+  border-top: 1px solid var(--border-color);
+  max-height: 310px;
+  overflow-y: auto;
+}
+
+.legend-section-title {
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+
+.legend-pin-list,
+.legend-color-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.legend-pin-row,
+.legend-color-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.7rem;
+  line-height: 1.25;
+}
+
+.legend-pin-sample {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.legend-pin-sample.tertiary-sample {
+  background: #0284c7;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1.5px #0284c7;
+}
+
+.legend-pin-sample.dgh-sample {
+  background: #0d9488;
+  border: 1.5px solid #ffffff;
+}
+
+.legend-pin-sample.split-sample {
+  background: conic-gradient(#2563eb 0deg 180deg, #db2777 180deg 360deg);
+  border: 1.5px solid #ffffff;
+}
+
+.legend-line-sample {
+  width: 18px;
+  height: 0;
+  flex-shrink: 0;
+}
+
+.legend-line-sample.solid-sample {
+  border-top: 2.5px solid #0284c7;
+}
+
+.legend-line-sample.dotted-sample {
+  border-top: 2.5px dotted #7c3aed;
+}
+
+.legend-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.legend-color-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legend-region-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.legend-region-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.legend-region-pill:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+@media (max-width: 768px) {
+  .map-legend {
+    bottom: 68px;
+    left: 10px;
+    max-width: 225px;
+  }
+}

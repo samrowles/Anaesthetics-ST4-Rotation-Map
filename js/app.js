@@ -231,7 +231,7 @@ function migrateLegacyStorage() {
         } catch (e) {}
       }
     });
-    ['custom_home', 'shift_timing', 'tip_dismissed'].forEach(k => {
+    ['custom_home', 'partner_work', 'shift_timing', 'tip_dismissed'].forEach(k => {
       const val = safeStorage.get(`anaesth_${k}`);
       if (val && !safeStorage.get(`${STORAGE_PREFIX}${k}`)) {
         safeStorage.set(`${STORAGE_PREFIX}${k}`, val);
@@ -329,12 +329,16 @@ let currentUserLocationMarker = null;
 // Inspector map layer separation
 let currentBaseMarker = null;
 let currentCommuteCircle = null;
+let currentPartnerMarker = null;
+let currentPartnerLine = null;
 let currentPlottedHospitalPoints = [];
 let currentActiveHubCoords = null;
+let isMapLegendOpen = false;
 
 let compareList = [];
 let shortlistOrder = [];
 let customHomeBase = null;
+let partnerWorkBase = null;
 let orielCheckedSet = new Set();
 
 function loadPersistedState() {
@@ -351,6 +355,7 @@ function loadPersistedState() {
     .filter((id, i, a) => typeof id === 'string' && KNOWN_IDS.has(id) && a.indexOf(id) === i);
 
   customHomeBase = normalizeCustomBase(safeGetStorageJson(`${STORAGE_PREFIX}custom_home`, null));
+  partnerWorkBase = normalizeCustomBase(safeGetStorageJson(`${STORAGE_PREFIX}partner_work`, null));
 
   const rawOriel = safeGetStorageJson(`${STORAGE_PREFIX}oriel_checked`, []);
   orielCheckedSet = new Set(
@@ -622,9 +627,9 @@ function computeRotationLineStyle(rot) {
     return {
       color,
       baseColor: color,
-      dashPattern: 'none',
+      dashPattern: '3, 6',
       regColor,
-      isDashed: false
+      isDashed: true
     };
   }
   const regionRots = (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : []).filter(r => r.region === rot.region && !isPoolRotation(r));
@@ -1012,6 +1017,25 @@ function generateCurvedSegmentPoints(coordA, coordB, offsetMultiplier, numPoints
   return points;
 }
 
+function generatePoolSpokeSegments(rot) {
+  if (!rot || !rot.stages) return [];
+  const bases = getRotationHospitalBases(rot);
+  if (bases.length < 2) return [];
+  const anchorHosp = bases.find(h => HOSPITALS[h] && HOSPITALS[h].type === 'Tertiary') || bases[0];
+  const anchorCoords = HOSPITALS[anchorHosp] && HOSPITALS[anchorHosp].coords;
+  if (!anchorCoords) return [];
+  const segments = [];
+  bases.forEach(hName => {
+    if (hName === anchorHosp) return;
+    const hCoords = HOSPITALS[hName] && HOSPITALS[hName].coords;
+    if (!hCoords) return;
+    const dist = calcDistanceMiles(anchorCoords, hCoords);
+    if (dist < 0.3) return;
+    segments.push(generateCurvedSegmentPoints(anchorCoords, hCoords, 0.14, 8));
+  });
+  return segments;
+}
+
 function generateRotationCurvedPath(rot, corridorRegistry) {
   const stages = getOverviewStages(rot);
   const segments = [];
@@ -1056,6 +1080,7 @@ function generateRotationCurvedPath(rot, corridorRegistry) {
 }
 
 let overviewPolylinesMap = {};
+let overviewHospitalMarkersMap = {};
 
 function highlightOverviewTrack(rotId) {
   if (overviewLinesMode === 'off' || currentViewMode !== 'list') return;
@@ -1065,6 +1090,17 @@ function highlightOverviewTrack(rotId) {
 
   const rot = (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : []).find(r => r.id === rotId);
   const entry = overviewPolylinesMap[rotId];
+
+  if (rot && rot.stages) {
+    const activeBases = new Set(getRotationHospitalBases(rot));
+    Object.keys(overviewHospitalMarkersMap).forEach(hName => {
+      const marker = overviewHospitalMarkersMap[hName];
+      const el = marker && marker.getElement && marker.getElement();
+      if (el) {
+        el.classList.toggle('dimmed-overview-pin', !activeBases.has(hName));
+      }
+    });
+  }
 
   // 1. Highlight target track; dim all other overview lines
   Object.keys(overviewPolylinesMap).forEach(id => {
@@ -1101,6 +1137,7 @@ function highlightOverviewTrack(rotId) {
       color: isDark ? '#38bdf8' : entry.highlightColor,
       weight: 4.5,
       opacity: 1.0,
+      dashArray: (rot && isPoolRotation(rot)) ? '4, 7' : null,
       lineCap: 'round',
       lineJoin: 'round',
       interactive: false
@@ -1118,9 +1155,10 @@ function highlightOverviewTrack(rotId) {
         if (!hosp || !hosp.coords) return;
         const isTertiary = hosp.type === 'Tertiary';
         const badgeText = isTertiary ? 'T' : 'H';
+        const shortName = hName.split(',')[0].replace(/\b(Hospital|Infirmary|University|District|General|Royal|County)\b/gi, '').replace(/\s+/g, ' ').trim() || hName.split(',')[0];
         const badgeIcon = L.divIcon({
           className: 'hover-stage-badge-icon',
-          html: `<div class="pool-site-pin ${isTertiary ? 'tertiary-pool-pin' : ''}" style="background-color:${poolColor}; --pool-pin-color:${poolColor}; pointer-events:none;" title="Candidate Base: ${escapeHtml(hName)}">${badgeText}</div>`,
+          html: `<div class="pool-hover-wrap"><div class="pool-site-pin pool-spotlight-halo ${isTertiary ? 'tertiary-pool-pin' : ''}" style="background-color:${poolColor}; --pool-pin-color:${poolColor}; pointer-events:none;" title="Candidate Base: ${escapeHtml(hName)}">${badgeText}</div><span class="pool-hover-label">${escapeHtml(shortName)}</span></div>`,
           iconSize: [28, 28],
           iconAnchor: [14, 14]
         });
@@ -1173,6 +1211,11 @@ function highlightOverviewTrack(rotId) {
 
 function resetOverviewTrackHighlights() {
   hoverHighlightGroup.clearLayers();
+  Object.keys(overviewHospitalMarkersMap).forEach(hName => {
+    const marker = overviewHospitalMarkersMap[hName];
+    const el = marker && marker.getElement && marker.getElement();
+    if (el) el.classList.remove('dimmed-overview-pin');
+  });
   if (overviewLinesMode === 'off' || currentViewMode !== 'list') return;
 
   Object.keys(overviewPolylinesMap).forEach(id => {
@@ -1267,6 +1310,29 @@ function getRotationCommuteSummary(rot, timing = currentShiftTiming) {
 }
 
 
+function getPartnerCommuteSummary(rot, timing = currentShiftTiming) {
+  if (!partnerWorkBase || !partnerWorkBase.coords || !rot) return null;
+  let baseCoords = null;
+  let baseName = '';
+  if (currentCommuteMode === 'custom' && customHomeBase && customHomeBase.coords) {
+    baseCoords = customHomeBase.coords;
+    baseName = customHomeBase.name;
+  } else if (currentCommuteMode === 'transit' && rot.hubs && rot.hubs.transit && rot.hubs.transit.coords) {
+    baseCoords = rot.hubs.transit.coords;
+    baseName = rot.hubs.transit.name;
+  } else if (rot.hubs && rot.hubs.driver && rot.hubs.driver.coords) {
+    baseCoords = rot.hubs.driver.coords;
+    baseName = rot.hubs.driver.name;
+  }
+  if (!baseCoords) return null;
+  const dist = calcDistanceMiles(baseCoords, partnerWorkBase.coords);
+  const mornMins = calcDrivingTimeMinutes(dist, rot.region, '0730');
+  const eveMins = calcDrivingTimeMinutes(dist, rot.region, '1800');
+  const activeMins = timing === '1800' ? eveMins : (timing === 'offpeak' ? calcDrivingTimeMinutes(dist, rot.region, 'offpeak') : mornMins);
+  return { dist, mornMins, eveMins, activeMins, partnerName: partnerWorkBase.name, baseName, baseCoords, partnerCoords: partnerWorkBase.coords };
+}
+
+
 function updateShortlistBadge() {
   const badge = document.getElementById('headerShortlistBadge');
   if (!badge) return;
@@ -1282,6 +1348,7 @@ function updateCompareBadge() {
 function updateCustomBaseUI() {
   const pillTexts = [document.getElementById('customBasePillText'), document.getElementById('cardCustomBasePillText')];
   const statusBox = document.getElementById('customBaseStatusBox');
+  const partnerStatusBox = document.getElementById('partnerBaseStatusBox');
   const customBtns = [document.getElementById('btnModeCustom'), document.getElementById('btnCardModeCustom')];
 
   if (customHomeBase && customHomeBase.coords) {
@@ -1292,6 +1359,14 @@ function updateCustomBaseUI() {
     pillTexts.forEach(p => { if (p) p.textContent = `Set Postcode`; });
     if (statusBox) statusBox.innerHTML = `Current Base: <b>None set</b> (using suggested programme hubs).`;
     customBtns.forEach(b => { if (b) b.textContent = `My Base`; });
+  }
+
+  if (partnerStatusBox) {
+    if (partnerWorkBase && partnerWorkBase.coords) {
+      partnerStatusBox.innerHTML = `Partner Workplace: <b>${escapeHtml(partnerWorkBase.name)}</b> (${partnerWorkBase.coords[0].toFixed(3)}, ${partnerWorkBase.coords[1].toFixed(3)})`;
+    } else {
+      partnerStatusBox.innerHTML = `Partner Workplace: <b>None set</b>`;
+    }
   }
 }
 
@@ -1418,8 +1493,25 @@ function switchInspectorTab(tabKey) {
         }
       }
     }
+    if (currentPartnerMarker && currentPartnerLine) {
+      if (shouldShowBase) {
+        if (!activeRouteGroup.hasLayer(currentPartnerMarker)) {
+          activeRouteGroup.addLayer(currentPartnerMarker);
+        }
+        if (!activeRouteGroup.hasLayer(currentPartnerLine)) {
+          activeRouteGroup.addLayer(currentPartnerLine);
+        }
+      } else {
+        if (activeRouteGroup.hasLayer(currentPartnerMarker)) {
+          activeRouteGroup.removeLayer(currentPartnerMarker);
+        }
+        if (activeRouteGroup.hasLayer(currentPartnerLine)) {
+          activeRouteGroup.removeLayer(currentPartnerLine);
+        }
+      }
+    }
     const boundsPoints = (shouldShowBase && currentActiveHubCoords)
-      ? [...currentPlottedHospitalPoints, currentActiveHubCoords]
+      ? [...currentPlottedHospitalPoints, currentActiveHubCoords, ...(partnerWorkBase && partnerWorkBase.coords ? [partnerWorkBase.coords] : [])]
       : [...currentPlottedHospitalPoints];
     if (boundsPoints.length > 0) {
       map.fitBounds(L.latLngBounds(boundsPoints), { padding: [60, 60], maxZoom: 12 });
@@ -1535,7 +1627,18 @@ function renderRotationCardsFeed(list) {
       resetOverviewTrackHighlights();
     });
 
-    const starsHtml = userData.rating > 0 ? `<span style="color:var(--amber); font-weight:800; font-size:0.8rem;">${'★'.repeat(userData.rating)}</span>` : '';
+    const quickStarsHtml = `<div class="card-quick-stars" role="group" aria-label="Quick star rating">${[1, 2, 3, 4, 5].map(n => `<button type="button" class="card-quick-star ${n <= userData.rating ? 'active' : ''}" data-action="quick-card-rate" data-id="${r.id}" data-rating="${n}" title="Rate ${n} star${n > 1 ? 's' : ''}">${n <= userData.rating ? '★' : '☆'}</button>`).join('')}</div>`;
+    const quickTiersHtml = `<div class="card-quick-tiers" role="group" aria-label="Quick tier assignment">
+      <button type="button" class="card-quick-tier-btn t1 ${userData.tier === 'TIER1' ? 'active' : ''}" data-action="quick-card-tier" data-id="${r.id}" data-tier="TIER1" title="Assign Tier 1">T1</button>
+      <button type="button" class="card-quick-tier-btn t2 ${userData.tier === 'TIER2' ? 'active' : ''}" data-action="quick-card-tier" data-id="${r.id}" data-tier="TIER2" title="Assign Tier 2">T2</button>
+      <button type="button" class="card-quick-tier-btn t3 ${userData.tier === 'TIER3' ? 'active' : ''}" data-action="quick-card-tier" data-id="${r.id}" data-tier="TIER3" title="Assign Tier 3">T3</button>
+      <button type="button" class="card-quick-tier-btn tx ${userData.tier === 'EXCLUDE' ? 'active' : ''}" data-action="quick-card-tier" data-id="${r.id}" data-tier="EXCLUDE" title="Exclude rotation">✕</button>
+    </div>`;
+
+    const pCommute = partnerWorkBase ? getPartnerCommuteSummary(r) : null;
+    const partnerBadgeHtml = pCommute
+      ? `<span class="badge badge-partner-commute" title="Partner commute from ${escapeHtml(pCommute.baseName)} to ${escapeHtml(pCommute.partnerName)}">Partner: ${pCommute.dist} mi (~${pCommute.activeMins}m)</span>`
+      : '';
 
     const showCommuteDetails = showCommuteOverlay || (currentCommuteMode === 'custom' && customHomeBase);
 
@@ -1545,17 +1648,18 @@ function renderRotationCardsFeed(list) {
 
     const bottomRowHtml = showCommuteDetails ? `
       <div class="card-list-hub">
-        <span>Base: <b>${escapeHtml(activeHubName)}</b></span>
-        <div style="display:flex; align-items:center; gap:6px;">
-          ${starsHtml}
-          <span style="font-size:0.72rem; color:var(--text-muted);">${escapeHtml(r.region)}</span>
+        <span>Base: <b>${escapeHtml(activeHubName)}</b> • <span style="font-size:0.72rem; color:var(--text-muted);">${escapeHtml(r.region)}</span></span>
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          ${quickStarsHtml}
+          ${quickTiersHtml}
         </div>
       </div>
     ` : `
       <div class="card-list-hub">
         <span style="font-size:0.72rem; color:var(--text-muted); font-weight:600;">${escapeHtml(r.region)}</span>
-        <div style="display:flex; align-items:center; gap:6px;">
-          ${starsHtml}
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          ${quickStarsHtml}
+          ${quickTiersHtml}
         </div>
       </div>
     `;
@@ -1569,6 +1673,7 @@ function renderRotationCardsFeed(list) {
           ${isPool ? '<span class="badge badge-pool">Pool</span>' : ''}
           <span class="badge badge-split" title="Training Balance: ${split.tertiary}% Tertiary, ${split.dgh}% DGH">${split.tertiary}% Tert • ${split.dgh}% DGH</span>
           ${tierBadgeHtml}
+          ${partnerBadgeHtml}
         </div>
         <div style="display:flex; align-items:center; gap:5px;">
           <button class="btn-compare-action ${isComparing ? 'in-compare' : ''}" data-action="toggle-compare-card" data-id="${r.id}" title="Compare rotation">
@@ -2130,6 +2235,39 @@ function selectRotation(id, shouldCloseMobile = false) {
   if (matrixContainer) {
     const fragMatrix = document.createDocumentFragment();
 
+    const pCommute = getPartnerCommuteSummary(rot);
+    if (pCommute && activeHubCoords) {
+      let pTimeClass = 'time-green';
+      if (pCommute.activeMins > 50) pTimeClass = 'time-red';
+      else if (pCommute.activeMins > 35) pTimeClass = 'time-amber';
+
+      const originParam = Array.isArray(activeHubCoords)
+        ? `${activeHubCoords[0]},${activeHubCoords[1]}`
+        : encodeURIComponent(activeHubName + ', UK');
+      const destParam = Array.isArray(pCommute.partnerCoords)
+        ? `${pCommute.partnerCoords[0]},${pCommute.partnerCoords[1]}`
+        : encodeURIComponent(pCommute.partnerName + ', UK');
+
+      const pRow = document.createElement('div');
+      pRow.className = "commute-matrix-item";
+      pRow.style.background = "var(--bg-card-subtle)";
+      pRow.style.padding = "6px 8px";
+      pRow.style.borderRadius = "4px";
+      pRow.style.marginBottom = "4px";
+      pRow.innerHTML = `
+        <span class="commute-hosp-label">
+          <span class="badge badge-partner-commute" style="font-size:0.62rem; margin-right:4px;">Partner</span>Partner: ${escapeHtml(pCommute.partnerName)}
+        </span>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="commute-time-pill ${pTimeClass}" title="07:30: ~${pCommute.mornMins}m | 18:00: ~${pCommute.eveMins}m">
+            ${pCommute.dist} mi (~${pCommute.mornMins}m morn · ~${pCommute.eveMins}m eve)
+          </span>
+          <a href="https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=driving" target="_blank" style="font-size:0.68rem; color:var(--primary); text-decoration:none;" title="Verify partner route in Google Maps">Directions &rarr;</a>
+        </div>
+      `;
+      fragMatrix.appendChild(pRow);
+    }
+
     uniqueHospBases.forEach(hName => {
       const hData = HOSPITALS[hName];
       if (hData && activeHubCoords) {
@@ -2279,6 +2417,8 @@ function selectRotation(id, shouldCloseMobile = false) {
 
   currentBaseMarker = null;
   currentCommuteCircle = null;
+  currentPartnerMarker = null;
+  currentPartnerLine = null;
   currentPlottedHospitalPoints = [];
   currentActiveHubCoords = activeHubCoords;
 
@@ -2317,6 +2457,25 @@ function selectRotation(id, shouldCloseMobile = false) {
       dashArray: '5, 5',
       interactive: false
     });
+
+    if (partnerWorkBase && partnerWorkBase.coords) {
+      const partnerIcon = L.divIcon({
+        className: 'partner-work-pin',
+        html: 'Partner',
+        iconSize: [48, 26],
+        iconAnchor: [24, 13]
+      });
+      const pComm = getPartnerCommuteSummary(rot);
+      const pPopupExtra = pComm ? `<br><span style="font-size:0.76rem; color:var(--text-muted);">${pComm.dist} mi from ${escapeHtml(activeHubName)} (~${pComm.mornMins}m morn · ~${pComm.eveMins}m eve)</span>` : '';
+      currentPartnerMarker = L.marker(partnerWorkBase.coords, { icon: partnerIcon, zIndexOffset: 1950 })
+        .bindPopup(`<b>Partner Workplace: ${escapeHtml(partnerWorkBase.name)}</b>${pPopupExtra}`);
+      currentPartnerLine = L.polyline([activeHubCoords, partnerWorkBase.coords], {
+        color: '#e11d48',
+        weight: 2.5,
+        dashArray: '5, 6',
+        opacity: 0.82
+      });
+    }
   }
 
   // Plot Active Placement Base Pins
@@ -2433,7 +2592,7 @@ function selectRotation(id, shouldCloseMobile = false) {
     activeHospitalMarkers[data.hosp] = m;
   });
 
-  // Polyline route: only draw for sequential tracks, NOT pool candidate schemes
+  // Polyline route: sequential tracks or pool radial dotted spokes
   if (!isPool && plottedHospitalPoints.length > 1) {
     const polyline = L.polyline(plottedHospitalPoints, {
       color: '#0284c7',
@@ -2442,6 +2601,17 @@ function selectRotation(id, shouldCloseMobile = false) {
       opacity: 0.85
     });
     activeRouteGroup.addLayer(polyline);
+  } else if (isPool) {
+    const spokeSegments = generatePoolSpokeSegments(rot);
+    if (spokeSegments.length > 0) {
+      const spokeLine = L.polyline(spokeSegments, {
+        color: poolColor || '#0284c7',
+        weight: 2.8,
+        dashArray: '4, 7',
+        opacity: 0.82
+      });
+      activeRouteGroup.addLayer(spokeLine);
+    }
   }
 
   currentPlottedHospitalPoints = plottedHospitalPoints;
@@ -2451,14 +2621,20 @@ function selectRotation(id, shouldCloseMobile = false) {
     activeRouteGroup.addLayer(currentBaseMarker);
     activeRouteGroup.addLayer(currentCommuteCircle);
   }
+  if (shouldShowBase && currentPartnerMarker && currentPartnerLine) {
+    activeRouteGroup.addLayer(currentPartnerMarker);
+    activeRouteGroup.addLayer(currentPartnerLine);
+  }
 
   const boundsPoints = (shouldShowBase && currentActiveHubCoords)
-    ? [...currentPlottedHospitalPoints, currentActiveHubCoords]
+    ? [...currentPlottedHospitalPoints, currentActiveHubCoords, ...(partnerWorkBase && partnerWorkBase.coords ? [partnerWorkBase.coords] : [])]
     : [...currentPlottedHospitalPoints];
 
   if (boundsPoints.length > 0) {
     map.fitBounds(L.latLngBounds(boundsPoints), { padding: [60, 60], maxZoom: 12 });
   }
+
+  updateMapLegend();
 
   if (shouldCloseMobile && window.innerWidth <= 768) {
     toggleMobileSidebar(false);
@@ -2485,35 +2661,43 @@ function renderAllPlacements({ fitView = true } = {}) {
   const regionColorsMap = (typeof REGION_COLORS !== 'undefined' ? REGION_COLORS : (window.REGION_COLORS || {}));
 
   overviewPolylinesMap = {};
+  overviewHospitalMarkersMap = {};
 
   // 11a. Separated curved route lines for every rotation in the filtered feed (region, pills, search)
   if (overviewLinesMode !== 'off') {
     const corridorRegistry = buildCorridorUsageRegistry(currentFilteredList);
 
     currentFilteredList.forEach(rot => {
-      if (isPoolRotation(rot)) return;
+      const isPool = isPoolRotation(rot);
+      const curvedSegments = isPool
+        ? generatePoolSpokeSegments(rot)
+        : generateRotationCurvedPath(rot, corridorRegistry);
 
-      const curvedSegments = generateRotationCurvedPath(rot, corridorRegistry);
       if (curvedSegments.length > 0) {
         const lineStyle = getRotationLineStyle(rot);
         const maxDist = getRotationMaxDistance(rot);
+        const lineWeight = isPool ? 1.8 : 2;
+        const lineDash = isPool ? '3, 6' : (lineStyle.dashPattern === 'none' ? null : lineStyle.dashPattern);
+        const lineOpacity = isPool ? 0.45 : 0.42;
 
         const polyline = L.polyline(curvedSegments, {
           color: lineStyle.color,
-          weight: 2,
-          dashArray: lineStyle.dashPattern === 'none' ? null : lineStyle.dashPattern,
-          opacity: 0.42
+          weight: lineWeight,
+          dashArray: lineDash,
+          opacity: lineOpacity
         });
 
-        const displayStages = getOverviewStages(rot);
-        const stagesSummary = displayStages.map(s => escapeHtml(s.hosp)).join(' &rarr; ');
-        const isFilteredCore = overviewLinesMode === 'core' && displayStages.length < rot.stages.length;
+        const displayStages = isPool ? rot.stages : getOverviewStages(rot);
+        const stagesSummary = isPool
+          ? getRotationHospitalBases(rot).map(h => escapeHtml(h)).join(' • ')
+          : displayStages.map(s => escapeHtml(s.hosp)).join(' &rarr; ');
+        const isFilteredCore = !isPool && overviewLinesMode === 'core' && displayStages.length < rot.stages.length;
 
         const tooltipContent = `
           <div style="min-width:180px; max-width:290px;">
             <div style="font-weight:800; font-size:0.84rem; color:var(--text-main); margin-bottom:2px;">${escapeHtml(rot.title)}</div>
             <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:4px;">
-              <span class="badge badge-code" style="padding:1px 4px; font-size:0.68rem;">${escapeHtml(rot.code)}</span> • ${escapeHtml(formatPlacesLabel(rot.places, false))} • Max Spread: ${maxDist} mi
+              <span class="badge badge-code" style="padding:1px 4px; font-size:0.68rem;">${escapeHtml(rot.code)}</span>${isPool ? ' <span class="badge badge-pool" style="padding:1px 4px; font-size:0.65rem;">Pool</span>' : ''} • ${escapeHtml(formatPlacesLabel(rot.places, false))} • Max Spread: ${maxDist} mi
             </div>
             <div style="font-size:0.72rem; color:var(--primary); font-weight:700; line-height:1.35;">
               ${stagesSummary}
@@ -2541,15 +2725,17 @@ function renderAllPlacements({ fitView = true } = {}) {
         overviewPolylinesMap[rot.id] = {
           polyline,
           baseColor: lineStyle.color,
-          baseWeight: 2,
-          baseDash: lineStyle.dashPattern,
-          baseOpacity: 0.42,
+          baseWeight: lineWeight,
+          baseDash: isPool ? '3, 6' : lineStyle.dashPattern,
+          baseOpacity: lineOpacity,
           highlightColor: lineStyle.color
         };
 
-        displayStages.forEach(s => {
-          if (!linesByHospital[s.hosp]) linesByHospital[s.hosp] = [];
-          linesByHospital[s.hosp].push({ line: polyline, color: lineStyle.color, dash: lineStyle.dashPattern });
+        const hospNamesForLine = isPool ? getRotationHospitalBases(rot) : displayStages.map(s => s.hosp);
+        hospNamesForLine.forEach(hName => {
+          if (!hName) return;
+          if (!linesByHospital[hName]) linesByHospital[hName] = [];
+          linesByHospital[hName].push({ line: polyline, color: lineStyle.color, dash: isPool ? '3, 6' : lineStyle.dashPattern, weight: lineWeight, opacity: lineOpacity });
         });
       }
     });
@@ -2646,11 +2832,12 @@ function renderAllPlacements({ fitView = true } = {}) {
     m.on('mouseout', function() {
       const lines = linesByHospital[hName] || [];
       lines.forEach(item => {
-        item.line.setStyle({ weight: 2, opacity: 0.42, color: item.color, dashArray: item.dash === 'none' ? null : item.dash });
+        item.line.setStyle({ weight: item.weight || 2, opacity: item.opacity || 0.42, color: item.color, dashArray: item.dash === 'none' ? null : item.dash });
       });
     });
 
     backgroundHospitalsGroup.addLayer(m);
+    overviewHospitalMarkersMap[hName] = m;
   });
 
   if (fitView && allPoints.length > 0) {
@@ -2660,6 +2847,8 @@ function renderAllPlacements({ fitView = true } = {}) {
       map.setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
     }
   }
+
+  updateMapLegend();
 }
 
 function toggleOverviewLines() {
@@ -3090,6 +3279,39 @@ function printShortlistReport() {
   window.print();
 }
 
+function sortShortlistWithinTiers(mode) {
+  syncShortlistOrder();
+  if (shortlistOrder.length < 2) return;
+  const naturalCompare = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare;
+  const buckets = { 1: [], 2: [], 3: [], 4: [] };
+  shortlistOrder.forEach(id => {
+    const r = ROTATIONS_DATA.find(x => x.id === id);
+    if (r) {
+      const p = getTierPriority(getUserData(id).tier);
+      buckets[p].push(r);
+    }
+  });
+  [1, 2, 3, 4].forEach(p => {
+    buckets[p].sort((a, b) => {
+      if (mode === 'rating') {
+        const diff = getUserData(b.id).rating - getUserData(a.id).rating;
+        if (diff !== 0) return diff;
+        return getRotationCommuteSummary(a).activeMins - getRotationCommuteSummary(b).activeMins;
+      } else if (mode === 'commute') {
+        const diff = getRotationCommuteSummary(a).activeMins - getRotationCommuteSummary(b).activeMins;
+        if (diff !== 0) return diff;
+        return getUserData(b.id).rating - getUserData(a.id).rating;
+      }
+      return naturalCompare(a.code || a.title, b.code || b.title);
+    });
+  });
+  shortlistOrder = [1, 2, 3, 4].flatMap(p => buckets[p].map(r => r.id));
+  safeStorage.set(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
+  renderShortlistModal();
+  const labels = { rating: 'Star Rating (High → Low)', commute: 'Commute (Low → High)', alpha: 'Code (A–Z)' };
+  showToast(`Sorted within tiers by ${labels[mode] || mode}`);
+}
+
 function renderShortlistModal() {
   const body = document.getElementById('shortlistModalBody');
   if (!body) return;
@@ -3106,8 +3328,45 @@ function renderShortlistModal() {
 
   const frag = document.createDocumentFragment();
 
+  const sortBar = document.createElement('div');
+  sortBar.className = 'shortlist-autosort-bar';
+  sortBar.innerHTML = `
+    <span style="font-size:0.74rem; font-weight:800; color:var(--text-muted);">Sort within each Tier:</span>
+    <div style="display:flex; gap:5px; flex-wrap:wrap;">
+      <button type="button" class="btn-step" style="font-size:0.72rem; padding:3px 8px;" data-action="sort-shortlist-within-tiers" data-mode="rating">★ Rating ↓</button>
+      <button type="button" class="btn-step" style="font-size:0.72rem; padding:3px 8px;" data-action="sort-shortlist-within-tiers" data-mode="commute">Commute ↑</button>
+      <button type="button" class="btn-step" style="font-size:0.72rem; padding:3px 8px;" data-action="sort-shortlist-within-tiers" data-mode="alpha">A–Z Code</button>
+    </div>
+  `;
+  frag.appendChild(sortBar);
+
+  const tierLabels = {
+    TIER1: 'Tier 1 — Top Choices',
+    TIER2: 'Tier 2 — Strong Contenders',
+    TIER3: 'Tier 3 — Backups',
+    UNSET: 'Un-tiered (Starred / Noted)'
+  };
+  const tierCounts = {};
+  starred.forEach(r => {
+    const tk = getUserData(r.id).tier || 'UNSET';
+    tierCounts[tk] = (tierCounts[tk] || 0) + 1;
+  });
+  let lastTierGroup = null;
+
   starred.forEach((r, idx) => {
     const data = getUserData(r.id);
+    const tierKey = data.tier || 'UNSET';
+    if (tierKey !== lastTierGroup) {
+      lastTierGroup = tierKey;
+      const divider = document.createElement('div');
+      divider.className = `shortlist-tier-divider tier-div-${tierKey.toLowerCase()}`;
+      divider.innerHTML = `
+        <span>${tierLabels[tierKey] || tierKey}</span>
+        <span class="shortlist-tier-count">${tierCounts[tierKey] || 0} rotation${tierCounts[tierKey] === 1 ? '' : 's'}</span>
+      `;
+      frag.appendChild(divider);
+    }
+
     const commute = getRotationCommuteSummary(r);
     const isEntered = orielCheckedSet.has(r.id);
 
@@ -3350,6 +3609,26 @@ function renderCompareModal() {
               </td>
             `).join('')}
           </tr>
+          ${partnerWorkBase && partnerWorkBase.coords ? `
+          <tr>
+            <td class="compare-label-th">Partner Commute (${escapeHtml(partnerWorkBase.name)})</td>
+            ${rotations.map(r => {
+              const pComm = getPartnerCommuteSummary(r);
+              if (!pComm) return `<td><span style="color:var(--text-muted);">—</span></td>`;
+              return `
+                <td>
+                  <div style="font-weight:800; font-size:0.84rem; color:#e11d48;">
+                    ${pComm.dist} mi <span style="font-size:0.7rem; font-weight:600; color:var(--text-muted);">(from ${escapeHtml(pComm.baseName)})</span>
+                  </div>
+                  <div style="font-size:0.74rem; color:var(--text-muted); margin-top:3px;">
+                    ~${pComm.mornMins}m @ 07:30<br>
+                    ~${pComm.eveMins}m @ 18:00
+                  </div>
+                </td>
+              `;
+            }).join('')}
+          </tr>
+          ` : ''}
           <tr>
             <td class="compare-label-th">Hospital Bases</td>
             ${rotations.map(r => {
@@ -3531,7 +3810,202 @@ function clearCustomHomeBase() {
   showToast("Custom Base cleared");
 }
 
-// 16. FULLSCREEN & GPS CONTROLS
+function lookupPartnerPostcode() {
+  const input = document.getElementById('partnerPostcodeInput');
+  if (!input) return;
+  const query = input.value.trim();
+  if (!query) {
+    showToast("Please enter a partner workplace postcode or town.");
+    return;
+  }
+
+  const cleanPC = query.replace(/\s+/g, '');
+  showToast("Looking up partner workplace...");
+
+  fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(cleanPC)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.status === 200 && data.result) {
+        savePartnerWorkBase(data.result.postcode, [data.result.latitude, data.result.longitude]);
+      } else {
+        return fetch(`https://api.postcodes.io/outcodes/${encodeURIComponent(cleanPC)}`)
+          .then(r => r.json())
+          .then(outData => {
+            if (outData.status === 200 && outData.result) {
+              savePartnerWorkBase(outData.result.outcode.toUpperCase(), [outData.result.latitude, outData.result.longitude]);
+            } else {
+              fallbackPartnerNominatim(query);
+            }
+          });
+      }
+    })
+    .catch(() => fallbackPartnerNominatim(query));
+}
+
+function fallbackPartnerNominatim(query) {
+  fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=gb&q=${encodeURIComponent(query)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.length > 0) {
+        const place = data[0];
+        savePartnerWorkBase(query.toUpperCase(), [parseFloat(place.lat), parseFloat(place.lon)]);
+      } else {
+        showToast("Partner location not found. Try a valid UK postcode or town.");
+      }
+    })
+    .catch(() => {
+      showToast("Error connecting to geocoding service.");
+    });
+}
+
+function startMapPickPartnerBase() {
+  cancelMapPick();
+  closeModal('customBaseModal');
+  if (window.innerWidth <= 768) toggleMobileSidebar(false);
+  const container = map.getContainer();
+  if (container) container.classList.add('map-picking');
+  showToast("Click anywhere on the map to set your partner's workplace (Esc to cancel)");
+  pendingMapPick = (e) => {
+    cancelMapPick();
+    savePartnerWorkBase("Partner Map Pin", [e.latlng.lat, e.latlng.lng]);
+  };
+  map.once('click', pendingMapPick);
+  pendingMapPickTimer = setTimeout(() => {
+    cancelMapPick();
+  }, 30000);
+}
+
+function savePartnerWorkBase(name, coords) {
+  const normalized = normalizeCustomBase({ name, coords });
+  if (!normalized) {
+    showToast("Invalid coordinates for partner workplace.");
+    return;
+  }
+  partnerWorkBase = normalized;
+  safeStorage.set(`${STORAGE_PREFIX}partner_work`, JSON.stringify(partnerWorkBase));
+  updateCustomBaseUI();
+  renderRotationCardsFeed(currentFilteredList);
+  if (currentSelectedId && currentViewMode === 'details') {
+    selectRotation(currentSelectedId, false);
+  }
+  closeModal('customBaseModal');
+  showToast(`Partner Workplace saved: ${partnerWorkBase.name}`);
+}
+
+function clearPartnerWorkBase() {
+  partnerWorkBase = null;
+  safeStorage.remove(`${STORAGE_PREFIX}partner_work`);
+  updateCustomBaseUI();
+  renderRotationCardsFeed(currentFilteredList);
+  if (currentSelectedId && currentViewMode === 'details') {
+    selectRotation(currentSelectedId, false);
+  }
+  closeModal('customBaseModal');
+  showToast("Partner Workplace cleared");
+}
+
+// 16. FULLSCREEN, MAP LEGEND & GPS CONTROLS
+function toggleMapLegend(forceState = null) {
+  isMapLegendOpen = (typeof forceState === 'boolean') ? forceState : !isMapLegendOpen;
+  const body = document.getElementById('mapLegendBody');
+  const btn = document.getElementById('btnMapLegendToggle');
+  const chev = document.getElementById('mapLegendChevron');
+  if (body) body.style.display = isMapLegendOpen ? 'block' : 'none';
+  if (btn) btn.setAttribute('aria-expanded', isMapLegendOpen ? 'true' : 'false');
+  if (chev) chev.textContent = isMapLegendOpen ? '▾' : '▴';
+  if (isMapLegendOpen) updateMapLegend();
+}
+
+function updateMapLegend() {
+  const body = document.getElementById('mapLegendBody');
+  if (!body) return;
+
+  const regionColorsMap = (typeof REGION_COLORS !== 'undefined' ? REGION_COLORS : (window.REGION_COLORS || {}));
+
+  let colourSectionHtml = '';
+  if (activeRegionFilter !== 'ALL') {
+    const poolGroups = getGeographicPoolGroupsForRegion(activeRegionFilter);
+    const fixedTracks = (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : [])
+      .filter(r => r.region === activeRegionFilter && !isPoolRotation(r));
+
+    const items = [];
+    poolGroups.forEach((grp, idx) => {
+      const firstRot = grp.rotations[0];
+      if (!firstRot) return;
+      const c = getRotationLineStyle(firstRot).color;
+      const codes = grp.rotations.map(r => r.code).join(', ');
+      items.push(`
+        <div class="legend-color-row">
+          <span class="legend-color-dot" style="background:${c};"></span>
+          <span class="legend-color-label">Pool Group ${idx + 1}: <b>${escapeHtml(codes)}</b></span>
+        </div>
+      `);
+    });
+    fixedTracks.slice(0, 6).forEach(r => {
+      const c = getRotationLineStyle(r).color;
+      items.push(`
+        <div class="legend-color-row">
+          <span class="legend-color-dot" style="background:${c};"></span>
+          <span class="legend-color-label">${escapeHtml(r.code)}</span>
+        </div>
+      `);
+    });
+
+    colourSectionHtml = `
+      <div class="legend-section-title">${escapeHtml(activeRegionFilter)} Key</div>
+      <div class="legend-color-list">
+        ${items.join('') || `<div class="legend-color-row"><span class="legend-color-dot" style="background:${regionColorsMap[activeRegionFilter] || '#0284c7'};"></span><span class="legend-color-label">${escapeHtml(activeRegionFilter)}</span></div>`}
+      </div>
+      <button type="button" class="legend-region-pill" style="margin-top:6px; width:100%; justify-content:center;" data-action="legend-filter-region" data-region="ALL">Show All UK Regions</button>
+    `;
+  } else {
+    const regPills = Object.keys(regionColorsMap).sort().map(reg => {
+      const c = regionColorsMap[reg] || '#0284c7';
+      return `
+        <button type="button" class="legend-region-pill" data-action="legend-filter-region" data-region="${escapeHtml(reg)}" title="Filter map &amp; list to ${escapeHtml(reg)}">
+          <span class="legend-color-dot" style="background:${c};"></span>
+          <span>${escapeHtml(reg)}</span>
+        </button>
+      `;
+    }).join('');
+
+    colourSectionHtml = `
+      <div class="legend-section-title">NHS Regions (Click to Filter)</div>
+      <div class="legend-region-grid">
+        ${regPills}
+      </div>
+    `;
+  }
+
+  body.innerHTML = `
+    <div class="legend-section-title">Pins &amp; Routes</div>
+    <div class="legend-pin-list">
+      <div class="legend-pin-row">
+        <span class="legend-pin-sample tertiary-sample">T</span>
+        <span><b>Tertiary</b> Teaching Centre (halo)</span>
+      </div>
+      <div class="legend-pin-row">
+        <span class="legend-pin-sample dgh-sample">H</span>
+        <span><b>DGH</b> Pool / District Hospital</span>
+      </div>
+      <div class="legend-pin-row">
+        <span class="legend-pin-sample split-sample"></span>
+        <span>Shared Hospital (2+ Pools)</span>
+      </div>
+      <div class="legend-pin-row">
+        <span class="legend-line-sample solid-sample"></span>
+        <span>Sequential Fixed Track</span>
+      </div>
+      <div class="legend-pin-row">
+        <span class="legend-line-sample dotted-sample"></span>
+        <span>Candidate Pool Spokes</span>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border-color); margin:7px 0;"></div>
+    ${colourSectionHtml}
+  `;
+}
+
 function toggleMapFullscreen() {
   if (!document.fullscreenElement) {
     document.documentElement.requestFullscreen().catch(() => {});
@@ -3581,7 +4055,8 @@ function buildBackupObject() {
     ratings,
     shortlistOrder: syncShortlistOrder(),
     orielChecked: [...orielCheckedSet],
-    customHomeBase
+    customHomeBase,
+    partnerWorkBase
   };
 }
 
@@ -3698,7 +4173,8 @@ function applyParsedBackup(parsed) {
   const rawShortlist = Array.isArray(parsed.shortlistOrder) ? parsed.shortlistOrder : [];
   const matchingIds = [...rawRatingKeys, ...rawShortlist].filter(id => typeof id === 'string' && KNOWN_IDS.has(id));
   const validBase = normalizeCustomBase(parsed.customHomeBase);
-  if ((rawRatingKeys.length > 0 || rawShortlist.length > 0) && matchingIds.length === 0 && !validBase) {
+  const validPartnerBase = normalizeCustomBase(parsed.partnerWorkBase);
+  if ((rawRatingKeys.length > 0 || rawShortlist.length > 0) && matchingIds.length === 0 && !validBase && !validPartnerBase) {
     showToast("Backup belongs to a different rotation programme (no matching IDs).");
     return;
   }
@@ -3739,7 +4215,6 @@ function applyParsedBackup(parsed) {
     currentCommuteMode = 'custom';
     safeStorage.set(`${STORAGE_PREFIX}commute_mode`, 'custom');
     syncCommuteModeUI('custom');
-    updateCustomBaseUI();
   } else {
     customHomeBase = null;
     safeStorage.remove(`${STORAGE_PREFIX}custom_home`);
@@ -3748,8 +4223,16 @@ function applyParsedBackup(parsed) {
       safeStorage.set(`${STORAGE_PREFIX}commute_mode`, 'driver');
       syncCommuteModeUI('driver');
     }
-    updateCustomBaseUI();
   }
+
+  if (validPartnerBase) {
+    partnerWorkBase = validPartnerBase;
+    safeStorage.set(`${STORAGE_PREFIX}partner_work`, JSON.stringify(partnerWorkBase));
+  } else {
+    partnerWorkBase = null;
+    safeStorage.remove(`${STORAGE_PREFIX}partner_work`);
+  }
+  updateCustomBaseUI();
 
   updateShortlistBadge();
   applyFiltersAndSearch();
@@ -3780,14 +4263,15 @@ function generatePartnerShareLink() {
   flushPendingNotes();
   const backup = buildBackupObject();
   const count = Object.keys(backup.ratings || {}).length;
-  if (count === 0 && !backup.customHomeBase) {
+  if (count === 0 && !backup.customHomeBase && !backup.partnerWorkBase) {
     showToast("No preferences or custom base to share yet.");
     return;
   }
-  if (backup.customHomeBase) {
-    const includeBase = confirm("Include your custom home base location in the share link?\n\n(Click Cancel to share only your ratings, tiers, and shortlist.)");
+  if (backup.customHomeBase || backup.partnerWorkBase) {
+    const includeBase = confirm("Include your custom home base and partner workplace locations in the share link?\n\n(Click Cancel to share only your ratings, tiers, and shortlist.)");
     if (!includeBase) {
       backup.customHomeBase = null;
+      backup.partnerWorkBase = null;
       if (count === 0) {
         showToast("No preferences to share.");
         return;
@@ -3829,7 +4313,7 @@ function checkForSharedLink() {
     const jsonStr = decodeBase64Utf8(rawEncoded);
     const parsed = JSON.parse(jsonStr);
     
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && (parsed.ratings || parsed.shortlistOrder || parsed.customHomeBase)) {
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && (parsed.ratings || parsed.shortlistOrder || parsed.customHomeBase || parsed.partnerWorkBase)) {
       const validRatingKeys = (parsed.ratings && typeof parsed.ratings === 'object' && !Array.isArray(parsed.ratings))
         ? Object.keys(parsed.ratings).filter(k => KNOWN_IDS.has(k) && hasUserPreference(normalizePref(parsed.ratings[k])))
         : [];
@@ -3837,9 +4321,10 @@ function checkForSharedLink() {
         ? parsed.shortlistOrder.filter(id => typeof id === 'string' && KNOWN_IDS.has(id))
         : [];
       const validCustomBase = normalizeCustomBase(parsed.customHomeBase);
+      const validPartnerBase = normalizeCustomBase(parsed.partnerWorkBase);
       const validCount = new Set([...validRatingKeys, ...validShortlistKeys]).size;
 
-      if (validCount === 0 && !validCustomBase) {
+      if (validCount === 0 && !validCustomBase && !validPartnerBase) {
         showToast("Share link contains no valid rotations for this programme");
         return;
       }
@@ -4068,6 +4553,38 @@ document.addEventListener('click', (e) => {
     openDetailsForRotation(el.dataset.id);
   } else if (action === 'remove-shortlist-item') {
     removeShortlistItem(el.dataset.id);
+  } else if (action === 'quick-card-rate') {
+    e.stopPropagation();
+    const id = el.dataset.id;
+    const val = parseInt(el.dataset.rating, 10) || 0;
+    const current = getUserData(id).rating;
+    const next = (current === val) ? 0 : val;
+    setUserData(id, { rating: next });
+    syncShortlistOrder();
+    updateShortlistBadge();
+    applyFiltersAndSearch({ redrawMap: activeQuickFilter === 'STARRED' });
+    showToast(next > 0 ? `Rated ${next}★` : 'Rating cleared');
+  } else if (action === 'quick-card-tier') {
+    e.stopPropagation();
+    const id = el.dataset.id;
+    const tierVal = el.dataset.tier;
+    const current = getUserData(id);
+    const nextTier = (current.tier === tierVal) ? 'UNSET' : tierVal;
+    setUserData(id, { tier: nextTier });
+    if (current.tier !== nextTier) {
+      shortlistOrder = (Array.isArray(shortlistOrder) ? shortlistOrder : []).filter(x => x !== id);
+    }
+    syncShortlistOrder();
+    updateShortlistBadge();
+    applyFiltersAndSearch({ redrawMap: ['TIER1', 'TIER2', 'TIER3', 'EXCLUDED'].includes(activeQuickFilter) });
+    showToast(`Tier updated: ${nextTier}`);
+  } else if (action === 'sort-shortlist-within-tiers') {
+    sortShortlistWithinTiers(el.dataset.mode);
+  } else if (action === 'legend-filter-region') {
+    const reg = el.dataset.region || 'ALL';
+    const regSelect = document.getElementById('regionFilter');
+    if (regSelect) regSelect.value = reg;
+    filterRegion(reg);
   }
 });
 
