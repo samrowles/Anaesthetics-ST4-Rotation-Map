@@ -2,649 +2,186 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>UK Anaesthetics Rotation &amp; Commute Explorer (CT1 &amp; ST4)</title>
+  <title>Moved: ST4 Anaesthetics Rotation Map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="Interactive map of UK CT1 and ST4 Anaesthetics training rotations with dual-commute living analysis for doctors and partners.">
-  <meta name="theme-color" content="#FAF9F5" id="metaThemeColor">
-
-  <!-- Early Theme Detection to Prevent FOUC -->
+  <meta http-equiv="refresh" content="6;url=https://samrowles.github.io/Anaesthetics-Rotations-Map/?prog=st4">
+  <link rel="canonical" href="https://samrowles.github.io/Anaesthetics-Rotations-Map/?prog=st4">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🩺</text></svg>">
   <script>
-    (function() {
+    (function () {
       try {
         var pref = localStorage.getItem('anaesth_theme_pref') || 'auto';
         var isDark = pref === 'dark' || (pref === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-        var metaTheme = document.getElementById('metaThemeColor');
-        if (metaTheme) {
-          metaTheme.setAttribute('content', isDark ? '#191918' : '#FAF9F5');
-        }
       } catch (e) {}
     })();
   </script>
-
-  <!-- Favicon & PWA Manifest -->
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🩺</text></svg>">
-  <link rel="manifest" href="manifest.json">
-
-  <!-- OpenGraph Metadata -->
-  <meta property="og:title" content="UK Anaesthetics Rotation &amp; Commute Explorer (CT1 &amp; ST4)">
-  <meta property="og:description" content="Explore UK CT1 and ST4 Anaesthetics rotations, commute radii, hospital bases, and living hubs.">
-  <meta property="og:type" content="website">
-
-  <!-- Leaflet Dependencies -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-
-  <!-- Modular Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    :root {
+      --bg: #FAF9F5;
+      --surface: #FFFFFF;
+      --text: #1F1E1C;
+      --muted: #5F5C56;
+      --border: #E5E1D8;
+      --accent: #C96442;
+      --accent-hover: #B25434;
+    }
+    [data-theme="dark"] {
+      --bg: #191918;
+      --surface: #232321;
+      --text: #F2F0EA;
+      --muted: #B0ACA3;
+      --border: #363531;
+      --accent: #D97757;
+      --accent-hover: #E5896B;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 1.5rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    main {
+      max-width: 34rem;
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+    }
+    .badge {
+      display: inline-block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.6rem;
+    }
+    h1 {
+      margin: 0 0 0.75rem;
+      font-size: 1.45rem;
+      line-height: 1.25;
+    }
+    p {
+      margin: 0 0 1rem;
+      color: var(--muted);
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.75rem 1.25rem;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #FFFFFF;
+      text-decoration: none;
+      font-weight: 600;
+      transition: background-color 0.15s ease;
+    }
+    .btn:hover {
+      background: var(--accent-hover);
+    }
+    .countdown {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .url-note {
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      word-break: break-all;
+    }
+    .url-note a {
+      color: var(--accent);
+    }
+  </style>
 </head>
 <body>
-
-<!-- Toast Notification (Top-Layer Popover) -->
-<div id="toast" popover="manual" role="status" aria-live="polite">Saved</div>
-
-<!-- Initial Programme Selector Landing Screen -->
-<section id="programmeLanding" class="programme-landing" aria-labelledby="landingHeading">
-  <div class="landing-container">
-    <header class="landing-header">
-      <div class="landing-brand">
-        <span class="landing-brand-mark" aria-hidden="true"></span>
-        <span class="landing-brand-text">UK Anaesthetics Explorer</span>
-      </div>
-      <button type="button" class="btn-top btn-sync" id="btnLandingThemeToggle" onclick="cycleTheme()" title="Switch Theme (Auto / Dark / Light)">Theme</button>
-    </header>
-
-    <div class="landing-hero">
-      <h1 id="landingHeading" tabindex="-1">UK Anaesthetics Rotation &amp; Commute Explorer</h1>
-      <p class="landing-subtitle">Compare national Oriel training rotations, hospital placement sequences, and shift-time commutes across Core and Higher Specialty training.</p>
+  <main>
+    <div class="badge">App Moved &amp; Combined</div>
+    <h1>The ST4 Anaesthetics Rotation Map has moved</h1>
+    <p>
+      The separate CT1 and ST4 rotation maps have been merged into the new unified
+      <strong>UK Anaesthetics Rotation &amp; Commute Explorer (CT1 &amp; ST4)</strong>.
+      Your saved preferences and share links carry over automatically.
+    </p>
+    <p class="countdown" id="statusText">
+      Redirecting to the ST4 view in <strong id="seconds">5</strong> seconds&hellip;
+    </p>
+    <div class="actions">
+      <a class="btn" id="redirectBtn" href="https://samrowles.github.io/Anaesthetics-Rotations-Map/?prog=st4">Open Anaesthetics Rotations Map &rarr;</a>
     </div>
-
-    <div class="programme-grid">
-      <button type="button" class="programme-card" id="btnSelectCt1" data-action="select-programme" data-programme="ct1">
-        <div class="programme-card-top">
-          <span class="programme-badge">CT1 – CT3</span>
-          <span id="landingCt1SavedBadge" class="landing-saved-badge" hidden>0 Shortlisted</span>
-        </div>
-        <h2 class="programme-card-title">Core Anaesthetics</h2>
-        <p class="programme-card-summary">Core &amp; ACCS Anaesthetics rotations across UK deaneries, with hospital placement timelines and commute base planning.</p>
-        <div class="programme-card-footer">
-          <span id="landingCt1Stats" class="programme-card-stats">75 Rotations • 103 Hospitals • 13 Regions</span>
-          <span class="programme-card-cta">Explore CT1 Map &rarr;</span>
-        </div>
-      </button>
-
-      <button type="button" class="programme-card" id="btnSelectSt4" data-action="select-programme" data-programme="st4">
-        <div class="programme-card-top">
-          <span class="programme-badge">ST4 – ST7</span>
-          <span id="landingSt4SavedBadge" class="landing-saved-badge" hidden>0 Shortlisted</span>
-        </div>
-        <h2 class="programme-card-title">Higher Specialty Anaesthetics</h2>
-        <p class="programme-card-summary">National Oriel ST4–ST7 rotations featuring tertiary/DGH split, pool schemes, trust profiles, and dual-commute analysis.</p>
-        <div class="programme-card-footer">
-          <span id="landingSt4Stats" class="programme-card-stats">78 Rotations • 118 Hospitals • 15 Regions</span>
-          <span class="programme-card-cta">Explore ST4 Map &rarr;</span>
-        </div>
-      </button>
-    </div>
-
-    <footer class="landing-footer">
-      <label class="landing-remember-label" for="rememberProgrammeCheckbox">
-        <input type="checkbox" id="rememberProgrammeCheckbox" onchange="toggleRememberProgramme(this.checked)">
-        <span>Remember my selected programme on this device</span>
-      </label>
-      <p class="landing-privacy-note">100% client-side &bull; Works offline &bull; Separate CT1 &amp; ST4 shortlists</p>
-    </footer>
-  </div>
-</section>
-
-<!-- Main Workspace Shell -->
-<div id="appShell" class="app-shell">
-
-  <!-- Mobile Floating Trigger -->
-  <button type="button" id="mobileFabOpen" onclick="toggleMobileSidebar(true)" aria-label="Open Filters and Rotations Menu">
-    ☰ Rotations &amp; Filters
-  </button>
-
-  <!-- Mobile Mini Summary Bar -->
-  <div id="mobileMiniCard" role="button" tabindex="0" onclick="toggleMobileSidebar(true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleMobileSidebar(true);}">
-    <div class="mini-card-handle"></div>
-    <div class="mini-card-top">
-      <strong id="miniCardTitle">National Overview</strong>
-      <span id="miniCardSpread" class="badge badge-code">78 Rotations</span>
-    </div>
-    <div class="mini-card-bottom" id="miniCardHub">
-      <span>Tap any pin on map or open list</span>
-      <span class="mini-card-menu-link">Menu &rarr;</span>
-    </div>
-  </div>
-
-  <!-- Left Control & Information Sidebar -->
-  <aside id="sidebar" aria-label="Rotation filters and inspector">
-    <div id="sidebar-header">
-      <div class="sidebar-brand-row">
-        <button type="button" class="btn-home-landing" id="btnShowLanding" onclick="showProgrammeLanding()" title="Back to programme selector">&larr; Programmes</button>
-        <div class="programme-pill-switch" role="group" aria-label="Training level">
-          <button type="button" class="prog-switch-btn" id="btnSwitchCt1" data-action="switch-programme" data-programme="ct1" aria-pressed="false">CT1</button>
-          <button type="button" class="prog-switch-btn active" id="btnSwitchSt4" data-action="switch-programme" data-programme="st4" aria-pressed="true">ST4</button>
-        </div>
-      </div>
-
-      <div class="sidebar-title-row">
-        <h1 id="appMainHeading" tabindex="-1"><span id="sidebarTitleText">ST4 Higher</span></h1>
-        <div class="header-actions">
-          <button type="button" class="btn-top btn-sync" id="btnThemeToggle" onclick="cycleTheme()" title="Switch Theme (Auto / Dark / Light)">Theme</button>
-          <button type="button" class="btn-top btn-sync" onclick="openShortlistModal()" title="View and reorder your ranked shortlist">
-            Shortlist <span id="headerShortlistBadge" class="header-badge header-badge-shortlist">0</span>
-          </button>
-          <button type="button" class="btn-top btn-compare-top" onclick="openCompareModal()" title="Compare candidate rotations side-by-side">
-            Compare <span id="headerCompareBadge" class="header-badge header-badge-compare">0</span>
-          </button>
-          <button type="button" class="btn-top btn-sync" onclick="openSyncModal()" title="Backup preferences, export spreadsheets, or share with partner">Data</button>
-          <button type="button" class="btn-mobile-nav" onclick="toggleMobileSidebar(false)" aria-label="View Map">Map</button>
-        </div>
-      </div>
-      <p id="sidebarSubtitleText">National Oriel ST4–ST7 Rotations &amp; Commute Analysis</p>
-    </div>
-
-    <div id="controls">
-      <!-- Row 1: Search Input & NHS Region Filter -->
-      <div class="control-row">
-        <div class="search-wrapper">
-          <label for="searchInput" class="visually-hidden">Search hospital, code or keyword</label>
-          <input type="text" id="searchInput" placeholder="Search hospital, code or keyword..." oninput="handleSearch(this.value)">
-          <button type="button" class="btn-search-clear" id="btnSearchClear" onclick="clearSearch()" title="Clear search" aria-label="Clear search">✕</button>
-        </div>
-        <select id="regionFilter" onchange="filterRegion(this.value)" aria-label="Filter by NHS Region" class="region-filter-select">
-          <!-- Populated Dynamically in JS -->
-        </select>
-      </div>
-
-      <!-- Quick Filter Pills -->
-      <div class="filter-pills-row">
-        <div class="filter-pills">
-          <button type="button" class="filter-pill-btn active" id="pillAll" aria-pressed="true" onclick="setQuickFilter('ALL')">All (<span id="listCountBadge">78</span>)</button>
-          <button type="button" class="filter-pill-btn" id="pillStarred" aria-pressed="false" onclick="setQuickFilter('STARRED')">Starred</button>
-          <button type="button" class="filter-pill-btn" id="pillTier1" aria-pressed="false" onclick="setQuickFilter('TIER1')">Tier 1</button>
-          <button type="button" class="filter-pill-btn" id="pillTier2" aria-pressed="false" onclick="setQuickFilter('TIER2')">Tier 2</button>
-          <button type="button" class="filter-pill-btn" id="pillTier3" aria-pressed="false" onclick="setQuickFilter('TIER3')">Tier 3</button>
-          <button type="button" class="filter-pill-btn" id="pillExcluded" aria-pressed="false" onclick="setQuickFilter('EXCLUDED')">Excluded</button>
-          <button type="button" class="filter-pill-btn" id="pillLowSpread" aria-pressed="false" onclick="setQuickFilter('LOW_SPREAD')">&le; 25 mi</button>
-        </div>
-        <button type="button" class="btn-reset-filters" onclick="resetAllFilters()" title="Reset all search queries and filters" aria-label="Reset all filters">↺</button>
-      </div>
-
-      <div class="control-subbar">
-        <button type="button" class="btn-commute-drawer-toggle" id="btnToggleCommuteOverlay" onclick="toggleCommuteOverlay()" title="Toggle living base &amp; shift commute calculator">
-          <span id="commuteToggleLabel">Commute &amp; Bases: OFF</span> ▾
-        </button>
-        <select id="sortSelect" onchange="handleSortChange(this.value)" class="strip-sort" title="Sort Rotations" aria-label="Sort Rotations">
-          <option value="ALPHA_ASC">Sort: A–Z</option>
-          <option value="SPREAD_ASC">Spread ↑</option>
-          <option value="COMMUTE_ASC">Commute ↑</option>
-          <option value="PLACES_DESC">Places ↓</option>
-          <option value="RATING_DESC">Rating ↓</option>
-        </select>
-      </div>
-
-      <!-- Drawer: Compact Commute Base & Shift Timing Strip (Toggle-able) -->
-      <div id="commuteControlsDrawer" style="display:none;">
-        <div class="compact-commute-strip">
-          <div class="strip-row">
-            <span class="strip-label">Base:</span>
-            <div class="transport-toggle strip-toggle">
-              <button type="button" class="transport-btn active" id="btnModeDriver" onclick="setCommuteMode('driver')">Driver</button>
-              <button type="button" class="transport-btn" id="btnModeTransit" onclick="setCommuteMode('transit')">Public Transport</button>
-              <button type="button" class="transport-btn" id="btnModeCustom" onclick="setCommuteMode('custom')">My Base</button>
-            </div>
-            <button type="button" class="btn-link-action" onclick="openCustomBaseModal()" title="Set your prospective home postcode">
-              <span id="customBasePillText">Postcode</span>
-            </button>
-          </div>
-          <div class="strip-row">
-            <span class="strip-label">Shift:</span>
-            <div class="transport-toggle strip-toggle">
-              <button type="button" class="transport-btn active" id="btnTimingMorning" onclick="setShiftTiming('0730')" title="Arrive 07:30 handover">07:30 Handover</button>
-              <button type="button" class="transport-btn" id="btnTimingEvening" onclick="setShiftTiming('1800')" title="Leave 18:00 rush">18:00 Rush</button>
-              <button type="button" class="transport-btn" id="btnTimingOffPeak" onclick="setShiftTiming('offpeak')" title="Free-flow off-peak">Off-Peak</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div id="content-pane">
-      <!-- View 1: Scrollable Feed of Rotation Cards (Default View) -->
-      <div id="listViewContainer">
-        <div class="app-tip-banner" id="appTipBanner">
-          <div class="app-tip-content">
-            <span class="app-tip-label">Tip:</span>
-            <span>Click any card to inspect hospital placements and commutes, or tap pins on the map.</span>
-          </div>
-          <button type="button" class="btn-dismiss-tip" onclick="dismissTipBanner()" title="Dismiss tip" aria-label="Dismiss tip">✕</button>
-        </div>
-        <div id="rotationCardsFeed"></div>
-      </div>
-
-      <!-- View 2: Detailed Inspector Card (Focus Mode) -->
-      <div id="inspectorCard" style="display: none;">
-        <div class="card">
-          <!-- Top Action Bar -->
-          <div class="inspector-top-bar">
-            <button type="button" class="btn-back-to-list" onclick="showListView()">
-              &larr; Back to List
-            </button>
-            <div class="inspector-top-actions">
-              <button type="button" id="cardCompareBtn" class="btn-compare-action" onclick="toggleCompareFromCard()">Compare</button>
-              <button type="button" class="btn-share-link" onclick="copyDirectShareLink()" title="Copy direct link to this rotation">Share</button>
-              <div class="inspector-stepper">
-                <button type="button" class="btn-step" onclick="stepRotation(-1)" title="Previous rotation (← key)" aria-label="Previous rotation">&larr;</button>
-                <select id="prefSelect" onchange="selectRotation(this.value, false)" aria-label="Select Rotation" class="pref-jump-select">
-                  <option value="">Jump...</option>
-                </select>
-                <button type="button" class="btn-step" onclick="stepRotation(1)" title="Next rotation (→ key)" aria-label="Next rotation">&rarr;</button>
-              </div>
-            </div>
-          </div>
-
-          <button type="button" class="btn-view-map-card" onclick="toggleMobileSidebar(false)">
-            View Route on Map &rarr;
-          </button>
-
-          <!-- Rotation Header Meta -->
-          <div class="inspector-header-section">
-            <div class="badge-container">
-              <span class="badge badge-code" id="cardCode">Oriel Code</span>
-              <span class="badge badge-places" id="cardPlaces">Places: -</span>
-              <span class="badge badge-pool" id="cardPoolBadge" style="display:none;">Pool Scheme</span>
-              <span class="badge badge-spread-med" id="cardSpreadBadge">Max: 0 mi</span>
-              <button type="button" class="badge badge-tier-1 badge-tier-btn" id="cardTierBadge" style="display:none;" onclick="switchInspectorTab('notes')" title="Assigned preference tier (click to edit)">Tier 1</button>
-            </div>
-            <h2 class="card-title" id="cardTitle">Track Title</h2>
-            <div class="card-subtitle-row">
-              <span id="cardRegionText" class="card-region-text">Region</span>
-              <span class="card-hub-summary" id="cardHubSummary" style="display:none;">Suggested Base: Base Name</span>
-            </div>
-          </div>
-
-          <!-- Sleek Segmented Tab Navigation -->
-          <div class="inspector-tabs-nav" role="tablist" aria-label="Rotation details">
-            <button type="button" class="inspector-tab-btn active" id="tabBtnPlacements" role="tab" aria-selected="true" tabindex="0" onclick="switchInspectorTab('placements')">
-              Placements
-            </button>
-            <button type="button" class="inspector-tab-btn" id="tabBtnCommute" role="tab" aria-selected="false" tabindex="-1" onclick="switchInspectorTab('commute')">
-              Commute &amp; Base
-            </button>
-            <button type="button" class="inspector-tab-btn" id="tabBtnIntel" role="tab" aria-selected="false" tabindex="-1" onclick="switchInspectorTab('intel')">
-              Trust Profiles
-            </button>
-            <button type="button" class="inspector-tab-btn" id="tabBtnNotes" role="tab" aria-selected="false" tabindex="-1" onclick="switchInspectorTab('notes')">
-              Notes &amp; Tier
-            </button>
-          </div>
-
-          <!-- TAB PANE 1: Placements (Default & Hero Focus) -->
-          <div id="tabPanePlacements" class="tab-pane active" role="tabpanel" aria-labelledby="tabBtnPlacements">
-            <!-- Overview Strip: Training Balance & Metrics -->
-            <div class="placements-overview-strip">
-              <div class="split-bar-box">
-                <div class="split-bar-header">
-                  <span class="split-label-tertiary">Tertiary / Teaching: <b id="splitTertiaryText">50%</b></span>
-                  <span class="split-label-dgh">DGH: <b id="splitDghText">50%</b></span>
-                </div>
-                <div class="split-bar-track" title="Rotation Training Split">
-                  <div id="splitTertiaryFill" class="split-fill-tertiary" style="width: 50%;"></div>
-                  <div id="splitDghFill" class="split-fill-dgh" style="width: 50%;"></div>
-                </div>
-              </div>
-              <div class="metrics-bar">
-                <div class="metric-item">
-                  <div class="metric-value" id="metricSites">0</div>
-                  <div class="metric-label" id="metricSitesLabel">Hospital Bases</div>
-                </div>
-                <div class="metric-item">
-                  <div class="metric-value" id="metricDistance">0 mi</div>
-                  <div class="metric-label" id="metricDistanceLabel">Max Spread</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Hero Hospital Sequence Timeline -->
-            <div class="timeline-section-header">
-              <span id="timelineHeading" class="timeline-heading-label">HOSPITAL PLACEMENT SEQUENCE:</span>
-              <span class="timeline-heading-hint">Click to locate on map</span>
-            </div>
-            <div class="timeline" id="timelineContainer"></div>
-
-            <!-- Quick Preference Tier Bar directly on Placements Tab -->
-            <div class="quick-tier-bar">
-              <span class="quick-tier-label">Preference Tier:</span>
-              <div class="tier-selector-row quick-tier-row">
-                <button type="button" class="tier-btn tier-1" id="quickTierBtn1" onclick="setTier('TIER1')">Tier 1</button>
-                <button type="button" class="tier-btn tier-2" id="quickTierBtn2" onclick="setTier('TIER2')">Tier 2</button>
-                <button type="button" class="tier-btn tier-3" id="quickTierBtn3" onclick="setTier('TIER3')">Tier 3</button>
-                <button type="button" class="tier-btn tier-exclude" id="quickTierBtnExclude" onclick="setTier('EXCLUDE')">Exclude</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- TAB PANE 2: Commute & Base -->
-          <div id="tabPaneCommute" class="tab-pane" role="tabpanel" aria-labelledby="tabBtnCommute">
-            <!-- Inspector Local Base & Shift Switcher Bar -->
-            <div class="inspector-commute-switcher-strip">
-              <div class="strip-row">
-                <span class="strip-label">Base:</span>
-                <div class="transport-toggle strip-toggle">
-                  <button type="button" class="transport-btn active" id="btnCardModeDriver" onclick="setCommuteMode('driver')">Driver</button>
-                  <button type="button" class="transport-btn" id="btnCardModeTransit" onclick="setCommuteMode('transit')">Public Transport</button>
-                  <button type="button" class="transport-btn" id="btnCardModeCustom" onclick="setCommuteMode('custom')">My Base</button>
-                </div>
-                <button type="button" class="btn-link-action" onclick="openCustomBaseModal()" title="Set your prospective home postcode">
-                  <span id="cardCustomBasePillText">Postcode</span>
-                </button>
-              </div>
-              <div class="strip-row">
-                <span class="strip-label">Shift:</span>
-                <div class="transport-toggle strip-toggle">
-                  <button type="button" class="transport-btn active" id="btnCardTimingMorning" onclick="setShiftTiming('0730')" title="Arrive 07:30 handover">07:30 Handover</button>
-                  <button type="button" class="transport-btn" id="btnCardTimingEvening" onclick="setShiftTiming('1800')" title="Leave 18:00 rush">18:00 Rush</button>
-                  <button type="button" class="transport-btn" id="btnCardTimingOffPeak" onclick="setShiftTiming('offpeak')" title="Free-flow off-peak">Off-Peak</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Suggested Living Base -->
-            <div class="hub-box driver-theme" id="hubBox">
-              <div class="hub-title">
-                <span>
-                  <span id="hubTitlePrefix">Suggested Base (Driving):</span>
-                  <span id="hubTownName" class="hub-town-name">Town</span>
-                </span>
-                <a id="hubDirectionsLink" href="#" target="_blank" rel="noopener noreferrer" class="hub-directions-link">Google Maps ↗</a>
-              </div>
-              <div class="hub-content" id="hubDescription">Hub travel details...</div>
-              <div class="hub-alert" id="hubAlertBox" style="display:none;"></div>
-            </div>
-
-            <!-- Commute Breakdown Matrix -->
-            <div class="commute-matrix-box">
-              <div class="commute-matrix-title">
-                <span id="commuteMatrixTitleText">Estimated Commute from Base:</span>
-                <span id="commuteMatrixHubName" class="commute-matrix-hub-name">Base Name</span>
-              </div>
-              <div id="commuteMatrixList"></div>
-            </div>
-          </div>
-
-          <!-- TAB PANE 3: Trust Profiles -->
-          <div id="tabPaneIntel" class="tab-pane" role="tabpanel" aria-labelledby="tabBtnIntel">
-            <div class="hospitals-box">
-              <div class="hospitals-box-title">
-                <span id="hospitalsBoxTitleText">Hospitals in this Rotation:</span>
-                <span class="hospitals-box-hint">Click profile for EPR &amp; parking</span>
-              </div>
-              <div id="hospitalsListContainer" class="hospitals-chip-list"></div>
-            </div>
-          </div>
-
-          <!-- TAB PANE 4: Notes & Tier -->
-          <div id="tabPaneNotes" class="tab-pane" role="tabpanel" aria-labelledby="tabBtnNotes">
-            <div class="rating-section rating-section-inline">
-              <div class="rating-section-heading">ASSIGN PREFERENCE TIER:</div>
-              <div class="tier-selector-row">
-                <button type="button" class="tier-btn tier-1" id="tierBtn1" onclick="setTier('TIER1')">Tier 1 (Top)</button>
-                <button type="button" class="tier-btn tier-2" id="tierBtn2" onclick="setTier('TIER2')">Tier 2 (Mid)</button>
-                <button type="button" class="tier-btn tier-3" id="tierBtn3" onclick="setTier('TIER3')">Tier 3 (Low)</button>
-                <button type="button" class="tier-btn tier-exclude" id="tierBtnExclude" onclick="setTier('EXCLUDE')">Exclude</button>
-              </div>
-
-              <div class="rating-section-heading">YOUR RATING &amp; NOTES:</div>
-              <div class="star-row" id="starContainer">
-                <button type="button" class="star" onclick="setRating(1, true)" aria-label="Rate 1 star" aria-pressed="false">★</button>
-                <button type="button" class="star" onclick="setRating(2, true)" aria-label="Rate 2 stars" aria-pressed="false">★</button>
-                <button type="button" class="star" onclick="setRating(3, true)" aria-label="Rate 3 stars" aria-pressed="false">★</button>
-                <button type="button" class="star" onclick="setRating(4, true)" aria-label="Rate 4 stars" aria-pressed="false">★</button>
-                <button type="button" class="star" onclick="setRating(5, true)" aria-label="Rate 5 stars" aria-pressed="false">★</button>
-                <span class="rating-status-text" id="ratingText">(Unrated)</span>
-              </div>
-              <label for="partnerNotes" class="visually-hidden">Personal notes for this rotation</label>
-              <textarea class="notes-input" id="partnerNotes" oninput="debounceSaveNotes()" placeholder="Personal notes (e.g., manageable commute, excellent cardiac block)..."></textarea>
-              <button type="button" class="btn-save" onclick="saveUserPreferences()">Save Notes &amp; Tier</button>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-  </aside>
-
-  <!-- Main Interactive Map Landmark -->
-  <main id="mapArea" aria-label="Interactive UK hospital rotation map">
-    <div id="map">
-      <!-- Map Floating Overlay Controls -->
-      <div class="map-floating-overlay">
-        <button type="button" class="map-float-btn active-btn" id="btnMapLinesToggle" onclick="toggleOverviewLines()" title="Toggle rotation network lines: All → Core Bases → OFF">
-          Lines: All
-        </button>
-        <button type="button" class="map-float-btn" onclick="locateUserOnMap()" title="Show my current GPS location on the map">
-          Locate Me
-        </button>
-        <button type="button" class="map-float-btn" onclick="toggleMapFullscreen()" title="Toggle fullscreen view">
-          Fullscreen
-        </button>
-      </div>
-
-      <!-- Collapsible On-Map Pin & Colour Key -->
-      <div class="map-legend" id="mapLegend">
-        <button type="button" class="map-legend-toggle" id="btnMapLegendToggle" onclick="toggleMapLegend()" aria-expanded="false" title="Show/hide map pin and colour key">
-          <span>Map Key</span> <span id="mapLegendChevron">▴</span>
-        </button>
-        <div class="map-legend-body" id="mapLegendBody" style="display:none;"></div>
-      </div>
-    </div>
+    <p class="url-note">
+      New address: <a id="directLink" href="https://samrowles.github.io/Anaesthetics-Rotations-Map/?prog=st4">https://samrowles.github.io/Anaesthetics-Rotations-Map/</a>
+    </p>
   </main>
-</div>
 
-<!-- Dialog 1: Starred Shortlist, Oriel Ranking & Submission Companion -->
-<dialog class="app-dialog app-dialog-wide" id="shortlistModal" closedby="any" aria-labelledby="shortlistModalHeading">
-  <div class="modal-content modal-content-wide">
-    <div class="modal-header">
-      <h1 id="shortlistModalHeading">My Shortlist &amp; Oriel Preferencing Companion</h1>
-      <button type="button" class="btn-step" onclick="closeModal('shortlistModal')" aria-label="Close modal">✕</button>
-    </div>
-    <div class="modal-body">
-      <!-- Oriel Submission Companion Banner -->
-      <div class="oriel-companion-banner">
-        <div class="oriel-companion-info">
-          <div class="oriel-companion-title">
-            <span>Oriel Submission Assistant</span>
-            <span class="oriel-companion-sub">(Manual Oriel Entry Helper)</span>
-          </div>
-          <div class="oriel-companion-desc">
-            Oriel requires manual entry (no CSV import). Use this checklist to copy codes, track what you've entered, or print a desk cheat sheet.
-          </div>
-        </div>
-        <div class="oriel-companion-actions">
-          <button type="button" class="btn-top btn-export" onclick="copyShortlistPlainText()" title="Copy numbered preference list to clipboard">Copy Text List</button>
-          <button type="button" class="btn-top btn-export" onclick="printShortlistReport()" title="Print A4 submission checklist or save as PDF">Print Cheat Sheet</button>
-          <button type="button" class="btn-top btn-export" onclick="exportShortlistCSV()" title="Download CSV spreadsheet backup for Excel / Google Sheets">CSV Backup</button>
-        </div>
-      </div>
+  <script>
+    (function () {
+      var baseTarget = 'https://samrowles.github.io/Anaesthetics-Rotations-Map/?prog=st4';
+      var hash = window.location.hash || '';
+      var targetUrl = hash ? ('https://samrowles.github.io/Anaesthetics-Rotations-Map/' + hash) : baseTarget;
 
-      <!-- Live Oriel Progress Tracker -->
-      <div id="orielProgressContainer" class="oriel-progress-container">
-        <div class="oriel-progress-header">
-          <span id="orielProgressText" class="oriel-progress-label">Entered in Oriel: 0 of 0 (0%)</span>
-          <button type="button" class="btn-reset-checks" onclick="resetOrielChecks()">↺ Reset Checks</button>
-        </div>
-        <div class="oriel-progress-track">
-          <div id="orielProgressBar" class="oriel-progress-fill" style="width: 0%;"></div>
-        </div>
-      </div>
+      var btn = document.getElementById('redirectBtn');
+      var link = document.getElementById('directLink');
+      if (btn) btn.href = targetUrl;
+      if (link) {
+        link.href = targetUrl;
+        link.textContent = targetUrl;
+      }
 
-      <div id="shortlistModalBody"></div>
-    </div>
-  </div>
-</dialog>
+      // Unregister legacy service worker for this old repo scope only
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (reg) {
+            if (reg.scope && reg.scope.indexOf('/Anaesthetics-ST4-Rotation-Map') !== -1) {
+              return reg.unregister();
+            }
+            return Promise.resolve();
+          }));
+        }).catch(function () {});
+      }
 
-<!-- Dialog 2: Side-by-Side Comparison Modal -->
-<dialog class="app-dialog app-dialog-wide" id="compareModal" closedby="any" aria-labelledby="compareModalHeading">
-  <div class="modal-content modal-content-wide">
-    <div class="modal-header">
-      <h1 id="compareModalHeading">Side-by-Side Rotation Comparison</h1>
-      <button type="button" class="btn-step" onclick="closeModal('compareModal')" aria-label="Close modal">✕</button>
-    </div>
-    <div class="modal-body">
-      <div id="compareModalContent"></div>
-    </div>
-  </div>
-</dialog>
+      if ('caches' in window) {
+        var keep = ['st4-explorer-v14', 'st4-map-tiles'];
+        caches.keys().then(function (keys) {
+          return Promise.all(keys.map(function (k) {
+            if (k.indexOf('st4-') === 0 && keep.indexOf(k) === -1) {
+              return caches.delete(k);
+            }
+            return Promise.resolve();
+          }));
+        }).catch(function () {});
+      }
 
-<!-- Dialog 3: Custom Home Base Calculator -->
-<dialog class="app-dialog app-dialog-narrow" id="customBaseModal" closedby="any" aria-labelledby="customBaseModalHeading">
-  <div class="modal-content" style="max-width:480px;">
-    <div class="modal-header">
-      <h1 id="customBaseModalHeading">Set My Custom Home / Commute Base</h1>
-      <button type="button" class="btn-step" onclick="closeModal('customBaseModal')" aria-label="Close modal">✕</button>
-    </div>
-    <div class="modal-body">
-      <p class="modal-lead-text">
-        Enter your prospective home postcode or town in the UK. We'll calculate personalized commute distances and drive times to every hospital in all rotations.
-      </p>
-      <div class="modal-input-row">
-        <label for="customPostcodeInput" class="visually-hidden">Prospective home postcode or town</label>
-        <input type="text" id="customPostcodeInput" placeholder="e.g. CB2 0QQ, BS1 5AH, Leeds..." onkeydown="if(event.key === 'Enter') lookupCustomPostcode();" style="flex:1;">
-        <button type="button" class="btn-top btn-export btn-find-action" onclick="lookupCustomPostcode()">Find</button>
-      </div>
-      <div class="modal-button-group">
-        <button type="button" class="btn-top btn-sync" onclick="useGpsForCustomBase()">Use GPS Location</button>
-        <button type="button" class="btn-top btn-sync" onclick="startMapPickBase()">Click on Map</button>
-        <button type="button" class="btn-top btn-sync btn-danger-text" onclick="clearCustomHomeBase()">Clear Base</button>
-      </div>
-      <div id="customBaseStatusBox" class="base-status-box">
-        Current Base: <b>None set</b> (using suggested programme hubs).
-      </div>
-
-      <div class="partner-base-section">
-        <div class="partner-base-heading">Partner Workplace (Dual-Commute Analysis)</div>
-        <p class="partner-base-desc">
-          Optional: Set your partner's workplace postcode or town to see their commute from each rotation's living base alongside yours.
-        </p>
-        <div class="modal-input-row">
-          <label for="partnerPostcodeInput" class="visually-hidden">Partner workplace postcode or town</label>
-          <input type="text" id="partnerPostcodeInput" placeholder="e.g. OX3 9DU, SO16 6YD, Manchester..." onkeydown="if(event.key === 'Enter') lookupPartnerPostcode();" style="flex:1;">
-          <button type="button" class="btn-top btn-export btn-find-action" onclick="lookupPartnerPostcode()">Find</button>
-        </div>
-        <div class="modal-button-group">
-          <button type="button" class="btn-top btn-sync" onclick="startMapPickPartnerBase()">Click on Map</button>
-          <button type="button" class="btn-top btn-sync btn-danger-text" onclick="clearPartnerWorkBase()">Clear Partner Pin</button>
-        </div>
-        <div id="partnerBaseStatusBox" class="base-status-box">
-          Partner Workplace: <b>None set</b>
-        </div>
-      </div>
-    </div>
-  </div>
-</dialog>
-
-<!-- Dialog 4: Data Sync / Transfer (JSON + File Import/Export) -->
-<dialog class="app-dialog" id="syncModal" closedby="any" aria-labelledby="syncModalHeading">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h1 id="syncModalHeading">Data Management &amp; Backup</h1>
-      <button type="button" class="btn-step" onclick="closeModal('syncModal')" aria-label="Close modal">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="sync-section">
-        <h2 class="sync-section-title">Export Hard Copy / Reference Sheet (Excel / CSV)</h2>
-        <p class="sync-section-desc">
-          Note: Oriel does not support direct CSV upload. Export as a hard copy for future reference, paper submission checking, or spreadsheet analysis.
-        </p>
-        <div class="sync-button-row">
-          <button type="button" class="btn-top btn-export sync-flex-btn" onclick="exportShortlistCSV()">Export Shortlist Reference</button>
-          <button type="button" class="btn-top btn-sync sync-flex-btn" onclick="exportPreferencesCSV()">Export All Reference CSV</button>
-        </div>
-      </div>
-
-      <div class="sync-section sync-section-divided">
-        <h2 class="sync-section-title">JSON Backup &amp; Restore</h2>
-        <div class="sync-button-row">
-          <button type="button" class="btn-save sync-flex-btn-save" onclick="downloadJsonBackup()">Download JSON File</button>
-          <button type="button" class="btn-save sync-flex-btn-upload" onclick="document.getElementById('backupFileInput').click()">Upload JSON File</button>
-          <input type="file" id="backupFileInput" accept=".json" style="display:none;" onchange="handleBackupFileUpload(event)">
-        </div>
-      </div>
-
-      <div class="sync-section-divided">
-        <h2 class="sync-section-title">Share with Partner</h2>
-        <div class="partner-share-box">
-          <div class="partner-share-title">Instant 1-Click Share Link</div>
-          <p class="partner-share-desc">
-            Send a single URL with your shortlisted ranks, custom base, and notes. No file download needed.
-          </p>
-          <button type="button" class="btn-top btn-sync btn-partner-link" onclick="generatePartnerShareLink()">Copy Partner Link</button>
-        </div>
-
-        <label for="syncJsonArea" class="sync-code-label">Or copy/paste the sync text code below:</label>
-        <textarea id="syncJsonArea" class="sync-json-textarea"></textarea>
-        <div class="sync-code-actions">
-          <button type="button" class="btn-save" style="margin-top:0;" onclick="copySyncData()">Copy Code</button>
-          <button type="button" class="btn-save sync-import-btn" onclick="importSyncData()">Import Code</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</dialog>
-
-<!-- Dialog 5: Hospital Ground Truth Profile Modal -->
-<dialog class="app-dialog app-dialog-profile" id="hospitalProfileModal" closedby="any" aria-labelledby="modalHospName">
-  <div class="modal-content" style="max-width:540px;">
-    <div class="modal-header">
-      <div class="hosp-modal-title-wrap">
-        <span class="badge badge-code" id="modalHospTypeIcon">Trust</span>
-        <div>
-          <h1 id="modalHospName" class="hosp-modal-heading">Hospital Name</h1>
-          <span id="modalHospRegionBadge" class="badge badge-code hosp-modal-region">Region</span>
-        </div>
-      </div>
-      <button type="button" class="btn-step" onclick="closeModal('hospitalProfileModal')" aria-label="Close modal">✕</button>
-    </div>
-    <div class="modal-body" id="modalHospBody" style="padding-top:8px;"></div>
-  </div>
-</dialog>
-
-<!-- Dialog 6: Reusable Accessible Confirmation Dialog -->
-<dialog class="app-dialog app-dialog-confirm" id="confirmDialog" closedby="closerequest" aria-labelledby="confirmDialogHeading" aria-describedby="confirmDialogMessage">
-  <div class="modal-content" style="max-width:440px;">
-    <div class="modal-header">
-      <h1 id="confirmDialogHeading">Confirm Action</h1>
-    </div>
-    <div class="modal-body">
-      <p id="confirmDialogMessage" class="confirm-dialog-message"></p>
-      <form method="dialog" class="confirm-dialog-actions">
-        <button type="submit" value="cancel" class="btn-top btn-sync" id="confirmDialogCancelBtn" autofocus>Cancel</button>
-        <button type="submit" value="confirm" class="btn-save" id="confirmDialogConfirmBtn">Confirm</button>
-      </form>
-    </div>
-  </div>
-</dialog>
-
-<!-- Hidden Print-Only Container for Clean A4 Shortlist Cheat Sheet -->
-<div id="printableShortlist" class="print-only"></div>
-
-<!-- Scripts (Synchronous Data Loading + Modular Application Engine) -->
-<script src="data.js"></script>
-<script src="data-ct1.js"></script>
-<script src="js/app.js"></script>
-<script>
-  // Progressive Web App - Service Worker Registration
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
-    });
-  }
-</script>
+      var remaining = 5;
+      var secEl = document.getElementById('seconds');
+      var timer = setInterval(function () {
+        remaining -= 1;
+        if (secEl && remaining >= 0) secEl.textContent = String(remaining);
+        if (remaining <= 0) {
+          clearInterval(timer);
+          window.location.replace(targetUrl);
+        }
+      }, 1000);
+    })();
+  </script>
 </body>
 </html>
