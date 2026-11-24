@@ -2202,3 +2202,22 @@ const REGION_COLORS = {
 window.HOSPITALS = HOSPITALS;
 window.REGION_COLORS = REGION_COLORS;
 window.ROTATIONS_DATA = ROTATIONS_DATA;
+
+window.PROGRAMME_DATASETS = window.PROGRAMME_DATASETS || {};
+window.PROGRAMME_DATASETS.st4 = {
+  id: "st4",
+  shortLabel: "ST4",
+  badgeLabel: "ST4 – ST7",
+  levelTitle: "Higher Specialty Training",
+  appTitle: "ST4 Anaesthetics National Rotation & Commute Explorer",
+  headerTitle: "ST4 Higher",
+  headerSubtitle: "National Oriel ST4–ST7 Rotations & Commute Analysis",
+  referenceNote: "Regional Anaesthesia Training Hospital (ST5–ST7 / reference site — no ST4 starting posts in this round).",
+  storagePrefix: "st4_",
+  cycleName: APP_CONFIG.cycleName,
+  defaultCenter: APP_CONFIG.defaultCenter,
+  defaultZoom: APP_CONFIG.defaultZoom,
+  hospitals: HOSPITALS,
+  rotations: ROTATIONS_DATA,
+  regionColors: REGION_COLORS
+};

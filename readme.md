@@ -1,6 +1,6 @@
-# ST4 Anaesthetics National Rotation & Commute Explorer
+# UK Anaesthetics CT1 & ST4 National Rotation & Commute Explorer
 
-An interactive, open-source web application designed to help UK Anaesthetics trainees and their partners visualise, compare, and rank ST4 training rotations from Oriel.
+An interactive, open-source web application designed to help UK Anaesthetics trainees and their partners visualise, compare, and rank **CT1** (Core / ACCS) and **ST4** (Higher Specialty) training rotations from Oriel.
 
 **Live Tool:** [https://samrowles.github.io/Anaesthetics-ST4-Rotation-Map/](https://samrowles.github.io/Anaesthetics-ST4-Rotation-Map/)
 
@@ -15,12 +15,12 @@ An interactive, open-source web application designed to help UK Anaesthetics tra
 - **Visual Balance Bar:** Two-tone progress bar in the rotation inspector and compact badge pills (`XX% Tert • YY% DGH`) on rotation feed cards.
 
 ### ℹ️ Hospital Trust Profiles
-- **Comprehensive National Dataset:** Profiles for 118 unique hospital bases in `HOSPITALS` across 78 rotation entries in `ROTATIONS_DATA`.
+- **Comprehensive National Datasets:** Profiles for **118** unique hospital bases across **78** ST4 rotations (`data.js`) and **103** unique hospital bases across **75** CT1 rotations (`data-ct1.js`).
   - 📋 **Electronic Patient Records (EPR):** System deployed (Epic, Cerner Millennium, CareFlow, Sunrise, Nervecentre, Meditech, Welsh Clinical Portal, etc.).
   - 🚗 **Doctor Parking Policies:** Barrier schemes, multi-storeys, staff permit rules, and Park & Ride options.
   - 🚆 **Rail & Transit Connections:** Nearest stations, walking times, and transit connections.
   - 🩺 **Specialist Clinical Services:** Major Trauma Centres, Cardiothoracic surgery, ECMO, Neuroanaesthesia, Regional Burns & Plastic surgery, and Paediatric ICUs.
-- **Interactive Intel Modal:** Accessible via hospital chips, map pins, or the national overview. Displays all ST4 rotations that include each hospital with one-click navigation.
+- **Interactive Intel Modal:** Accessible via hospital chips, map pins, or the national overview. Displays all rotations in the active programme (CT1 or ST4) that include each hospital with one-click navigation.
 
 ### 🌅 Realistic Shift Commute Modeling (07:30 & 18:00 Peak Traffic)
 - **Calibrated for Handover:** Commute calculations factor in UK doctor shift patterns:
@@ -62,28 +62,29 @@ An interactive, open-source web application designed to help UK Anaesthetics tra
 
 ## Automated Data Validation
 
-The repository includes an automated validation suite (`validate_data.py`) that checks `data.js` across 78 rotation entries in ROTATIONS_DATA and 118 unique hospital bases in HOSPITALS (reflecting the addition of Kent, Surrey and Sussex and expanded West Midlands schemes/reference hospitals) for:
+The repository includes an automated validation suite (`validate_data.py`) that checks both `data.js` (ST4: 78 rotation entries, 118 hospital bases, 323 stage references) and `data-ct1.js` (CT1: 75 rotation entries, 103 hospital bases, 230 stage references) for:
 - Non-empty rotation codes, titles, places, and placement stages (minimum 1 stage per rotation)
-- Unique rotation IDs
-- 100% stage-to-hospital dictionary mapping (323 stage references)
+- Unique rotation IDs within each dataset
+- 100% stage-to-hospital dictionary mapping
 - Valid UK geographical bounding coordinates (`49.0°N–61.5°N`, `-9.5°W–3.0°E`)
-- Schema completeness across all declared hospitals
+- Schema completeness across all declared hospitals and valid deanery colours
+- Proper `window.PROGRAMME_DATASETS` registration (`st4` and `ct1`) and IIFE global isolation in `data-ct1.js`
 - Valid Service Worker cache configuration (`sw.js`)
 
 To run checks locally:
 ```bash
-python validate_data.py
+python3 validate_data.py
 ```
 
 ---
 
 ## How to Edit or Update Data
 
-Rotation schemes and hospital trust metadata are cleanly separated in `data.js`:
-1. Open `data.js`.
+Rotation schemes and hospital trust metadata are separated into `data.js` (ST4) and `data-ct1.js` (CT1):
+1. Open `data.js` (for ST4) or `data-ct1.js` (for CT1).
 2. To update a hospital: edit its entry in the `HOSPITALS` dictionary.
 3. To update a rotation: edit the corresponding entry under `ROTATIONS_DATA`.
-4. Run `python validate_data.py` to confirm schema integrity before pushing.
+4. Run `python3 validate_data.py` to confirm schema integrity before pushing (and increment `CACHE_NAME` in `sw.js` whenever web assets change).
 
 ---
 

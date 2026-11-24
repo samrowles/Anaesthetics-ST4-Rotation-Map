@@ -1,25 +1,80 @@
 /**
  * ============================================================================
- * ST4 Anaesthetics National Rotation & Commute Explorer - Application Engine
+ * UK Anaesthetics National Rotation & Commute Explorer - Application Engine
  * ============================================================================
  */
 
-// 1. CONFIGURATION & DEFENSIVE DATA INTEGRITY CHECK
-const CONFIG = (typeof window !== 'undefined' && window.APP_CONFIG) || (typeof APP_CONFIG !== 'undefined' ? APP_CONFIG : {
-  storagePrefix: "st4_",
-  appTitle: "ST4 Anaesthetics National Rotation & Commute Explorer",
-  cycleName: "Aug 2026 / Feb 2027",
-  defaultCenter: [52.8, -1.8],
-  defaultZoom: 6
-});
-const STORAGE_PREFIX = CONFIG.storagePrefix || 'st4_';
+// 1. CONFIGURATION, MULTI-PROGRAMME REGISTRY & DEFENSIVE DATA INTEGRITY CHECK
 const THEME_KEY = 'anaesth_theme_pref';
-const DEFAULT_MAP_CENTER = CONFIG.defaultCenter || [52.8, -1.8];
-const DEFAULT_MAP_ZOOM = CONFIG.defaultZoom || 6;
+const REMEMBER_PROG_KEY = 'anaesth_remember_prog';
+const LAST_PROG_KEY = 'anaesth_last_prog';
 
-if (typeof ROTATIONS_DATA === 'undefined' || typeof HOSPITALS === 'undefined') {
-  alert("Error: data.js failed to load. Please verify that data.js is in the same directory as index.html.");
+function getAvailableDatasets() {
+  const datasets = (typeof window !== 'undefined' && window.PROGRAMME_DATASETS && typeof window.PROGRAMME_DATASETS === 'object')
+    ? { ...window.PROGRAMME_DATASETS }
+    : {};
+
+  if (!datasets.st4) {
+    const fallbackCfg = (typeof window !== 'undefined' && window.APP_CONFIG) || (typeof APP_CONFIG !== 'undefined' ? APP_CONFIG : {
+      storagePrefix: 'st4_',
+      appTitle: 'ST4 Anaesthetics National Rotation & Commute Explorer',
+      cycleName: 'Aug 2026 / Feb 2027',
+      defaultCenter: [52.8, -1.8],
+      defaultZoom: 6
+    });
+    const fallbackHosps = (typeof window !== 'undefined' && window.HOSPITALS) || (typeof HOSPITALS !== 'undefined' ? HOSPITALS : undefined);
+    const fallbackRots = (typeof window !== 'undefined' && window.ROTATIONS_DATA) || (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : undefined);
+    const fallbackRegColors = (typeof window !== 'undefined' && window.REGION_COLORS) || (typeof REGION_COLORS !== 'undefined' ? REGION_COLORS : {});
+    if (fallbackRots && fallbackHosps) {
+      datasets.st4 = {
+        id: 'st4',
+        shortLabel: 'ST4',
+        badgeLabel: 'ST4 – ST7',
+        levelTitle: 'Higher Specialty Training',
+        appTitle: fallbackCfg.appTitle || 'ST4 Anaesthetics National Rotation & Commute Explorer',
+        headerTitle: 'ST4 Higher',
+        headerSubtitle: 'National Oriel ST4–ST7 Rotations & Commute Analysis',
+        referenceNote: 'Regional Anaesthesia Training Hospital (ST5–ST7 / reference site — no ST4 starting posts in this round).',
+        storagePrefix: fallbackCfg.storagePrefix || 'st4_',
+        cycleName: fallbackCfg.cycleName || 'Aug 2026 / Feb 2027',
+        defaultCenter: fallbackCfg.defaultCenter || [52.8, -1.8],
+        defaultZoom: fallbackCfg.defaultZoom || 6,
+        hospitals: fallbackHosps,
+        rotations: fallbackRots,
+        regionColors: fallbackRegColors
+      };
+    }
+  }
+  return datasets;
+}
+
+function resolveDataset(progId) {
+  const datasets = getAvailableDatasets();
+  if (progId && datasets[progId]) return datasets[progId];
+  return datasets.st4 || datasets.ct1 || Object.values(datasets)[0] || null;
+}
+
+let activeProgramme = 'st4';
+let activeDataset = resolveDataset('st4');
+
+if (!activeDataset || !Array.isArray(activeDataset.rotations) || !activeDataset.hospitals) {
+  if (typeof alert === 'function') {
+    alert("Error: data.js failed to load. Please verify that data.js is in the same directory as index.html.");
+  }
   throw new Error("data.js failed to load");
+}
+
+activeProgramme = activeDataset.id || 'st4';
+let activeHospitals = activeDataset.hospitals;
+let activeRotations = activeDataset.rotations;
+let activeRegionColors = activeDataset.regionColors || {};
+let STORAGE_PREFIX = activeDataset.storagePrefix || `${activeProgramme}_`;
+let KNOWN_IDS = new Set(activeRotations.map(r => r.id));
+let DEFAULT_MAP_CENTER = activeDataset.defaultCenter || [52.8, -1.8];
+let DEFAULT_MAP_ZOOM = activeDataset.defaultZoom || 6;
+
+function prefersReducedMotion() {
+  return Boolean(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 }
 
 // 2. MATHEMATICAL & STRING UTILITIES
@@ -187,9 +242,7 @@ function safeGetStorageJson(key, defaultVal) {
   }
 }
 
-const KNOWN_IDS = new Set(
-  (typeof ROTATIONS_DATA !== 'undefined' && Array.isArray(ROTATIONS_DATA) ? ROTATIONS_DATA : []).map(r => r.id)
-);
+// KNOWN_IDS is dynamically maintained per active programme in applyDatasetBindings().
 const VALID_TIERS = ['TIER1', 'TIER2', 'TIER3', 'EXCLUDE', 'UNSET'];
 
 function normalizePref(p) {
@@ -213,7 +266,7 @@ function normalizeCustomBase(b) {
 function migrateLegacyStorage() {
   try {
     if (STORAGE_PREFIX === 'anaesth_' || safeStorage.get(`${STORAGE_PREFIX}migrated_v1`)) return;
-    ROTATIONS_DATA.forEach(r => {
+    activeRotations.forEach(r => {
       const oldPref = safeStorage.get(`anaesth_pref_${r.id}`);
       if (oldPref && !safeStorage.get(`${STORAGE_PREFIX}pref_${r.id}`)) {
         safeStorage.set(`${STORAGE_PREFIX}pref_${r.id}`, oldPref);
@@ -251,19 +304,27 @@ function getEffectiveTheme() {
 }
 
 function updateThemeButtonUI() {
-  const btn = document.getElementById('btnThemeToggle');
-  if (!btn) return;
+  const buttons = [
+    document.getElementById('btnThemeToggle'),
+    document.getElementById('btnLandingThemeToggle')
+  ].filter(Boolean);
+  if (!buttons.length) return;
+
+  const isDark = getEffectiveTheme() === 'dark';
+  let label = 'Light';
+  let title = 'Theme: Light Mode - Click to switch';
   if (currentThemeMode === 'auto') {
-    const isDark = getEffectiveTheme() === 'dark';
-    btn.innerHTML = `Auto`;
-    btn.title = `Theme: Auto (${isDark ? 'Dark' : 'Light'}) - Click to switch`;
+    label = 'Auto';
+    title = `Theme: Auto (${isDark ? 'Dark' : 'Light'}) - Click to switch`;
   } else if (currentThemeMode === 'dark') {
-    btn.innerHTML = `Dark`;
-    btn.title = `Theme: Dark Mode - Click to switch`;
-  } else {
-    btn.innerHTML = `Light`;
-    btn.title = `Theme: Light Mode - Click to switch`;
+    label = 'Dark';
+    title = 'Theme: Dark Mode - Click to switch';
   }
+
+  buttons.forEach(btn => {
+    btn.textContent = label;
+    btn.title = title;
+  });
 }
 
 function applyTheme() {
@@ -273,7 +334,7 @@ function applyTheme() {
 
   const metaTheme = document.getElementById('metaThemeColor');
   if (metaTheme) {
-    metaTheme.setAttribute('content', effective === 'dark' ? '#0f172a' : '#0284c7');
+    metaTheme.setAttribute('content', effective === 'dark' ? '#191918' : '#FAF9F5');
   }
 }
 
@@ -320,7 +381,7 @@ let activeQuickFilter = 'ALL';
 let activeRegionFilter = 'ALL';
 let currentSortMode = 'ALPHA_ASC';  // Default natural alphabetical order
 let currentSearchTerm = '';
-let currentFilteredList = [...ROTATIONS_DATA];
+let currentFilteredList = [...activeRotations];
 let overviewLinesMode = 'all'; // 'all', 'core', 'off'
 let currentActiveRating = 0;
 let searchDebounceTimer = null;
@@ -383,9 +444,21 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   if (!t) return;
   t.textContent = msg;
+  try {
+    if (typeof t.showPopover === 'function' && (!t.matches || !t.matches(':popover-open'))) {
+      t.showPopover();
+    }
+  } catch (e) {}
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+  toastTimer = setTimeout(() => {
+    t.classList.remove('show');
+    try {
+      if (typeof t.hidePopover === 'function' && (!t.matches || t.matches(':popover-open'))) {
+        t.hidePopover();
+      }
+    } catch (e) {}
+  }, 2400);
 }
 
 // 5b. IN-MEMORY STATE CACHE FOR PREFERENCES (Eliminates localStorage thrashing)
@@ -393,8 +466,8 @@ const userPrefsCache = new Map();
 
 function initUserPrefsCache() {
   userPrefsCache.clear();
-  if (typeof ROTATIONS_DATA !== 'undefined' && Array.isArray(ROTATIONS_DATA)) {
-    ROTATIONS_DATA.forEach(r => {
+  if (Array.isArray(activeRotations)) {
+    activeRotations.forEach(r => {
       let pref = null;
       try {
         const raw = safeStorage.get(`${STORAGE_PREFIX}pref_${r.id}`);
@@ -472,7 +545,7 @@ function insertIntoShortlistByTier(list, id) {
  * are no longer shortlisted and inserts newly shortlisted ones at the end of their tier group.
  */
 function syncShortlistOrder() {
-  const active = ROTATIONS_DATA.filter(r => isShortlisted(getUserData(r.id))).map(r => r.id);
+  const active = activeRotations.filter(r => isShortlisted(getUserData(r.id))).map(r => r.id);
   const activeSet = new Set(active);
   const ordered = (Array.isArray(shortlistOrder) ? shortlistOrder : []).filter((id, i, arr) => activeSet.has(id) && arr.indexOf(id) === i);
   active.forEach(id => {
@@ -487,8 +560,8 @@ function syncShortlistOrder() {
 
 // 6. ROTATION METRICS & DATA HELPERS
 function isPoolRotation(rot) {
-  if (!rot || !rot.isPool) return false;
-  return Boolean(Array.isArray(rot.stages) && rot.stages.length > 1);
+  return Boolean(rot && rot.isPool && Array.isArray(rot.stages) && rot.stages.length > 1) ||
+    Boolean(rot && Array.isArray(rot.stages) && rot.stages.length > 2 && rot.stages.every(s => s.stage === 'CT1 - CT3'));
 }
 
 function formatPlacesLabel(places, compact = false) {
@@ -577,7 +650,7 @@ function hslToHex(h, s, l) {
 
 function getGeographicPoolGroupsForRegion(region) {
   const naturalCompare = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare;
-  const regionPools = (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : [])
+  const regionPools = (Array.isArray(activeRotations) ? activeRotations : [])
     .filter(r => r.region === region && isPoolRotation(r))
     .slice()
     .sort((a, b) => naturalCompare(a.code || a.title, b.code || b.title));
@@ -611,7 +684,7 @@ function getGeographicPoolGroupsForRegion(region) {
 }
 
 function computeRotationLineStyle(rot) {
-  const regColor = (window.REGION_COLORS && window.REGION_COLORS[rot.region]) || (typeof REGION_COLORS !== 'undefined' ? REGION_COLORS[rot.region] : "#0284c7");
+  const regColor = (activeRegionColors && activeRegionColors[rot.region]) || (typeof window !== 'undefined' && window.REGION_COLORS && window.REGION_COLORS[rot.region]) || "#0284c7";
   if (isPoolRotation(rot)) {
     const poolGroups = getGeographicPoolGroupsForRegion(rot.region);
     const numGroups = poolGroups.length;
@@ -632,7 +705,7 @@ function computeRotationLineStyle(rot) {
       isDashed: true
     };
   }
-  const regionRots = (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : []).filter(r => r.region === rot.region && !isPoolRotation(r));
+  const regionRots = (Array.isArray(activeRotations) ? activeRotations : []).filter(r => r.region === rot.region && !isPoolRotation(r));
 
   // Determine starting hospital in this region to shift color temperature
   const startHosp = (rot.stages && rot.stages[0] && rot.stages[0].hosp) || '';
@@ -688,42 +761,98 @@ function computeRotationTrainingSplit(rot) {
   let tertiaryCount = 0;
   let dghCount = 0;
 
-  rot.stages.forEach(stg => {
-    const h = HOSPITALS[stg.hosp];
-    const isTertiary = h && h.type === 'Tertiary';
-    let months = 6;
-    const stageText = String(stg.stage || '');
-    const descText = String(stg.desc || '');
-    const stgMonthMatch = stageText.match(/\b(\d+)\s*(?:m|mo|mths?|months?)\b/i);
-    const stgYearMatch = stageText.match(/\b(\d+)\s*(?:yr|yrs|years?)\b/i);
-    if (stgMonthMatch) {
-      const parsed = parseInt(stgMonthMatch[1], 10);
-      if (parsed > 0 && parsed <= 48) months = parsed;
-    } else if (stgYearMatch) {
-      const parsed = parseInt(stgYearMatch[1], 10) * 12;
-      if (parsed > 0 && parsed <= 48) months = parsed;
-    } else {
-      const descMonthMatches = Array.from(descText.matchAll(/\b(\d+)\s*(?:m|mo|mths?|months?)\b/gi));
-      if (descMonthMatches.length > 0) {
-        const sum = descMonthMatches.reduce((acc, m) => acc + (parseInt(m[1], 10) || 0), 0);
-        if (sum > 0 && sum <= 48) months = sum;
+  if (isPoolRotation(rot)) {
+    const bases = computeRotationHospitalBases(rot);
+    bases.forEach(hName => {
+      const h = activeHospitals[hName];
+      if (h && h.type === 'Tertiary') {
+        tertiaryWeight += 1;
+        tertiaryCount++;
       } else {
-        const descYearMatch = descText.match(/\b(\d+)\s*(?:yr|yrs|years?)\b/i);
-        if (descYearMatch) {
-          const parsed = parseInt(descYearMatch[1], 10) * 12;
-          if (parsed > 0 && parsed <= 48) months = parsed;
+        dghWeight += 1;
+        dghCount++;
+      }
+    });
+  } else {
+    const monthNames = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+    const stageLabelCounts = new Map();
+    rot.stages.forEach(s => {
+      const label = String(s.stage || '').trim();
+      stageLabelCounts.set(label, (stageLabelCounts.get(label) || 0) + 1);
+    });
+
+    rot.stages.forEach(stg => {
+      const h = activeHospitals[stg.hosp];
+      const isTertiary = h && h.type === 'Tertiary';
+      let months = 6;
+      const stageText = String(stg.stage || '').trim();
+      const descText = String(stg.desc || '');
+
+      const stgMonthMatch = stageText.match(/\b(\d+)\s*(?:m|mo|mths?|months?)\b/i);
+      const stgYearMatch = stageText.match(/\b(\d+)\s*(?:yr|yrs|years?)\b/i);
+      const spanMatch = stageText.match(/\b(?:ST|CT)\s*([1-7])\s*(?:[-–]|to)\s*(?:ST|CT)?\s*([1-7])\b/i);
+      const slashMatch = stageText.match(/\b(ST|CT)\s*([1-7])\s*\/\s*(?:ST|CT)?\s*([1-7])\b/i);
+      const calMatch = stageText.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s*[-–]?\s*(\d{2})\s*[-–]\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s*[-–]?\s*(\d{2})\b/i);
+      const singleGradeMatch = stageText.match(/^(?:ST([4-7])|CT([1-3]))\b/i);
+
+      if (stgMonthMatch) {
+        const parsed = parseInt(stgMonthMatch[1], 10);
+        if (parsed > 0 && parsed <= 48) months = parsed;
+      } else if (stgYearMatch) {
+        const parsed = parseInt(stgYearMatch[1], 10) * 12;
+        if (parsed > 0 && parsed <= 48) months = parsed;
+      } else if (spanMatch) {
+        const start = parseInt(spanMatch[1], 10);
+        const end = parseInt(spanMatch[2], 10);
+        if (end >= start) months = (end - start + 1) * 12;
+      } else if (slashMatch) {
+        const prefix = slashMatch[1].toUpperCase();
+        const g1 = slashMatch[2];
+        const g2 = slashMatch[3];
+        const gradeRegex = new RegExp(`\\b${prefix}\\s*(?:${g1}|${g2})\\b`, 'i');
+        const hasOtherStage = rot.stages.some(other => other !== stg && gradeRegex.test(String(other.stage || '')));
+        months = hasOtherStage ? 6 : 12;
+      } else if (calMatch) {
+        const m1 = monthNames[calMatch[1].toLowerCase()];
+        const y1 = parseInt(calMatch[2], 10);
+        const m2 = monthNames[calMatch[3].toLowerCase()];
+        const y2 = parseInt(calMatch[4], 10);
+        const diff = (y2 - y1) * 12 + (m2 - m1);
+        if (diff > 0 && diff <= 48) months = diff;
+      } else if (singleGradeMatch) {
+        const gradeToken = singleGradeMatch[0].toUpperCase();
+        const gradeRegex = new RegExp(`\\b${gradeToken}\\b`, 'i');
+        const occurrences = rot.stages.filter(other => gradeRegex.test(String(other.stage || ''))).length;
+        months = occurrences === 1 ? 12 : 6;
+      } else {
+        const descMonthMatches = Array.from(descText.matchAll(/\b(\d+)\s*(?:m|mo|mths?|months?)\b/gi));
+        if (descMonthMatches.length > 0) {
+          const sum = descMonthMatches.reduce((acc, m) => acc + (parseInt(m[1], 10) || 0), 0);
+          if (sum > 0 && sum <= 48) months = sum;
+        } else {
+          const descYearMatch = descText.match(/\b(\d+)\s*(?:yr|yrs|years?)\b/i);
+          if (descYearMatch) {
+            const parsed = parseInt(descYearMatch[1], 10) * 12;
+            if (parsed > 0 && parsed <= 48) months = parsed;
+          }
         }
       }
-    }
 
-    if (isTertiary) {
-      tertiaryWeight += months;
-      tertiaryCount++;
-    } else {
-      dghWeight += months;
-      dghCount++;
-    }
-  });
+      // Prevent trust-alternative rows with identical year/multi-year labels from double-counting
+      const dupCount = stageLabelCounts.get(stageText) || 1;
+      if (dupCount > 1 && months >= 12) {
+        months = months / dupCount;
+      }
+
+      if (isTertiary) {
+        tertiaryWeight += months;
+        tertiaryCount++;
+      } else {
+        dghWeight += months;
+        dghCount++;
+      }
+    });
+  }
 
   const total = tertiaryWeight + dghWeight;
   if (total === 0) return { tertiary: 50, dgh: 50, tertiaryCount: 0, dghCount: 0 };
@@ -744,8 +873,8 @@ function computeRotationTrainingSplit(rot) {
  */
 function computeIntrinsicSpread(rot) {
   if (!rot || !rot.stages || !Array.isArray(rot.stages) || rot.stages.length < 2) return 0;
-  if (typeof HOSPITALS === 'undefined') return 0;
-  const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
+  if (!activeHospitals) return 0;
+  const coords = rot.stages.map(s => activeHospitals[s.hosp] ? activeHospitals[s.hosp].coords : null).filter(Boolean);
   if (coords.length < 2) return 0;
 
   let maxDist = 0;
@@ -763,14 +892,14 @@ function computeIntrinsicSpread(rot) {
  * Runs once over ROTATIONS_DATA and attaches immutable metadata to rot._meta.
  */
 function initRotationMetadata() {
-  if (typeof ROTATIONS_DATA === 'undefined' || !Array.isArray(ROTATIONS_DATA)) return;
+  if (!Array.isArray(activeRotations)) return;
 
   const naturalCompare = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare;
-  ROTATIONS_DATA.sort((a, b) => naturalCompare(a.code || a.title, b.code || b.title));
+  activeRotations.sort((a, b) => naturalCompare(a.code || a.title, b.code || b.title));
 
   hospitalRotationsMap.clear();
-  if (typeof HOSPITALS !== 'undefined') {
-    Object.keys(HOSPITALS).forEach(hName => {
+  if (activeHospitals) {
+    Object.keys(activeHospitals).forEach(hName => {
       hospitalRotationsMap.set(hName, []);
     });
   }
@@ -781,7 +910,7 @@ function initRotationMetadata() {
     filteredListCategoricalCache = { ref: null, map: null };
   }
 
-  ROTATIONS_DATA.forEach(rot => {
+  activeRotations.forEach(rot => {
     (rot.stages || []).forEach(stg => {
       if (stg.hosp) {
         if (!hospitalRotationsMap.has(stg.hosp)) {
@@ -824,9 +953,9 @@ function initRotationMetadata() {
     };
   });
 
-  currentFilteredList = [...ROTATIONS_DATA];
+  currentFilteredList = [...activeRotations];
   const countBadge = document.getElementById('listCountBadge');
-  if (countBadge) countBadge.textContent = ROTATIONS_DATA.length;
+  if (countBadge) countBadge.textContent = activeRotations.length;
 }
 
 function getRotationHospitalBases(rot) {
@@ -891,7 +1020,7 @@ function getRotationLineStyle(rot) {
       const region = rot.region || activeRegionFilter;
       styleMap = regionCategoricalStyleCache.get(region);
       if (!styleMap) {
-        const targetList = (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : []).filter(r => r.region === region && !isPoolRotation(r));
+        const targetList = (Array.isArray(activeRotations) ? activeRotations : []).filter(r => r.region === region && !isPoolRotation(r));
         styleMap = buildCategoricalStylesMap(targetList);
         regionCategoricalStyleCache.set(region, styleMap);
       }
@@ -933,7 +1062,7 @@ function getOverviewStages(rot, mode = overviewLinesMode) {
       if (idx === 0 || s.hosp === startHosp) return false; // Never filter the rotation's primary anchor hospital
       const fullText = `${s.stage || ''} ${s.desc || ''}`;
       const is3m = /\b3\s*m(?:onths?)?\b/i.test(fullText);
-      const hosp = HOSPITALS[s.hosp];
+      const hosp = activeHospitals[s.hosp];
       const isTertiary = hosp && hosp.type === 'Tertiary';
       const isSubspecialtyBlock = /\b(neuro\w*|cardiac|cardiothorac\w*|paed\w*|ophthalm\w*|burns|plastics|trauma\s+module|module)\b/i.test(fullText) ||
                                   /\b(papworth|barts|queen square|brompton|walton|moorfields|stanmore)\b/i.test(s.hosp || '');
@@ -956,9 +1085,9 @@ function buildCorridorUsageRegistry(rotationsList) {
     for (let i = 0; i < stages.length - 1; i++) {
       const h1 = stages[i].hosp;
       const h2 = stages[i + 1].hosp;
-      if (h1 && h2 && h1 !== h2 && HOSPITALS[h1] && HOSPITALS[h2]) {
+      if (h1 && h2 && h1 !== h2 && activeHospitals[h1] && activeHospitals[h2]) {
         // Skip tiny intra-campus micro-segments (< 0.6 miles) on the National Overview map
-        const d = calcDistanceMiles(HOSPITALS[h1].coords, HOSPITALS[h2].coords);
+        const d = calcDistanceMiles(activeHospitals[h1].coords, activeHospitals[h2].coords);
         if (d < 0.6) continue;
 
         // Deduplicate undirected stage transitions within each rotation
@@ -1021,13 +1150,13 @@ function generatePoolSpokeSegments(rot) {
   if (!rot || !rot.stages) return [];
   const bases = getRotationHospitalBases(rot);
   if (bases.length < 2) return [];
-  const anchorHosp = bases.find(h => HOSPITALS[h] && HOSPITALS[h].type === 'Tertiary') || bases[0];
-  const anchorCoords = HOSPITALS[anchorHosp] && HOSPITALS[anchorHosp].coords;
+  const anchorHosp = bases.find(h => activeHospitals[h] && activeHospitals[h].type === 'Tertiary') || bases[0];
+  const anchorCoords = activeHospitals[anchorHosp] && activeHospitals[anchorHosp].coords;
   if (!anchorCoords) return [];
   const segments = [];
   bases.forEach(hName => {
     if (hName === anchorHosp) return;
-    const hCoords = HOSPITALS[hName] && HOSPITALS[hName].coords;
+    const hCoords = activeHospitals[hName] && activeHospitals[hName].coords;
     if (!hCoords) return;
     const dist = calcDistanceMiles(anchorCoords, hCoords);
     if (dist < 0.3) return;
@@ -1044,10 +1173,10 @@ function generateRotationCurvedPath(rot, corridorRegistry) {
   for (let i = 0; i < stages.length - 1; i++) {
     const h1 = stages[i].hosp;
     const h2 = stages[i + 1].hosp;
-    if (!h1 || !h2 || h1 === h2 || !HOSPITALS[h1] || !HOSPITALS[h2]) continue;
+    if (!h1 || !h2 || h1 === h2 || !activeHospitals[h1] || !activeHospitals[h2]) continue;
 
-    const coord1 = HOSPITALS[h1].coords;
-    const coord2 = HOSPITALS[h2].coords;
+    const coord1 = activeHospitals[h1].coords;
+    const coord2 = activeHospitals[h2].coords;
     if (!coord1 || !coord2) continue;
 
     // Skip tiny intra-campus micro-segments (< 0.6 miles, e.g. Addenbrooke's <-> Royal Papworth)
@@ -1088,7 +1217,7 @@ function highlightOverviewTrack(rotId) {
 
   hoverHighlightGroup.clearLayers();
 
-  const rot = (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : []).find(r => r.id === rotId);
+  const rot = (Array.isArray(activeRotations) ? activeRotations : []).find(r => r.id === rotId);
   const entry = overviewPolylinesMap[rotId];
 
   if (rot && rot.stages) {
@@ -1151,7 +1280,7 @@ function highlightOverviewTrack(rotId) {
       const bases = getRotationHospitalBases(rot);
       const poolColor = getRotationLineStyle(rot).color;
       bases.forEach(hName => {
-        const hosp = HOSPITALS[hName];
+        const hosp = activeHospitals[hName];
         if (!hosp || !hosp.coords) return;
         const isTertiary = hosp.type === 'Tertiary';
         const badgeText = isTertiary ? 'T' : 'H';
@@ -1172,13 +1301,13 @@ function highlightOverviewTrack(rotId) {
     } else {
       const hospStagesMap = new Map();
       rot.stages.forEach((stg, idx) => {
-        if (!stg.hosp || !HOSPITALS[stg.hosp]) return;
+        if (!stg.hosp || !activeHospitals[stg.hosp]) return;
         if (!hospStagesMap.has(stg.hosp)) hospStagesMap.set(stg.hosp, []);
         hospStagesMap.get(stg.hosp).push(idx + 1);
       });
 
       hospStagesMap.forEach((nums, hName) => {
-        const hosp = HOSPITALS[hName];
+        const hosp = activeHospitals[hName];
         if (!hosp || !hosp.coords) return;
 
         const numStr = nums.join(',');
@@ -1204,7 +1333,7 @@ function highlightOverviewTrack(rotId) {
   if (card) {
     card.classList.add('map-highlighted-card');
     if (currentViewMode === 'list') {
-      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      card.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'nearest' });
     }
   }
 }
@@ -1235,38 +1364,16 @@ function resetOverviewTrackHighlights() {
 
 function getRotationMaxDistance(rot) {
   if (!rot || !rot.stages) return 0;
-  if (rot._meta && typeof rot._meta.intrinsicSpread === 'number' && rot._meta.intrinsicSpread > 0) {
+  if (getRotationHospitalBases(rot).length <= 1) return 0;
+  if (rot._meta && typeof rot._meta.intrinsicSpread === 'number') {
     return rot._meta.intrinsicSpread;
   }
-
-  const intrinsicSpread = (rot._meta && typeof rot._meta.intrinsicSpread === 'number')
-    ? rot._meta.intrinsicSpread
-    : computeIntrinsicSpread(rot);
-
-  if (intrinsicSpread > 0) {
-    return intrinsicSpread;
-  }
-
-  // Single-site scheme fallback: calculate commute distance to living base
-  if (typeof HOSPITALS === 'undefined') return 1;
-  const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
-  if (!coords.length) return 0;
-
-  let hubCoords = null;
-  if (currentCommuteMode === 'transit' && rot.hubs && rot.hubs.transit && rot.hubs.transit.coords) {
-    hubCoords = rot.hubs.transit.coords;
-  } else if (rot.hubs && rot.hubs.driver && rot.hubs.driver.coords) {
-    hubCoords = rot.hubs.driver.coords;
-  }
-  if (hubCoords) {
-    return Math.max(1, calcDistanceMiles(hubCoords, coords[0]));
-  }
-  return 1;
+  return computeIntrinsicSpread(rot);
 }
 
 function getRotationMaxCommuteFromBase(rot) {
   if (!rot || !rot.stages) return 0;
-  const coords = rot.stages.map(s => HOSPITALS[s.hosp] ? HOSPITALS[s.hosp].coords : null).filter(Boolean);
+  const coords = rot.stages.map(s => activeHospitals[s.hosp] ? activeHospitals[s.hosp].coords : null).filter(Boolean);
   if (!coords.length) return 0;
 
   let baseCoords = null;
@@ -1336,7 +1443,7 @@ function getPartnerCommuteSummary(rot, timing = currentShiftTiming) {
 function updateShortlistBadge() {
   const badge = document.getElementById('headerShortlistBadge');
   if (!badge) return;
-  const count = ROTATIONS_DATA.filter(r => isShortlisted(getUserData(r.id))).length;
+  const count = activeRotations.filter(r => isShortlisted(getUserData(r.id))).length;
   badge.textContent = count;
 }
 
@@ -1375,11 +1482,11 @@ function populateRegionDropdown() {
   const regSelect = document.getElementById('regionFilter');
   if (!regSelect) return;
   const regionCounts = {};
-  ROTATIONS_DATA.forEach(r => {
+  activeRotations.forEach(r => {
     regionCounts[r.region] = (regionCounts[r.region] || 0) + 1;
   });
 
-  let html = `<option value="ALL">All Regions (${ROTATIONS_DATA.length} Rotations)</option>`;
+  let html = `<option value="ALL">All Regions (${activeRotations.length} Rotations)</option>`;
   Object.keys(regionCounts).sort().forEach(reg => {
     html += `<option value="${escapeHtml(reg)}">${escapeHtml(reg)} (${regionCounts[reg]})</option>`;
   });
@@ -1449,7 +1556,20 @@ function toggleCommuteOverlay(forceState = null) {
   }
 }
 
-function switchInspectorTab(tabKey) {
+function fitMapToPoints(points, maxZoom = 12) {
+  if (!Array.isArray(points) || points.length === 0) return;
+  try { map.stop(); } catch (e) {}
+  const animate = !(typeof prefersReducedMotion === 'function' && prefersReducedMotion());
+  const bounds = L.latLngBounds(points);
+  if (!bounds.isValid()) return;
+  if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
+    map.setView(bounds.getCenter(), maxZoom, { animate });
+  } else {
+    map.fitBounds(bounds, { padding: [60, 60], maxZoom, animate });
+  }
+}
+
+function switchInspectorTab(tabKey, { fitMap = true } = {}) {
   currentInspectorTab = tabKey;
   const tabMap = {
     'placements': { btn: 'tabBtnPlacements', pane: 'tabPanePlacements' },
@@ -1464,6 +1584,7 @@ function switchInspectorTab(tabKey) {
     if (btn) {
       btn.classList.toggle('active', isActive);
       btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      btn.setAttribute('tabindex', isActive ? '0' : '-1');
     }
     if (pane) pane.classList.toggle('active', isActive);
   });
@@ -1510,11 +1631,11 @@ function switchInspectorTab(tabKey) {
         }
       }
     }
-    const boundsPoints = (shouldShowBase && currentActiveHubCoords)
-      ? [...currentPlottedHospitalPoints, currentActiveHubCoords, ...(partnerWorkBase && partnerWorkBase.coords ? [partnerWorkBase.coords] : [])]
-      : [...currentPlottedHospitalPoints];
-    if (boundsPoints.length > 0) {
-      map.fitBounds(L.latLngBounds(boundsPoints), { padding: [60, 60], maxZoom: 12 });
+    if (fitMap) {
+      const boundsPoints = (shouldShowBase && currentActiveHubCoords)
+        ? [...currentPlottedHospitalPoints, currentActiveHubCoords, ...(partnerWorkBase && partnerWorkBase.coords ? [partnerWorkBase.coords] : [])]
+        : [...currentPlottedHospitalPoints];
+      fitMapToPoints(boundsPoints, 12);
     }
   }
 }
@@ -1583,23 +1704,14 @@ function renderRotationCardsFeed(list) {
       `;
     }
 
-    const card = document.createElement('div');
+    const card = document.createElement('article');
     const isExcluded = userData.tier === 'EXCLUDE';
     card.className = `rotation-list-card ${isSelected ? 'active-card' : ''} ${isExcluded ? 'excluded-card' : ''}`.trim();
     card.id = `feed-card-${r.id}`;
-    card.tabIndex = 0;
-    card.setAttribute('role', 'button');
-    card.setAttribute('aria-label', `${r.code}: ${r.title}`);
     card.onclick = (e) => {
-      if (e.target.closest('button')) return;
+      if (e.target.closest('button, a')) return;
       openDetailsForRotation(r.id);
     };
-    card.addEventListener('keydown', (e) => {
-      if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('button')) {
-        e.preventDefault();
-        openDetailsForRotation(r.id);
-      }
-    });
 
     const lineStyle = getRotationLineStyle(r);
     const swatchHtml = isPool ? `
@@ -1620,11 +1732,13 @@ function renderRotationCardsFeed(list) {
     card.addEventListener('mouseleave', () => {
       resetOverviewTrackHighlights();
     });
-    card.addEventListener('focus', () => {
+    card.addEventListener('focusin', () => {
       highlightOverviewTrack(r.id);
     });
-    card.addEventListener('blur', () => {
-      resetOverviewTrackHighlights();
+    card.addEventListener('focusout', (e) => {
+      if (!card.contains(e.relatedTarget)) {
+        resetOverviewTrackHighlights();
+      }
     });
 
     const quickStarsHtml = `<div class="card-quick-stars" role="group" aria-label="Quick star rating">${[1, 2, 3, 4, 5].map(n => `<button type="button" class="card-quick-star ${n <= userData.rating ? 'active' : ''}" data-action="quick-card-rate" data-id="${r.id}" data-rating="${n}" title="Rate ${n} star${n > 1 ? 's' : ''}">${n <= userData.rating ? '★' : '☆'}</button>`).join('')}</div>`;
@@ -1642,9 +1756,11 @@ function renderRotationCardsFeed(list) {
 
     const showCommuteDetails = showCommuteOverlay || (currentCommuteMode === 'custom' && customHomeBase);
 
+    const modeTravelLabel = currentCommuteMode === 'transit' ? 'travel' : 'drive';
+    const spreadLabelText = commute.maxDist === 0 ? 'Single site' : `${commute.maxDist} mi span`;
     const commuteBadgeHtml = showCommuteDetails
-      ? `<span class="badge ${commute.badgeClass}" title="Estimated drive time at ${commute.timingShort}">${commute.commuteDist} mi (~${commute.activeMins}m @ ${commute.timingShort})</span>`
-      : `<span class="badge ${commute.badgeClass}" title="Hospital footprint spread">${commute.maxDist} mi span</span>`;
+      ? `<span class="badge ${commute.badgeClass}" title="Estimated ${modeTravelLabel} time at ${commute.timingShort}">${commute.commuteDist} mi (~${commute.activeMins}m @ ${commute.timingShort})</span>`
+      : `<span class="badge ${commute.badgeClass}" title="Hospital footprint spread">${spreadLabelText}</span>`;
 
     const bottomRowHtml = showCommuteDetails ? `
       <div class="card-list-hub">
@@ -1666,7 +1782,7 @@ function renderRotationCardsFeed(list) {
 
     card.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
-        <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
+        <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap; min-width:0; flex:1;">
           <span class="badge badge-code">${escapeHtml(r.code)}</span>
           <span class="badge badge-places">${escapeHtml(formatPlacesLabel(r.places, false))}</span>
           ${swatchHtml}
@@ -1675,14 +1791,14 @@ function renderRotationCardsFeed(list) {
           ${tierBadgeHtml}
           ${partnerBadgeHtml}
         </div>
-        <div style="display:flex; align-items:center; gap:5px;">
+        <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
           <button class="btn-compare-action ${isComparing ? 'in-compare' : ''}" data-action="toggle-compare-card" data-id="${r.id}" title="Compare rotation">
             ${isComparing ? 'In Compare' : 'Compare'}
           </button>
           ${commuteBadgeHtml}
         </div>
       </div>
-      <div class="card-list-title">${escapeHtml(r.title)}</div>
+      <h3 class="card-list-heading"><button type="button" class="card-title-btn" data-action="open-rotation-details" data-id="${escapeHtml(r.id)}">${escapeHtml(r.title)}</button></h3>
       ${flowHtml}
       ${bottomRowHtml}
     `;
@@ -1716,6 +1832,7 @@ function setTier(tierVal) {
 
   updateTierButtons(nextTier);
   updateShortlistBadge();
+  updateLandingStatsAndBadges();
   applyFiltersAndSearch();
   showToast(`Tier updated: ${nextTier}`);
 }
@@ -1755,6 +1872,7 @@ function saveUserPreferences() {
   syncShortlistOrder();
 
   updateShortlistBadge();
+  updateLandingStatsAndBadges();
   applyFiltersAndSearch();
   if (prefSelect) prefSelect.value = currentSelectedId;
   showToast("Saved to browser");
@@ -1809,6 +1927,7 @@ function setRating(val, isClick = false) {
     setUserData(currentSelectedId, { rating: val });
     syncShortlistOrder();
     updateShortlistBadge();
+    updateLandingStatsAndBadges();
     applyFiltersAndSearch({ redrawMap: activeQuickFilter === 'STARRED' });
     showToast(val > 0 ? `Rated ${val}★` : "Rating cleared");
   }
@@ -1834,7 +1953,7 @@ function showListView({ fitView = false } = {}) {
   if (currentSelectedId) {
     setTimeout(() => {
       const card = document.getElementById(`feed-card-${currentSelectedId}`);
-      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (card) card.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'nearest' });
     }, 50);
   }
   renderAllPlacements({ fitView });
@@ -1848,10 +1967,9 @@ function dismissTipBanner() {
 }
 
 function checkTipBannerStatus() {
-  if (safeStorage.get(`${STORAGE_PREFIX}tip_dismissed`) === 'true') {
-    const banner = document.getElementById('appTipBanner');
-    if (banner) banner.style.display = 'none';
-  }
+  const banner = document.getElementById('appTipBanner');
+  if (!banner) return;
+  banner.style.display = safeStorage.get(`${STORAGE_PREFIX}tip_dismissed`) === 'true' ? 'none' : 'flex';
 }
 
 function setViewMode(mode) {
@@ -1863,7 +1981,7 @@ function setViewMode(mode) {
     if (inspectorCard) inspectorCard.style.display = 'block';
     if (!currentSelectedId) {
       const prefSelect = document.getElementById('prefSelect');
-      const firstId = (prefSelect && prefSelect.value) || (ROTATIONS_DATA[0] && ROTATIONS_DATA[0].id);
+      const firstId = (prefSelect && prefSelect.value) || (activeRotations[0] && activeRotations[0].id);
       if (firstId) selectRotation(firstId, false);
     }
   } else {
@@ -1970,15 +2088,19 @@ function stepRotation(direction) {
   const nextCard = document.getElementById(`feed-card-${nextId}`);
   if (nextCard) {
     nextCard.classList.add('active-card');
-    nextCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    nextCard.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'nearest' });
   }
 }
 
 function focusHospitalByName(hospName) {
   if (!hospName) return;
-  const h = HOSPITALS[hospName];
+  const h = activeHospitals[hospName];
   if (h) {
-    map.flyTo(h.coords, 13, { duration: 1.0 });
+    if (prefersReducedMotion()) {
+      map.setView(h.coords, 13);
+    } else {
+      map.flyTo(h.coords, 13, { duration: 1.0 });
+    }
     if (activeHospitalMarkers[hospName]) {
       setTimeout(() => {
         activeHospitalMarkers[hospName].openPopup();
@@ -1996,7 +2118,7 @@ function focusHospitalByName(hospName) {
  * Opens Ground Truth Intel Profile Modal for a specific hospital.
  */
 function openHospitalProfile(hospName) {
-  const h = HOSPITALS[hospName];
+  const h = activeHospitals[hospName];
   if (!h) return;
 
   const modal = document.getElementById('hospitalProfileModal');
@@ -2019,7 +2141,7 @@ function openHospitalProfile(hospName) {
     <div class="hosp-profile-summary">
       <b>${isTertiary ? 'Tertiary / Specialist Teaching Hospital' : 'District General Hospital (DGH)'}</b>
       <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
-        Key clinical training base in ${escapeHtml(h.region)}. Included in <b>${linked.length}</b> ST4 rotation schemes.
+        Key clinical training base in ${escapeHtml(h.region)}. Included in <b>${linked.length}</b> ${escapeHtml(activeDataset.shortLabel)} rotation schemes.
       </div>
     </div>
 
@@ -2053,7 +2175,7 @@ function openHospitalProfile(hospName) {
           `).join('')}
         </div>
       ` : `
-        <div style="font-size:0.74rem; color:var(--text-muted); font-style:italic;">Reference regional training hospital (ST5–ST7 rotations TBC / no direct ST4 starting post in this Oriel window).</div>
+        <div style="font-size:0.74rem; color:var(--text-muted); font-style:italic;">${escapeHtml(activeDataset.referenceNote || 'Reference regional training hospital.')}</div>
       `}
     </div>
   `;
@@ -2062,8 +2184,10 @@ function openHospitalProfile(hospName) {
 }
 
 function copyDirectShareLink() {
-  const base = window.location.href.split('#')[0];
-  const url = base + '#' + currentSelectedId;
+  const urlObj = new URL(window.location.href);
+  urlObj.searchParams.set('prog', activeProgramme);
+  urlObj.hash = currentSelectedId ? `#${currentSelectedId}` : '';
+  const url = urlObj.toString();
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(url)
       .then(() => showToast("Direct link copied!"))
@@ -2096,13 +2220,13 @@ function selectRotation(id, shouldCloseMobile = false) {
   const inspectorCard = document.getElementById('inspectorCard');
   if (inspectorCard) inspectorCard.style.display = 'block';
 
-  const rot = ROTATIONS_DATA.find(r => r.id === id);
+  const rot = activeRotations.find(r => r.id === id);
   if (!rot) return;
 
   const isPool = isPoolRotation(rot);
 
   // Maintain active tab or default to Placements
-  switchInspectorTab(currentInspectorTab || 'placements');
+  switchInspectorTab(currentInspectorTab || 'placements', { fitMap: false });
 
   activeRouteGroup.clearLayers();
   backgroundHospitalsGroup.clearLayers();
@@ -2187,7 +2311,7 @@ function selectRotation(id, shouldCloseMobile = false) {
   const fragHosp = document.createDocumentFragment();
 
   uniqueHospBases.forEach(hName => {
-    const hData = HOSPITALS[hName];
+    const hData = activeHospitals[hName];
     const isTertiary = hData && hData.type === 'Tertiary';
     const chip = document.createElement('div');
     chip.className = "hospital-chip-item";
@@ -2262,14 +2386,14 @@ function selectRotation(id, shouldCloseMobile = false) {
           <span class="commute-time-pill ${pTimeClass}" title="07:30: ~${pCommute.mornMins}m | 18:00: ~${pCommute.eveMins}m">
             ${pCommute.dist} mi (~${pCommute.mornMins}m morn · ~${pCommute.eveMins}m eve)
           </span>
-          <a href="https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=driving" target="_blank" style="font-size:0.68rem; color:var(--primary); text-decoration:none;" title="Verify partner route in Google Maps">Directions &rarr;</a>
+          <a href="https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=${currentCommuteMode === 'transit' ? 'transit' : 'driving'}" target="_blank" rel="noopener noreferrer" style="font-size:0.68rem; color:var(--primary); text-decoration:none;" title="Verify partner route in Google Maps">Directions &rarr;</a>
         </div>
       `;
       fragMatrix.appendChild(pRow);
     }
 
     uniqueHospBases.forEach(hName => {
-      const hData = HOSPITALS[hName];
+      const hData = activeHospitals[hName];
       if (hData && activeHubCoords) {
         const dist = calcDistanceMiles(activeHubCoords, hData.coords);
         const reg = rot.region || (hData ? hData.region : '');
@@ -2299,7 +2423,7 @@ function selectRotation(id, shouldCloseMobile = false) {
             <span class="commute-time-pill ${timeClass}" title="07:30 handover: ~${mornMins}m | 18:00 rush: ~${eveMins}m">
               ${dist} mi (~${mornMins}m morn · ~${eveMins}m eve)
             </span>
-            <a href="https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=driving" target="_blank" style="font-size:0.68rem; color:var(--primary); text-decoration:none;" title="Verify route and live traffic in Google Maps">Directions &rarr;</a>
+            <a href="https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=${currentCommuteMode === 'transit' ? 'transit' : 'driving'}" target="_blank" rel="noopener noreferrer" style="font-size:0.68rem; color:var(--primary); text-decoration:none;" title="Verify route and live traffic in Google Maps">Directions &rarr;</a>
           </div>
         `;
         fragMatrix.appendChild(row);
@@ -2326,7 +2450,7 @@ function selectRotation(id, shouldCloseMobile = false) {
     step.dataset.action = "focus-hospital";
     step.dataset.hosp = stg.hosp;
 
-    const h = HOSPITALS[stg.hosp];
+    const h = activeHospitals[stg.hosp];
     const isTertiary = h && h.type === 'Tertiary';
     const hospMapQuery = (h && h.coords && Array.isArray(h.coords))
       ? `${h.coords[0]},${h.coords[1]}`
@@ -2355,8 +2479,9 @@ function selectRotation(id, shouldCloseMobile = false) {
 
   const commute = getRotationCommuteSummary(rot);
 
+  const spreadLabel = commute.maxDist === 0 ? 'Single site' : `${commute.maxDist} mi`;
   document.getElementById('metricSites').textContent = uniqueHospBases.length;
-  document.getElementById('metricDistance').textContent = `${commute.maxDist} mi`;
+  document.getElementById('metricDistance').textContent = spreadLabel;
 
   // Training Balance Split (Tertiary vs DGH)
   const split = getRotationTrainingSplit(rot);
@@ -2372,23 +2497,24 @@ function selectRotation(id, shouldCloseMobile = false) {
   }
 
   const spreadBadge = document.getElementById('cardSpreadBadge');
-  spreadBadge.textContent = `Max: ${commute.maxDist} mi`;
+  spreadBadge.textContent = commute.maxDist === 0 ? 'Single site' : `Max: ${commute.maxDist} mi`;
   if (commute.activeMins <= 35) {
     spreadBadge.className = 'badge badge-spread-low';
-    spreadBadge.textContent = `Low Spread: ${commute.maxDist} mi (~${commute.mornMins}m morn · ~${commute.eveMins}m eve)`;
+    spreadBadge.textContent = `Low Spread: ${spreadLabel} (~${commute.mornMins}m morn · ~${commute.eveMins}m eve)`;
   } else if (commute.activeMins <= 50) {
     spreadBadge.className = 'badge badge-spread-med';
-    spreadBadge.textContent = `Moderate: ${commute.maxDist} mi (~${commute.mornMins}m morn · ~${commute.eveMins}m eve)`;
+    spreadBadge.textContent = `Moderate: ${spreadLabel} (~${commute.mornMins}m morn · ~${commute.eveMins}m eve)`;
   } else {
     spreadBadge.className = 'badge badge-spread-high';
-    spreadBadge.textContent = `High Spread: ${commute.maxDist} mi (~${commute.mornMins}m morn · ~${commute.eveMins}m eve)`;
+    spreadBadge.textContent = `High Spread: ${spreadLabel} (~${commute.mornMins}m morn · ~${commute.eveMins}m eve)`;
   }
 
   const miniTitleEl = document.getElementById('miniCardTitle');
   if (miniTitleEl) miniTitleEl.textContent = `${rot.title} (${rot.code})`;
   const miniSpreadEl = document.getElementById('miniCardSpread');
   if (miniSpreadEl) {
-    miniSpreadEl.textContent = isPool ? `${commute.maxDist} mi span (~${commute.activeMins}m)` : `${commute.maxDist} mi (~${commute.activeMins}m)`;
+    const miniSpreadBase = commute.maxDist === 0 ? 'Single site' : (isPool ? `${commute.maxDist} mi span` : `${commute.maxDist} mi`);
+    miniSpreadEl.textContent = `${miniSpreadBase} (~${commute.activeMins}m)`;
     miniSpreadEl.className = `badge ${isPool ? 'badge-pool' : commute.badgeClass}`;
   }
   const miniHubEl = document.getElementById('miniCardHub');
@@ -2397,9 +2523,9 @@ function selectRotation(id, shouldCloseMobile = false) {
   }
 
   // Background subtle markers for other hospitals
-  Object.keys(HOSPITALS).forEach(hName => {
+  Object.keys(activeHospitals).forEach(hName => {
     if (!uniqueHospBases.includes(hName)) {
-      const h = HOSPITALS[hName];
+      const h = activeHospitals[hName];
       const isRef = (hospitalRotationsMap.get(hName) || []).length === 0;
       const bgIcon = L.divIcon({
         className: isRef ? 'bg-site-pin bg-site-pin-ref' : 'bg-site-pin',
@@ -2484,7 +2610,7 @@ function selectRotation(id, shouldCloseMobile = false) {
   activeHospitalMarkers = {};
 
   rot.stages.forEach((stg, idx) => {
-    const hData = HOSPITALS[stg.hosp];
+    const hData = activeHospitals[stg.hosp];
     if (hData) {
       plottedHospitalPoints.push(hData.coords);
 
@@ -2505,7 +2631,7 @@ function selectRotation(id, shouldCloseMobile = false) {
   });
 
   hospitalPlacements.forEach((data) => {
-    const hospObj = HOSPITALS[data.hosp];
+    const hospObj = activeHospitals[data.hosp];
     const isTertiary = hospObj && hospObj.type === 'Tertiary';
 
     let icon;
@@ -2593,22 +2719,23 @@ function selectRotation(id, shouldCloseMobile = false) {
   });
 
   // Polyline route: sequential tracks or pool radial dotted spokes
+  const primaryRouteColor = (typeof getComputedStyle === 'function' && getComputedStyle(document.documentElement).getPropertyValue('--primary').trim()) || '#C96442';
   if (!isPool && plottedHospitalPoints.length > 1) {
     const polyline = L.polyline(plottedHospitalPoints, {
-      color: '#0284c7',
+      color: primaryRouteColor,
       weight: 3.5,
       dashArray: '6, 6',
-      opacity: 0.85
+      opacity: 0.88
     });
     activeRouteGroup.addLayer(polyline);
   } else if (isPool) {
     const spokeSegments = generatePoolSpokeSegments(rot);
     if (spokeSegments.length > 0) {
       const spokeLine = L.polyline(spokeSegments, {
-        color: poolColor || '#0284c7',
+        color: poolColor || primaryRouteColor,
         weight: 2.8,
         dashArray: '4, 7',
-        opacity: 0.82
+        opacity: 0.85
       });
       activeRouteGroup.addLayer(spokeLine);
     }
@@ -2630,9 +2757,7 @@ function selectRotation(id, shouldCloseMobile = false) {
     ? [...currentPlottedHospitalPoints, currentActiveHubCoords, ...(partnerWorkBase && partnerWorkBase.coords ? [partnerWorkBase.coords] : [])]
     : [...currentPlottedHospitalPoints];
 
-  if (boundsPoints.length > 0) {
-    map.fitBounds(L.latLngBounds(boundsPoints), { padding: [60, 60], maxZoom: 12 });
-  }
+  fitMapToPoints(boundsPoints, 12);
 
   updateMapLegend();
 
@@ -2650,7 +2775,7 @@ function renderAllPlacements({ fitView = true } = {}) {
   activeHospitalMarkers = {};
 
   const titleEl = document.getElementById('miniCardTitle');
-  if (titleEl) titleEl.textContent = `All UK Placement Sites (${Object.keys(HOSPITALS).length} Bases)`;
+  if (titleEl) titleEl.textContent = `All UK Placement Sites (${Object.keys(activeHospitals).length} Bases)`;
   const spreadEl = document.getElementById('miniCardSpread');
   if (spreadEl) spreadEl.textContent = `${currentFilteredList.length} Rotations`;
   const hubEl = document.getElementById('miniCardHub');
@@ -2658,7 +2783,7 @@ function renderAllPlacements({ fitView = true } = {}) {
 
   const allPoints = [];
   const linesByHospital = {};
-  const regionColorsMap = (typeof REGION_COLORS !== 'undefined' ? REGION_COLORS : (window.REGION_COLORS || {}));
+  const regionColorsMap = activeRegionColors || {};
 
   overviewPolylinesMap = {};
   overviewHospitalMarkersMap = {};
@@ -2697,7 +2822,7 @@ function renderAllPlacements({ fitView = true } = {}) {
           <div style="min-width:180px; max-width:290px;">
             <div style="font-weight:800; font-size:0.84rem; color:var(--text-main); margin-bottom:2px;">${escapeHtml(rot.title)}</div>
             <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:4px;">
-              <span class="badge badge-code" style="padding:1px 4px; font-size:0.68rem;">${escapeHtml(rot.code)}</span>${isPool ? ' <span class="badge badge-pool" style="padding:1px 4px; font-size:0.65rem;">Pool</span>' : ''} • ${escapeHtml(formatPlacesLabel(rot.places, false))} • Max Spread: ${maxDist} mi
+              <span class="badge badge-code" style="padding:1px 4px; font-size:0.68rem;">${escapeHtml(rot.code)}</span>${isPool ? ' <span class="badge badge-pool" style="padding:1px 4px; font-size:0.65rem;">Pool</span>' : ''} • ${escapeHtml(formatPlacesLabel(rot.places, false))} • ${maxDist === 0 ? 'Single site' : `Max Spread: ${maxDist} mi`}
             </div>
             <div style="font-size:0.72rem; color:var(--primary); font-weight:700; line-height:1.35;">
               ${stagesSummary}
@@ -2742,8 +2867,8 @@ function renderAllPlacements({ fitView = true } = {}) {
   }
 
   // 11b. Plot Hospital Pins
-  Object.keys(HOSPITALS).forEach(hName => {
-    const h = HOSPITALS[hName];
+  Object.keys(activeHospitals).forEach(hName => {
+    const h = activeHospitals[hName];
 
     const linkedRotations = hospitalRotationsMap.get(hName) || [];
 
@@ -2804,14 +2929,14 @@ function renderAllPlacements({ fitView = true } = {}) {
       </button>
     ` : `
       <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">
-        <span style="font-style:italic;">Regional Anaesthesia Training Hospital (ST5–ST7 / reference site — no ST4 starting posts in this round).</span>
+        <span style="font-style:italic;">${escapeHtml(activeDataset.referenceNote || 'Regional Anaesthesia Training Hospital.')}</span>
       </div>
     `;
 
     const m = L.marker(h.coords, {
       icon,
       zIndexOffset: isRefSite ? 150 : 500,
-      title: isRefSite ? `${hName} (Regional Reference Site — ST5–ST7)` : hName
+      title: isRefSite ? `${hName} (Regional Reference Site)` : hName
     }).bindPopup(`
       <div class="overview-popup-title">${escapeHtml(hName)}</div>
       <div class="overview-popup-reg" style="color:${popupRegColor};">${escapeHtml(h.region)} • <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.65rem;">${isTertiary ? 'Tertiary' : 'DGH'}</span></div>
@@ -2984,7 +3109,7 @@ function resetAllFilters() {
 }
 
 function applyFiltersAndSearch({ fitView = false, redrawMap = true } = {}) {
-  let list = [...ROTATIONS_DATA];
+  let list = [...activeRotations];
 
   // Region Filter
   if (activeRegionFilter !== "ALL") {
@@ -3100,12 +3225,18 @@ function toggleOrielEntered(id) {
   }
 }
 
-function resetOrielChecks() {
+async function resetOrielChecks() {
   if (!orielCheckedSet.size) {
     showToast("No checkmarks to reset.");
     return;
   }
-  if (confirm("Reset all 'Entered in Oriel' checkboxes?")) {
+  const confirmed = await requestUserConfirm({
+    title: 'Reset Oriel Checkmarks',
+    message: "Reset all 'Entered in Oriel' checkboxes?",
+    confirmText: 'Reset Checks',
+    danger: true
+  });
+  if (confirmed) {
     orielCheckedSet.clear();
     safeStorage.remove(`${STORAGE_PREFIX}oriel_checked`);
     renderShortlistModal();
@@ -3140,10 +3271,10 @@ function copyShortlistPlainText() {
     showToast("No rotations in shortlist to copy.");
     return;
   }
-  let lines = ["ST4 Anaesthetics — Ranked Preferencing List for Oriel:"];
+  let lines = [`${activeDataset.shortLabel} Anaesthetics — Ranked Preferencing List for Oriel:`];
   lines.push("=".repeat(50));
   shortlistOrder.forEach((id, idx) => {
-    const r = ROTATIONS_DATA.find(x => x.id === id);
+    const r = activeRotations.find(x => x.id === id);
     if (r) {
       const d = getUserData(id);
       const tierStr = d.tier && d.tier !== 'UNSET' ? ` [${d.tier}]` : '';
@@ -3152,7 +3283,7 @@ function copyShortlistPlainText() {
     }
   });
   lines.push("=".repeat(50));
-  lines.push("Generated via ST4 Rotation Explorer (for personal records / Oriel entry)");
+  lines.push(`Generated via ${activeDataset.shortLabel} Rotation Explorer (for personal records / Oriel entry)`);
 
   const fullText = lines.join("\n");
   if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -3190,10 +3321,16 @@ function printShortlistReport() {
   let rowsHtml = '';
 
   shortlistOrder.forEach((id, idx) => {
-    const r = ROTATIONS_DATA.find(x => x.id === id);
+    const r = activeRotations.find(x => x.id === id);
     if (!r) return;
     const d = getUserData(id);
     const commute = getRotationCommuteSummary(r);
+    const activeBaseName = (currentCommuteMode === 'custom' && customHomeBase && customHomeBase.coords)
+      ? customHomeBase.name
+      : (currentCommuteMode === 'transit' && r.hubs && r.hubs.transit ? r.hubs.transit.name : r.hubs.driver.name);
+    const activeBaseLabel = (currentCommuteMode === 'custom' && customHomeBase && customHomeBase.coords)
+      ? 'Custom Base'
+      : (currentCommuteMode === 'transit' ? 'Public Transport Base' : 'Driving Base');
     const bases = getRotationHospitalBases(r).join(', ');
     const isChecked = orielCheckedSet.has(id);
 
@@ -3220,11 +3357,11 @@ function printShortlistReport() {
           <div style="font-size:0.75rem; color:#444;">${escapeHtml(r.region)} • <b>${escapeHtml(formatPlacesLabel(r.places, false))}</b></div>
         </td>
         <td style="font-size:0.75rem;">
-          <div><b>Base:</b> ${escapeHtml(r.hubs.driver.name)}</div>
+          <div><b>${escapeHtml(activeBaseLabel)}:</b> ${escapeHtml(activeBaseName)}</div>
           <div style="color:#555;">${escapeHtml(bases)}</div>
         </td>
         <td style="font-size:0.75rem; text-align:center; white-space:nowrap; width:95px;">
-          <b>${commute.maxDist} mi</b><br>
+          <b>${commute.commuteDist} mi</b><br>
           ~${commute.mornMins}m (07:30)<br>
           ~${commute.eveMins}m (18:00)
         </td>
@@ -3240,7 +3377,7 @@ function printShortlistReport() {
     <div style="padding:10px 0 8px 0; border-bottom:2px solid #000; margin-bottom:10px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-end;">
         <div>
-          <h1 style="margin:0; font-size:1.4rem; color:#000;">ST4 Anaesthetics — Oriel Preferencing Checklist</h1>
+          <h1 style="margin:0; font-size:1.4rem; color:#000;">${escapeHtml(activeDataset.shortLabel)} Anaesthetics — Oriel Preferencing Checklist</h1>
           <div style="font-size:0.8rem; color:#444; margin-top:2px;">Personal Ranking &amp; Manual Entry Cheat Sheet • Printed ${nowStr}</div>
         </div>
         <div style="text-align:right; font-size:0.8rem; font-weight:bold;">
@@ -3271,7 +3408,7 @@ function printShortlistReport() {
     </table>
 
     <div style="margin-top:14px; padding-top:6px; border-top:1px solid #ccc; font-size:0.72rem; color:#666; display:flex; justify-content:space-between;">
-      <span>Generated by ST4 Anaesthetics National Rotation &amp; Commute Explorer</span>
+      <span>Generated by ${escapeHtml(activeDataset.appTitle)}</span>
       <span>Double check all codes and click Save in Oriel before the deadline!</span>
     </div>
   `;
@@ -3285,7 +3422,7 @@ function sortShortlistWithinTiers(mode) {
   const naturalCompare = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare;
   const buckets = { 1: [], 2: [], 3: [], 4: [] };
   shortlistOrder.forEach(id => {
-    const r = ROTATIONS_DATA.find(x => x.id === id);
+    const r = activeRotations.find(x => x.id === id);
     if (r) {
       const p = getTierPriority(getUserData(id).tier);
       buckets[p].push(r);
@@ -3317,7 +3454,7 @@ function renderShortlistModal() {
   if (!body) return;
 
   const starred = syncShortlistOrder()
-    .map(id => ROTATIONS_DATA.find(r => r.id === id))
+    .map(id => activeRotations.find(r => r.id === id))
     .filter(Boolean);
 
   if (!starred.length) {
@@ -3368,6 +3505,12 @@ function renderShortlistModal() {
     }
 
     const commute = getRotationCommuteSummary(r);
+    const activeBaseName = (currentCommuteMode === 'custom' && customHomeBase && customHomeBase.coords)
+      ? customHomeBase.name
+      : (currentCommuteMode === 'transit' && r.hubs && r.hubs.transit ? r.hubs.transit.name : r.hubs.driver.name);
+    const activeBaseLabel = (currentCommuteMode === 'custom' && customHomeBase && customHomeBase.coords)
+      ? 'Custom Base'
+      : (currentCommuteMode === 'transit' ? 'Public Transport Base' : 'Driving Base');
     const isEntered = orielCheckedSet.has(r.id);
 
     let tierBadgeHtml = '';
@@ -3406,12 +3549,12 @@ function renderShortlistModal() {
         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
           <span style="cursor:grab; font-size:1.05rem;" title="Drag card to reorder rank">☰</span>
           <span style="font-size:0.75rem; font-weight:800; color:var(--text-muted);">Rank:</span>
-          <input type="number" class="rank-input" value="${idx + 1}" min="1" max="${starred.length}" data-action="change-rank-input" data-index="${idx}" title="Change rank number">
+          <input type="number" class="rank-input" value="${idx + 1}" min="1" max="${starred.length}" data-action="change-rank-input" data-index="${idx}" aria-label="Rank for ${escapeHtml(r.code)}" title="Change rank number">
           <strong class="oriel-code-badge" title="Oriel Track Code">${escapeHtml(r.code)}</strong>
           <button class="btn-copy-code" data-action="copy-oriel-code" data-code="${escapeHtml(r.code)}" title="Copy exact Oriel code to clipboard">Copy</button>
           ${tierBadgeHtml}
           <span class="badge ${commute.badgeClass}" style="font-size:0.68rem;" title="Peak commute estimates">
-            ${commute.maxDist} mi (~${commute.mornMins}m morn · ~${commute.eveMins}m eve)
+            ${commute.commuteDist} mi (~${commute.mornMins}m morn · ~${commute.eveMins}m eve)
           </span>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
@@ -3428,7 +3571,7 @@ function renderShortlistModal() {
       </div>
       <div style="font-weight:700; font-size:0.9rem; margin:6px 0 3px 0;">${escapeHtml(r.title)}</div>
       <div style="font-size:0.75rem; color:var(--text-muted);">
-        <span>Driving Base: <b>${escapeHtml(r.hubs.driver.name)}</b></span> • 
+        <span>${escapeHtml(activeBaseLabel)}: <b>${escapeHtml(activeBaseName)}</b></span> • 
         <span>Region: <b>${escapeHtml(r.region)}</b></span> • 
         <span>Places: <b>${escapeHtml(formatPlacesLabel(r.places, false))}</b></span>
       </div>
@@ -3468,10 +3611,16 @@ function moveShortlistItem(index, dir) {
   renderShortlistModal();
 }
 
-function removeShortlistItem(id) {
-  const r = ROTATIONS_DATA.find(x => x.id === id);
+async function removeShortlistItem(id) {
+  const r = activeRotations.find(x => x.id === id);
   const label = r ? r.code : 'this rotation';
-  if (!confirm(`Remove ${label} from your shortlist?\n\nThis clears its star rating, tier and notes.`)) return;
+  const confirmed = await requestUserConfirm({
+    title: 'Remove from Shortlist',
+    message: `Remove ${label} from your shortlist? This clears its star rating, tier and notes.`,
+    confirmText: 'Remove',
+    danger: true
+  });
+  if (!confirmed) return;
 
   shortlistOrder = shortlistOrder.filter(x => x !== id);
   safeStorage.set(`${STORAGE_PREFIX}shortlist_order`, JSON.stringify(shortlistOrder));
@@ -3479,6 +3628,7 @@ function removeShortlistItem(id) {
   safeStorage.set(`${STORAGE_PREFIX}oriel_checked`, JSON.stringify([...orielCheckedSet]));
   setUserData(id, { rating: 0, tier: 'UNSET', notes: "" });
   updateShortlistBadge();
+  updateLandingStatsAndBadges();
   applyFiltersAndSearch();
   if (currentViewMode === 'details' && currentSelectedId === id) {
     selectRotation(id, false);
@@ -3538,19 +3688,20 @@ function renderCompareModal() {
     return;
   }
 
-  const rotations = compareList.map(id => ROTATIONS_DATA.find(x => x.id === id)).filter(Boolean);
+  const rotations = compareList.map(id => activeRotations.find(x => x.id === id)).filter(Boolean);
   if (!rotations.length) return;
 
   const minDist = Math.min(...rotations.map(r => getRotationCommuteSummary(r).maxDist));
 
   let html = `
-    <div class="compare-matrix-wrapper">
+    <div class="compare-matrix-wrapper" tabindex="0" role="region" aria-label="Side-by-side rotation comparison">
       <table class="compare-table">
+        <caption class="visually-hidden">Side-by-side comparison of selected Anaesthetics training rotations</caption>
         <thead>
           <tr>
-            <th class="compare-label-th">Rotation Scheme</th>
+            <th scope="col" class="compare-label-th">Rotation Scheme</th>
             ${rotations.map(r => `
-              <th class="compare-col-header">
+              <th scope="col" class="compare-col-header">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px; gap:4px; flex-wrap:wrap;">
                   <div style="display:flex; gap:4px; align-items:center;">
                     <span class="badge badge-code">${escapeHtml(r.code)}</span>
@@ -3566,7 +3717,7 @@ function renderCompareModal() {
         </thead>
         <tbody>
           <tr>
-            <td class="compare-label-th">Training Balance</td>
+            <th scope="row" class="compare-label-th">Training Balance</th>
             ${rotations.map(r => {
               const split = getRotationTrainingSplit(r);
               return `
@@ -3583,14 +3734,14 @@ function renderCompareModal() {
             }).join('')}
           </tr>
           <tr>
-            <td class="compare-label-th">Peak Commute Spread</td>
+            <th scope="row" class="compare-label-th">Peak Commute Spread</th>
             ${rotations.map(r => {
               const commute = getRotationCommuteSummary(r);
               const isBest = commute.maxDist === minDist && rotations.length > 1;
               return `
                 <td>
                   <div style="font-weight:800; font-size:0.85rem;">
-                    ${commute.maxDist} mi ${isBest ? '<span class="compare-best-badge">Lowest Spread</span>' : ''}
+                    ${commute.maxDist === 0 ? 'Single site' : `${commute.maxDist} mi`} ${isBest ? '<span class="compare-best-badge">Lowest Spread</span>' : ''}
                   </div>
                   <div style="font-size:0.74rem; color:var(--text-muted); margin-top:3px;">
                     ~${commute.mornMins}m @ 07:30<br>
@@ -3601,7 +3752,7 @@ function renderCompareModal() {
             }).join('')}
           </tr>
           <tr>
-            <td class="compare-label-th">Living Hub Base</td>
+            <th scope="row" class="compare-label-th">Living Hub Base</th>
             ${rotations.map(r => `
               <td>
                 <div style="font-size:0.76rem;"><b>Driver:</b> ${escapeHtml(r.hubs.driver.name)}</div>
@@ -3611,7 +3762,7 @@ function renderCompareModal() {
           </tr>
           ${partnerWorkBase && partnerWorkBase.coords ? `
           <tr>
-            <td class="compare-label-th">Partner Commute (${escapeHtml(partnerWorkBase.name)})</td>
+            <th scope="row" class="compare-label-th">Partner Commute (${escapeHtml(partnerWorkBase.name)})</th>
             ${rotations.map(r => {
               const pComm = getPartnerCommuteSummary(r);
               if (!pComm) return `<td><span style="color:var(--text-muted);">—</span></td>`;
@@ -3630,14 +3781,14 @@ function renderCompareModal() {
           </tr>
           ` : ''}
           <tr>
-            <td class="compare-label-th">Hospital Bases</td>
+            <th scope="row" class="compare-label-th">Hospital Bases</th>
             ${rotations.map(r => {
               const bases = getRotationHospitalBases(r);
               return `
                 <td>
                   <div style="display:flex; flex-direction:column; gap:3px;">
                     ${bases.map(b => {
-                      const h = HOSPITALS[b];
+                      const h = activeHospitals[b];
                       const isTertiary = h && h.type === 'Tertiary';
                       return `<span style="font-size:0.74rem;">${escapeHtml(b)} <span class="badge ${isTertiary ? 'badge-tertiary' : 'badge-dgh'}" style="font-size:0.62rem; margin-left:3px;">${isTertiary ? 'Tertiary' : 'DGH'}</span></span>`;
                     }).join('')}
@@ -3647,7 +3798,7 @@ function renderCompareModal() {
             }).join('')}
           </tr>
           <tr>
-            <td class="compare-label-th">Rating &amp; Tier</td>
+            <th scope="row" class="compare-label-th">Rating &amp; Tier</th>
             ${rotations.map(r => {
               const data = getUserData(r.id);
               let tierBadge = '<span style="color:var(--text-muted); font-size:0.72rem;">Unset</span>';
@@ -3667,7 +3818,7 @@ function renderCompareModal() {
             }).join('')}
           </tr>
           <tr>
-            <td class="compare-label-th">Action</td>
+            <th scope="row" class="compare-label-th">Action</th>
             ${rotations.map(r => `
               <td>
                 <button class="btn-top btn-export" style="width:100%; justify-content:center; padding:5px 8px; font-size:0.73rem;" data-action="view-details-compare" data-id="${r.id}">
@@ -3686,6 +3837,72 @@ function renderCompareModal() {
 // 15. CUSTOM HOME BASE CALCULATOR
 let pendingMapPick = null;
 let pendingMapPickTimer = null;
+let activeGeocodeController = null;
+
+function isWithinUkBounds(lat, lng) {
+  return Number.isFinite(lat) && Number.isFinite(lng) && lat >= 49.0 && lat <= 61.5 && lng >= -9.5 && lng <= 3.0;
+}
+
+async function fetchJsonChecked(url, signal) {
+  const r = await fetch(url, { signal });
+  if (!r.ok) {
+    const err = new Error(`HTTP ${r.status}`);
+    err.status = r.status;
+    throw err;
+  }
+  return r.json();
+}
+
+async function geocodeUkLocation(query, onFound, notFoundMsg) {
+  if (activeGeocodeController) {
+    activeGeocodeController.abort();
+  }
+  const controller = new AbortController();
+  activeGeocodeController = controller;
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const cleanPC = query.replace(/\s+/g, '');
+
+  try {
+    try {
+      const data = await fetchJsonChecked(`https://api.postcodes.io/postcodes/${encodeURIComponent(cleanPC)}`, controller.signal);
+      if (data && data.status === 200 && data.result) {
+        onFound(data.result.postcode, [data.result.latitude, data.result.longitude]);
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') throw e;
+    }
+
+    try {
+      const outData = await fetchJsonChecked(`https://api.postcodes.io/outcodes/${encodeURIComponent(cleanPC)}`, controller.signal);
+      if (outData && outData.status === 200 && outData.result) {
+        onFound(outData.result.outcode.toUpperCase(), [outData.result.latitude, outData.result.longitude]);
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') throw e;
+    }
+
+    const nomData = await fetchJsonChecked(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=gb&q=${encodeURIComponent(query)}`, controller.signal);
+    if (Array.isArray(nomData) && nomData.length > 0) {
+      const place = nomData[0];
+      onFound(query.toUpperCase(), [parseFloat(place.lat), parseFloat(place.lon)]);
+    } else {
+      showToast(notFoundMsg);
+    }
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      showToast("Location lookup timed out.");
+    } else {
+      showToast("Error connecting to geocoding service.");
+    }
+  } finally {
+    clearTimeout(timeoutId);
+    if (activeGeocodeController === controller) {
+      activeGeocodeController = null;
+    }
+  }
+}
 
 function cancelMapPick() {
   if (pendingMapPick) {
@@ -3714,46 +3931,8 @@ function lookupCustomPostcode() {
     showToast("Please enter a UK postcode or town.");
     return;
   }
-
-  const cleanPC = query.replace(/\s+/g, '');
   showToast("Looking up UK location...");
-
-  // Try free UK Postcodes.io API (full postcode, then outward code fallback)
-  fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(cleanPC)}`)
-    .then(r => r.json())
-    .then(data => {
-      if (data.status === 200 && data.result) {
-        saveCustomHomeBase(data.result.postcode, [data.result.latitude, data.result.longitude]);
-      } else {
-        // Try outcode endpoint (e.g. CO4, CB2, NW1)
-        return fetch(`https://api.postcodes.io/outcodes/${encodeURIComponent(cleanPC)}`)
-          .then(r => r.json())
-          .then(outData => {
-            if (outData.status === 200 && outData.result) {
-              saveCustomHomeBase(outData.result.outcode.toUpperCase(), [outData.result.latitude, outData.result.longitude]);
-            } else {
-              fallbackNominatim(query);
-            }
-          });
-      }
-    })
-    .catch(() => fallbackNominatim(query));
-}
-
-function fallbackNominatim(query) {
-  fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=gb&q=${encodeURIComponent(query)}`)
-    .then(r => r.json())
-    .then(data => {
-      if (data && data.length > 0) {
-        const place = data[0];
-        saveCustomHomeBase(query.toUpperCase(), [parseFloat(place.lat), parseFloat(place.lon)]);
-      } else {
-        showToast("Location not found. Please try a valid UK postcode or town.");
-      }
-    })
-    .catch(() => {
-      showToast("Error connecting to geocoding service.");
-    });
+  geocodeUkLocation(query, saveCustomHomeBase, "Location not found. Please try a valid UK postcode or town.");
 }
 
 function useGpsForCustomBase() {
@@ -3776,10 +3955,16 @@ function startMapPickBase() {
   if (window.innerWidth <= 768) toggleMobileSidebar(false);
   const container = map.getContainer();
   if (container) container.classList.add('map-picking');
-  showToast("Click anywhere on the map to set your home base (Esc to cancel)");
+  showToast("Click anywhere in the UK on the map to set your home base (Esc to cancel)");
   pendingMapPick = (e) => {
+    const lat = e && e.latlng ? e.latlng.lat : NaN;
+    const lng = e && e.latlng ? e.latlng.lng : NaN;
     cancelMapPick();
-    saveCustomHomeBase("Custom Map Pin", [e.latlng.lat, e.latlng.lng]);
+    if (!isWithinUkBounds(lat, lng)) {
+      showToast("Please select a location within the UK.");
+      return;
+    }
+    saveCustomHomeBase("Custom Map Pin", [lat, lng]);
   };
   map.once('click', pendingMapPick);
   pendingMapPickTimer = setTimeout(() => {
@@ -3818,44 +4003,8 @@ function lookupPartnerPostcode() {
     showToast("Please enter a partner workplace postcode or town.");
     return;
   }
-
-  const cleanPC = query.replace(/\s+/g, '');
   showToast("Looking up partner workplace...");
-
-  fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(cleanPC)}`)
-    .then(r => r.json())
-    .then(data => {
-      if (data.status === 200 && data.result) {
-        savePartnerWorkBase(data.result.postcode, [data.result.latitude, data.result.longitude]);
-      } else {
-        return fetch(`https://api.postcodes.io/outcodes/${encodeURIComponent(cleanPC)}`)
-          .then(r => r.json())
-          .then(outData => {
-            if (outData.status === 200 && outData.result) {
-              savePartnerWorkBase(outData.result.outcode.toUpperCase(), [outData.result.latitude, outData.result.longitude]);
-            } else {
-              fallbackPartnerNominatim(query);
-            }
-          });
-      }
-    })
-    .catch(() => fallbackPartnerNominatim(query));
-}
-
-function fallbackPartnerNominatim(query) {
-  fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=gb&q=${encodeURIComponent(query)}`)
-    .then(r => r.json())
-    .then(data => {
-      if (data && data.length > 0) {
-        const place = data[0];
-        savePartnerWorkBase(query.toUpperCase(), [parseFloat(place.lat), parseFloat(place.lon)]);
-      } else {
-        showToast("Partner location not found. Try a valid UK postcode or town.");
-      }
-    })
-    .catch(() => {
-      showToast("Error connecting to geocoding service.");
-    });
+  geocodeUkLocation(query, savePartnerWorkBase, "Partner location not found. Try a valid UK postcode or town.");
 }
 
 function startMapPickPartnerBase() {
@@ -3864,10 +4013,16 @@ function startMapPickPartnerBase() {
   if (window.innerWidth <= 768) toggleMobileSidebar(false);
   const container = map.getContainer();
   if (container) container.classList.add('map-picking');
-  showToast("Click anywhere on the map to set your partner's workplace (Esc to cancel)");
+  showToast("Click anywhere in the UK on the map to set your partner's workplace (Esc to cancel)");
   pendingMapPick = (e) => {
+    const lat = e && e.latlng ? e.latlng.lat : NaN;
+    const lng = e && e.latlng ? e.latlng.lng : NaN;
     cancelMapPick();
-    savePartnerWorkBase("Partner Map Pin", [e.latlng.lat, e.latlng.lng]);
+    if (!isWithinUkBounds(lat, lng)) {
+      showToast("Please select a location within the UK.");
+      return;
+    }
+    savePartnerWorkBase("Partner Map Pin", [lat, lng]);
   };
   map.once('click', pendingMapPick);
   pendingMapPickTimer = setTimeout(() => {
@@ -3920,12 +4075,12 @@ function updateMapLegend() {
   const body = document.getElementById('mapLegendBody');
   if (!body) return;
 
-  const regionColorsMap = (typeof REGION_COLORS !== 'undefined' ? REGION_COLORS : (window.REGION_COLORS || {}));
+  const regionColorsMap = activeRegionColors || {};
 
   let colourSectionHtml = '';
   if (activeRegionFilter !== 'ALL') {
     const poolGroups = getGeographicPoolGroupsForRegion(activeRegionFilter);
-    const fixedTracks = (typeof ROTATIONS_DATA !== 'undefined' ? ROTATIONS_DATA : [])
+    const fixedTracks = (Array.isArray(activeRotations) ? activeRotations : [])
       .filter(r => r.region === activeRegionFilter && !isPoolRotation(r));
 
     const items = [];
@@ -4023,7 +4178,7 @@ function locateUserOnMap() {
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       const latlng = [pos.coords.latitude, pos.coords.longitude];
-      map.flyTo(latlng, 12);
+      if (prefersReducedMotion()) { map.setView(latlng, 12); } else { map.flyTo(latlng, 12); }
       if (currentUserLocationMarker) {
         map.removeLayer(currentUserLocationMarker);
       }
@@ -4045,12 +4200,13 @@ function locateUserOnMap() {
 // 17. BACKUP, RESTORE & CSV EXPORT
 function buildBackupObject() {
   const ratings = {};
-  ROTATIONS_DATA.forEach(r => {
+  activeRotations.forEach(r => {
     const d = getUserData(r.id);
     if (hasUserPreference(d)) ratings[r.id] = d;
   });
   return {
     version: 1,
+    programme: activeProgramme,
     exportDate: new Date().toISOString(),
     ratings,
     shortlistOrder: syncShortlistOrder(),
@@ -4062,13 +4218,52 @@ function buildBackupObject() {
 
 let lastFocusedElement = null;
 
+function restoreModalFocusIfNoneOpen() {
+  if (!document.querySelector('dialog[open]') && lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+    const toFocus = lastFocusedElement;
+    lastFocusedElement = null;
+    toFocus.focus();
+  }
+}
+
+function attachDialogPolyfills(modal) {
+  if (!modal) return;
+  if (!modal.dataset.closeBound) {
+    modal.dataset.closeBound = '1';
+    modal.addEventListener('close', () => {
+      restoreModalFocusIfNoneOpen();
+    });
+  }
+  const supportsClosedBy = typeof HTMLDialogElement !== 'undefined' && ('closedBy' in HTMLDialogElement.prototype);
+  if (!supportsClosedBy && modal.getAttribute('closedby') === 'any' && !modal.dataset.backdropBound) {
+    modal.dataset.backdropBound = '1';
+    let pointerDownOutside = false;
+    const isOutside = (e) => {
+      const rect = modal.getBoundingClientRect();
+      return e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom;
+    };
+    modal.addEventListener('pointerdown', (e) => {
+      pointerDownOutside = (e.target === modal) && isOutside(e);
+    });
+    modal.addEventListener('pointerup', (e) => {
+      if (pointerDownOutside && e.target === modal && isOutside(e)) {
+        closeModal(modal.id);
+      }
+      pointerDownOutside = false;
+    });
+  }
+}
+
 function openModal(id, preferredFocusId = null) {
   const modal = document.getElementById(id);
   if (!modal) return;
-  if (document.activeElement && document.activeElement !== document.body && !document.activeElement.closest('.modal-overlay')) {
+  if (!document.querySelector('dialog[open]') && document.activeElement && document.activeElement !== document.body && !document.activeElement.closest('dialog')) {
     lastFocusedElement = document.activeElement;
   }
-  modal.style.display = 'flex';
+  attachDialogPolyfills(modal);
+  if (!modal.open && typeof modal.showModal === 'function') {
+    modal.showModal();
+  }
   setTimeout(() => {
     const preferred = preferredFocusId ? document.getElementById(preferredFocusId) : null;
     if (preferred && typeof preferred.focus === 'function') {
@@ -4091,13 +4286,48 @@ function openSyncModal() {
 
 function closeModal(id) {
   const modal = document.getElementById(id);
-  if (!modal || modal.style.display === 'none') return;
-  modal.style.display = 'none';
-  const anyOpen = Array.from(document.querySelectorAll('.modal-overlay')).some(m => m.style.display === 'flex');
-  if (!anyOpen && lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
-    lastFocusedElement.focus();
-    lastFocusedElement = null;
+  if (!modal || !modal.open) return;
+  modal.close();
+}
+
+async function requestUserConfirm({ title = 'Confirm Action', message = '', confirmText = 'Confirm', cancelText = 'Cancel', danger = false } = {}) {
+  const dialog = document.getElementById('confirmDialog');
+  if (!dialog || typeof dialog.showModal !== 'function') {
+    return typeof window.confirm === 'function' ? window.confirm(message) : false;
   }
+  attachDialogPolyfills(dialog);
+  if (!document.querySelector('dialog[open]') && document.activeElement && document.activeElement !== document.body && !document.activeElement.closest('dialog')) {
+    lastFocusedElement = document.activeElement;
+  }
+
+  const headingEl = document.getElementById('confirmDialogHeading');
+  const messageEl = document.getElementById('confirmDialogMessage');
+  const cancelBtn = document.getElementById('confirmDialogCancelBtn');
+  const confirmBtn = document.getElementById('confirmDialogConfirmBtn');
+
+  if (headingEl) headingEl.textContent = title;
+  if (messageEl) messageEl.textContent = message;
+  if (cancelBtn) cancelBtn.textContent = cancelText;
+  if (confirmBtn) {
+    confirmBtn.textContent = confirmText;
+    confirmBtn.style.background = danger ? 'var(--rose)' : '';
+    confirmBtn.style.borderColor = danger ? 'var(--rose)' : '';
+  }
+
+  dialog.returnValue = '';
+  if (!dialog.open) {
+    dialog.showModal();
+  }
+
+  return new Promise((resolve) => {
+    const onClose = () => {
+      dialog.removeEventListener('close', onClose);
+      const confirmed = dialog.returnValue === 'confirm';
+      dialog.returnValue = '';
+      resolve(confirmed);
+    };
+    dialog.addEventListener('close', onClose);
+  });
 }
 
 function copySyncData() {
@@ -4117,11 +4347,17 @@ function copySyncData() {
   }
 }
 
-function importSyncData() {
+async function importSyncData() {
   try {
     const area = document.getElementById('syncJsonArea');
     const parsed = JSON.parse(area.value);
-    if (!confirm("Importing this backup will overwrite your current ratings, notes, and shortlist ranking. Do you want to proceed?")) {
+    const confirmed = await requestUserConfirm({
+      title: 'Overwrite Current Preferences?',
+      message: 'Importing this backup will overwrite your current ratings, notes, and shortlist ranking. Do you want to proceed?',
+      confirmText: 'Import & Overwrite',
+      danger: true
+    });
+    if (!confirmed) {
       return;
     }
     applyParsedBackup(parsed);
@@ -4133,7 +4369,7 @@ function importSyncData() {
 
 function downloadJsonBackup() {
   const jsonStr = JSON.stringify(buildBackupObject(), null, 2);
-  downloadBlob(jsonStr, "ST4_Anaesthetics_Preferences_Backup.json", "application/json");
+  downloadBlob(jsonStr, `${activeDataset.shortLabel}_Anaesthetics_Preferences_Backup.json`, "application/json");
   showToast("Backup JSON file downloaded!");
 }
 
@@ -4146,10 +4382,16 @@ function handleBackupFileUpload(event) {
     return;
   }
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     try {
       const parsed = JSON.parse(e.target.result);
-      if (!confirm(`Importing backup "${file.name}" will overwrite your current ratings, notes, and shortlist ranking. Do you want to proceed?`)) {
+      const confirmed = await requestUserConfirm({
+        title: 'Overwrite Current Preferences?',
+        message: `Importing backup "${file.name}" will overwrite your current ratings, notes, and shortlist ranking. Do you want to proceed?`,
+        confirmText: 'Import & Overwrite',
+        danger: true
+      });
+      if (!confirmed) {
         return;
       }
       applyParsedBackup(parsed);
@@ -4180,8 +4422,8 @@ function applyParsedBackup(parsed) {
   }
 
   // True Overwrite: Reset all rotations in userPrefsCache and clear existing pref keys from localStorage
-  if (typeof ROTATIONS_DATA !== 'undefined' && Array.isArray(ROTATIONS_DATA)) {
-    ROTATIONS_DATA.forEach(r => {
+  if (Array.isArray(activeRotations)) {
+    activeRotations.forEach(r => {
       userPrefsCache.set(r.id, { rating: 0, notes: "", tier: "UNSET" });
       safeStorage.remove(`${STORAGE_PREFIX}pref_${r.id}`);
     });
@@ -4235,6 +4477,7 @@ function applyParsedBackup(parsed) {
   updateCustomBaseUI();
 
   updateShortlistBadge();
+  updateLandingStatsAndBadges();
   applyFiltersAndSearch();
   if (currentSelectedId && currentViewMode === 'details') {
     selectRotation(currentSelectedId, false);
@@ -4259,7 +4502,7 @@ function decodeBase64Utf8(str) {
   }).join(''));
 }
 
-function generatePartnerShareLink() {
+async function generatePartnerShareLink() {
   flushPendingNotes();
   const backup = buildBackupObject();
   const count = Object.keys(backup.ratings || {}).length;
@@ -4268,7 +4511,12 @@ function generatePartnerShareLink() {
     return;
   }
   if (backup.customHomeBase || backup.partnerWorkBase) {
-    const includeBase = confirm("Include your custom home base and partner workplace locations in the share link?\n\n(Click Cancel to share only your ratings, tiers, and shortlist.)");
+    const includeBase = await requestUserConfirm({
+      title: 'Include Home & Partner Locations?',
+      message: 'Include your custom home base and partner workplace locations in the share link?',
+      confirmText: 'Include Locations',
+      cancelText: 'Ratings Only'
+    });
     if (!includeBase) {
       backup.customHomeBase = null;
       backup.partnerWorkBase = null;
@@ -4281,8 +4529,10 @@ function generatePartnerShareLink() {
   const jsonStr = JSON.stringify(backup);
   try {
     const encoded = encodeBase64Utf8(jsonStr);
-    const base = window.location.href.split('#')[0];
-    const shareUrl = `${base}#share=${encoded}`;
+    const urlObj = new URL(window.location.href);
+    urlObj.searchParams.set('prog', activeProgramme);
+    urlObj.hash = `share=${encoded}`;
+    const shareUrl = urlObj.toString();
     
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(shareUrl)
@@ -4298,49 +4548,92 @@ function generatePartnerShareLink() {
   }
 }
 
-function checkForSharedLink() {
-  const hash = window.location.hash;
+function parseSharedLinkPayload(hashStr = window.location.hash) {
+  if (!hashStr || !hashStr.startsWith('#share=')) return null;
+  const rawEncoded = hashStr.substring(7);
+  if (!rawEncoded) return null;
+  try {
+    const jsonStr = decodeBase64Utf8(rawEncoded);
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    return { _corrupted: true };
+  }
+}
+
+function detectProgrammeForSharePayload(parsed) {
+  if (!parsed || typeof parsed !== 'object' || parsed._corrupted) return activeProgramme;
+  const datasets = getAvailableDatasets();
+  if (parsed.programme && datasets[parsed.programme]) {
+    return parsed.programme;
+  }
+  const candidateIds = [
+    ...((parsed.ratings && typeof parsed.ratings === 'object' && !Array.isArray(parsed.ratings)) ? Object.keys(parsed.ratings) : []),
+    ...(Array.isArray(parsed.shortlistOrder) ? parsed.shortlistOrder : [])
+  ].filter(id => typeof id === 'string');
+
+  if (candidateIds.length) {
+    let bestProg = activeProgramme;
+    let bestHits = 0;
+    for (const [progKey, ds] of Object.entries(datasets)) {
+      const idSet = new Set((ds.rotations || []).map(r => r.id));
+      const hits = candidateIds.filter(id => idSet.has(id)).length;
+      if (hits > bestHits) {
+        bestHits = hits;
+        bestProg = progKey;
+      }
+    }
+    return bestProg;
+  }
+  return activeProgramme;
+}
+
+function checkForSharedLink(overrideHash = null) {
+  const hash = overrideHash || window.location.hash;
   if (!hash || !hash.startsWith('#share=')) return;
-  const rawEncoded = hash.substring(7);
+  const parsed = parseSharedLinkPayload(hash);
   if (history.replaceState) {
-    history.replaceState(null, '', window.location.pathname + window.location.search);
+    const urlObj = new URL(window.location.href);
+    urlObj.searchParams.set('prog', activeProgramme);
+    urlObj.hash = '';
+    history.replaceState(null, '', urlObj.pathname + urlObj.search);
   } else {
     window.location.hash = '';
   }
-  if (!rawEncoded) return;
 
-  try {
-    const jsonStr = decodeBase64Utf8(rawEncoded);
-    const parsed = JSON.parse(jsonStr);
-    
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && (parsed.ratings || parsed.shortlistOrder || parsed.customHomeBase || parsed.partnerWorkBase)) {
-      const validRatingKeys = (parsed.ratings && typeof parsed.ratings === 'object' && !Array.isArray(parsed.ratings))
-        ? Object.keys(parsed.ratings).filter(k => KNOWN_IDS.has(k) && hasUserPreference(normalizePref(parsed.ratings[k])))
-        : [];
-      const validShortlistKeys = Array.isArray(parsed.shortlistOrder)
-        ? parsed.shortlistOrder.filter(id => typeof id === 'string' && KNOWN_IDS.has(id))
-        : [];
-      const validCustomBase = normalizeCustomBase(parsed.customHomeBase);
-      const validPartnerBase = normalizeCustomBase(parsed.partnerWorkBase);
-      const validCount = new Set([...validRatingKeys, ...validShortlistKeys]).size;
+  if (!parsed || parsed._corrupted) {
+    console.error("Failed to parse shared partner link");
+    showToast("Invalid or corrupted share link");
+    return;
+  }
 
-      if (validCount === 0 && !validCustomBase && !validPartnerBase) {
-        showToast("Share link contains no valid rotations for this programme");
-        return;
-      }
+  if (typeof parsed === 'object' && !Array.isArray(parsed) && (parsed.ratings || parsed.shortlistOrder || parsed.customHomeBase || parsed.partnerWorkBase)) {
+    const validRatingKeys = (parsed.ratings && typeof parsed.ratings === 'object' && !Array.isArray(parsed.ratings))
+      ? Object.keys(parsed.ratings).filter(k => KNOWN_IDS.has(k) && hasUserPreference(normalizePref(parsed.ratings[k])))
+      : [];
+    const validShortlistKeys = Array.isArray(parsed.shortlistOrder)
+      ? parsed.shortlistOrder.filter(id => typeof id === 'string' && KNOWN_IDS.has(id))
+      : [];
+    const validCustomBase = normalizeCustomBase(parsed.customHomeBase);
+    const validPartnerBase = normalizeCustomBase(parsed.partnerWorkBase);
+    const validCount = new Set([...validRatingKeys, ...validShortlistKeys]).size;
 
-      setTimeout(() => {
-        const accepted = confirm(`A partner has shared their Anaesthetics rotation preferences (${validCount} rotation${validCount === 1 ? '' : 's'} shortlisted).\n\nWould you like to import their ratings, tiers, and notes? (This will update your current local preferences)`);
-        if (accepted) {
-          applyParsedBackup(parsed);
-          showToast("Partner preferences successfully loaded!");
-        }
-      }, 300);
-    } else {
-      showToast("Invalid or corrupted share link");
+    if (validCount === 0 && !validCustomBase && !validPartnerBase) {
+      showToast("Share link contains no valid rotations for this programme");
+      return;
     }
-  } catch(e) {
-    console.error("Failed to parse shared partner link", e);
+
+    setTimeout(async () => {
+      const accepted = await requestUserConfirm({
+        title: `Import Partner ${activeDataset.shortLabel} Preferences?`,
+        message: `A partner has shared their ${activeDataset.shortLabel} Anaesthetics rotation preferences (${validCount} rotation${validCount === 1 ? '' : 's'} shortlisted). Would you like to import their ratings, tiers, and notes?`,
+        confirmText: 'Import Preferences'
+      });
+      if (accepted) {
+        applyParsedBackup(parsed);
+        showToast("Partner preferences successfully loaded!");
+      }
+    }, 300);
+  } else {
     showToast("Invalid or corrupted share link");
   }
 }
@@ -4358,7 +4651,7 @@ function formatCsvCell(val) {
 function exportPreferencesCSV() {
   flushPendingNotes();
   let csv = "OrielCode,TrackTitle,Region,PlacesAvailable,TierPreference,DriverLivingHub,PublicTransportLivingHub,HospitalBases,RatingStars,MorningDriveMins_0730,EveningDriveMins_1800,PersonalNotes\n";
-  ROTATIONS_DATA.forEach(r => {
+  activeRotations.forEach(r => {
     const data = getUserData(r.id);
     const tierStr = data.tier || "UNSET";
     const commute = getRotationCommuteSummary(r);
@@ -4379,7 +4672,7 @@ function exportPreferencesCSV() {
     ];
     csv += row.join(",") + "\n";
   });
-  downloadBlob(csv, "ST4_Anaesthetics_All_Rotations.csv", "text/csv;charset=utf-8;");
+  downloadBlob(csv, `${activeDataset.shortLabel}_Anaesthetics_All_Rotations.csv`, "text/csv;charset=utf-8;");
   showToast("All rotations reference CSV downloaded!");
 }
 
@@ -4392,7 +4685,7 @@ function exportShortlistCSV() {
   }
   let csv = "AssignedRank,EnteredInOriel,OrielCode,TrackTitle,Region,PlacesAvailable,TierPreference,DriverLivingHub,PublicTransportLivingHub,HospitalBases,RatingStars,MorningDriveMins_0730,EveningDriveMins_1800,PersonalNotes\n";
   orderedIds.forEach((id, idx) => {
-    const r = ROTATIONS_DATA.find(x => x.id === id);
+    const r = activeRotations.find(x => x.id === id);
     if (r) {
       const data = getUserData(r.id);
       const tierStr = data.tier || "UNSET";
@@ -4418,7 +4711,7 @@ function exportShortlistCSV() {
       csv += row.join(",") + "\n";
     }
   });
-  downloadBlob(csv, "ST4_Anaesthetics_MyShortlist_Ranked.csv", "text/csv;charset=utf-8;");
+  downloadBlob(csv, `${activeDataset.shortLabel}_Anaesthetics_MyShortlist_Ranked.csv`, "text/csv;charset=utf-8;");
   showToast("Shortlist reference CSV downloaded!");
 }
 
@@ -4445,64 +4738,75 @@ function toggleMobileSidebar(open) {
 
 // 19. ACCESSIBILITY, KEYBOARD SHORTCUTS & MODAL BACKDROPS
 document.addEventListener('keydown', (e) => {
-  const openModals = Array.from(document.querySelectorAll('.modal-overlay')).filter(m => m.style.display === 'flex');
-  const activeModal = openModals.length ? openModals[openModals.length - 1] : null;
+  const openDialog = document.querySelector('dialog[open]');
 
   if (e.key === 'Escape') {
     if (pendingMapPick) {
       cancelMapPick();
       showToast("Map pin selection cancelled");
     }
-    closeModal('shortlistModal');
-    closeModal('compareModal');
-    closeModal('customBaseModal');
-    closeModal('syncModal');
-    closeModal('hospitalProfileModal');
-    if (window.innerWidth <= 768) toggleMobileSidebar(false);
-    return;
-  }
-
-  if (e.key === 'Tab' && activeModal) {
-    const focusables = Array.from(
-      activeModal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
-    ).filter(el => !el.disabled && el.offsetParent !== null);
-    if (focusables.length > 0) {
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
+    if (!openDialog && window.innerWidth <= 768) {
+      toggleMobileSidebar(false);
     }
     return;
   }
 
+  if (openDialog) return;
+
   const activeTag = document.activeElement ? document.activeElement.tagName : '';
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeTag)) return;
-  if (e.target && e.target.closest && e.target.closest('.leaflet-container')) return;
+  if (e.target && e.target.closest && e.target.closest('.leaflet-container, [role="tablist"], [role="group"], .star-row')) return;
 
   if (e.key === 'ArrowRight') {
-    if (activeModal) return;
     e.preventDefault();
     stepRotation(1);
   } else if (e.key === 'ArrowLeft') {
-    if (activeModal) return;
     e.preventDefault();
     stepRotation(-1);
   }
 });
 
-// Setup click-outside-to-close for all modals
+const inspectorTabsOrder = [
+  { key: 'placements', id: 'tabBtnPlacements' },
+  { key: 'commute', id: 'tabBtnCommute' },
+  { key: 'intel', id: 'tabBtnIntel' },
+  { key: 'notes', id: 'tabBtnNotes' }
+];
+const inspectorTabsNav = document.querySelector('.inspector-tabs-nav');
+if (inspectorTabsNav) {
+  inspectorTabsNav.addEventListener('keydown', (e) => {
+    const currentBtn = e.target.closest('[role="tab"]');
+    if (!currentBtn) return;
+    const currentIdx = inspectorTabsOrder.findIndex(t => t.id === currentBtn.id);
+    if (currentIdx === -1) return;
+
+    let nextIdx = -1;
+    if (e.key === 'ArrowRight') {
+      nextIdx = (currentIdx + 1) % inspectorTabsOrder.length;
+    } else if (e.key === 'ArrowLeft') {
+      nextIdx = (currentIdx - 1 + inspectorTabsOrder.length) % inspectorTabsOrder.length;
+    } else if (e.key === 'Home') {
+      nextIdx = 0;
+    } else if (e.key === 'End') {
+      nextIdx = inspectorTabsOrder.length - 1;
+    } else {
+      return;
+    }
+
+    e.preventDefault();
+    const target = inspectorTabsOrder[nextIdx];
+    switchInspectorTab(target.key);
+    const nextEl = document.getElementById(target.id);
+    if (nextEl && typeof nextEl.focus === 'function') {
+      nextEl.focus();
+    }
+  });
+}
+
+// Setup native <dialog> close focus restoration & light-dismiss fallback
 function setupModalBackdrops() {
-  document.querySelectorAll('.modal-overlay').forEach(modal => {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        closeModal(modal.id);
-      }
-    });
+  document.querySelectorAll('dialog.app-dialog').forEach(modal => {
+    attachDialogPolyfills(modal);
   });
 }
 
@@ -4517,7 +4821,11 @@ document.addEventListener('click', (e) => {
     return;
   }
 
-  if (action === 'reset-all-filters') {
+  if (action === 'select-programme' || action === 'switch-programme') {
+    switchProgramme(el.dataset.programme, { closeLanding: true });
+  } else if (action === 'open-rotation-details') {
+    openDetailsForRotation(el.dataset.id);
+  } else if (action === 'reset-all-filters') {
     resetAllFilters();
   } else if (action === 'toggle-compare-card') {
     e.stopPropagation();
@@ -4532,9 +4840,35 @@ document.addEventListener('click', (e) => {
     openHospitalProfile(el.dataset.hosp);
   } else if (action === 'filter-by-hospital') {
     const hospName = el.dataset.hosp;
+    const linked = hospitalRotationsMap.get(hospName) || [];
+    if (activeRegionFilter !== 'ALL' && !linked.some(r => r.region === activeRegionFilter)) {
+      activeRegionFilter = 'ALL';
+      const regSelect = document.getElementById('regionFilter');
+      if (regSelect) regSelect.value = 'ALL';
+    }
+    if (activeQuickFilter !== 'ALL') {
+      const matchesQuick = linked.some(r => {
+        const d = getUserData(r.id);
+        if (activeQuickFilter === 'STARRED') return d.rating > 0;
+        if (activeQuickFilter === 'TIER1') return d.tier === 'TIER1';
+        if (activeQuickFilter === 'TIER2') return d.tier === 'TIER2';
+        if (activeQuickFilter === 'TIER3') return d.tier === 'TIER3';
+        if (activeQuickFilter === 'LOW_SPREAD') return getRotationMaxDistance(r) <= 25;
+        if (activeQuickFilter === 'EXCLUDED') return d.tier === 'EXCLUDE';
+        return true;
+      });
+      if (!matchesQuick) {
+        activeQuickFilter = 'ALL';
+        updateQuickFilterPills();
+      }
+    }
+    clearTimeout(searchDebounceTimer);
     const searchInput = document.getElementById('searchInput');
     if (searchInput) searchInput.value = hospName;
-    handleSearch(hospName);
+    const clearBtn = document.getElementById('btnSearchClear');
+    if (clearBtn) clearBtn.style.display = hospName ? 'block' : 'none';
+    currentSearchTerm = hospName.toLowerCase().trim();
+    refreshAfterFilterChange(true);
     map.closePopup();
   } else if (action === 'focus-hospital') {
     if (e.target.tagName === 'A') return;
@@ -4562,6 +4896,7 @@ document.addEventListener('click', (e) => {
     setUserData(id, { rating: next });
     syncShortlistOrder();
     updateShortlistBadge();
+    updateLandingStatsAndBadges();
     applyFiltersAndSearch({ redrawMap: activeQuickFilter === 'STARRED' });
     showToast(next > 0 ? `Rated ${next}★` : 'Rating cleared');
   } else if (action === 'quick-card-tier') {
@@ -4576,6 +4911,7 @@ document.addEventListener('click', (e) => {
     }
     syncShortlistOrder();
     updateShortlistBadge();
+    updateLandingStatsAndBadges();
     applyFiltersAndSearch({ redrawMap: ['TIER1', 'TIER2', 'TIER3', 'EXCLUDED'].includes(activeQuickFilter) });
     showToast(`Tier updated: ${nextTier}`);
   } else if (action === 'sort-shortlist-within-tiers') {
@@ -4600,19 +4936,262 @@ document.addEventListener('change', (e) => {
   }
 });
 
-// 20. BROWSER HISTORY & DIRECT LINK ROUTING
+// 20. MULTI-PROGRAMME ENGINE, LANDING SCREEN & BROWSER ROUTING
+function applyDatasetBindings(progId) {
+  const ds = resolveDataset(progId);
+  if (!ds) return;
+  activeProgramme = ds.id || (progId === 'ct1' ? 'ct1' : 'st4');
+  activeDataset = ds;
+  activeHospitals = ds.hospitals || {};
+  activeRotations = Array.isArray(ds.rotations) ? ds.rotations : [];
+  activeRegionColors = ds.regionColors || {};
+  STORAGE_PREFIX = ds.storagePrefix || `${activeProgramme}_`;
+  KNOWN_IDS = new Set(activeRotations.map(r => r.id));
+  DEFAULT_MAP_CENTER = ds.defaultCenter || [52.8, -1.8];
+  DEFAULT_MAP_ZOOM = ds.defaultZoom || 6;
+
+  if (typeof window !== 'undefined') {
+    window.HOSPITALS = activeHospitals;
+    window.ROTATIONS_DATA = activeRotations;
+    window.REGION_COLORS = activeRegionColors;
+  }
+
+  userPrefsCache.clear();
+  regionCategoricalStyleCache.clear();
+  filteredListCategoricalCache = { ref: null, map: null };
+  overviewPolylinesMap = {};
+  overviewHospitalMarkersMap = {};
+
+  if (ds.appTitle) {
+    document.title = ds.appTitle;
+  }
+  const titleEl = document.getElementById('sidebarTitleText');
+  if (titleEl && ds.headerTitle) {
+    titleEl.textContent = ds.headerTitle;
+  }
+  const subtitleEl = document.getElementById('sidebarSubtitleText');
+  if (subtitleEl && ds.headerSubtitle) {
+    subtitleEl.textContent = ds.headerSubtitle;
+  }
+
+  const btnCt1 = document.getElementById('btnSwitchCt1');
+  if (btnCt1) {
+    btnCt1.classList.toggle('active', activeProgramme === 'ct1');
+    btnCt1.setAttribute('aria-pressed', activeProgramme === 'ct1' ? 'true' : 'false');
+  }
+  const btnSt4 = document.getElementById('btnSwitchSt4');
+  if (btnSt4) {
+    btnSt4.classList.toggle('active', activeProgramme === 'st4');
+    btnSt4.setAttribute('aria-pressed', activeProgramme === 'st4' ? 'true' : 'false');
+  }
+}
+
+function updateLandingStatsAndBadges() {
+  const datasets = getAvailableDatasets();
+  const entries = [
+    { key: 'ct1', statsId: 'landingCt1Stats', badgeId: 'landingCt1SavedBadge' },
+    { key: 'st4', statsId: 'landingSt4Stats', badgeId: 'landingSt4SavedBadge' }
+  ];
+
+  entries.forEach(({ key, statsId, badgeId }) => {
+    const ds = datasets[key];
+    if (!ds) return;
+    const rots = Array.isArray(ds.rotations) ? ds.rotations : [];
+    const hospsCount = ds.hospitals ? Object.keys(ds.hospitals).length : 0;
+    const regsCount = ds.regionColors ? Object.keys(ds.regionColors).length : new Set(rots.map(r => r.region)).size;
+
+    const statsEl = document.getElementById(statsId);
+    if (statsEl) {
+      statsEl.textContent = `${rots.length} Rotations • ${hospsCount} Hospitals • ${regsCount} Regions`;
+    }
+
+    let savedCount = 0;
+    const prefix = ds.storagePrefix || `${key}_`;
+    rots.forEach(r => {
+      try {
+        const raw = safeStorage.get(`${prefix}pref_${r.id}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (isShortlisted(normalizePref(parsed))) savedCount++;
+        }
+      } catch (e) {}
+    });
+
+    const badgeEl = document.getElementById(badgeId);
+    if (badgeEl) {
+      badgeEl.textContent = `${savedCount} Shortlisted`;
+      badgeEl.hidden = savedCount === 0;
+    }
+  });
+}
+
+function toggleRememberProgramme(checked) {
+  safeStorage.set(REMEMBER_PROG_KEY, checked ? '1' : '0');
+  if (checked) {
+    safeStorage.set(LAST_PROG_KEY, activeProgramme);
+  }
+}
+
+function showProgrammeLanding() {
+  flushPendingNotes();
+  cancelMapPick();
+  updateLandingStatsAndBadges();
+  document.title = 'UK Anaesthetics Rotation & Commute Explorer (CT1 & ST4)';
+  const rememberCb = document.getElementById('rememberProgrammeCheckbox');
+  if (rememberCb) {
+    rememberCb.checked = safeStorage.get(REMEMBER_PROG_KEY) === '1';
+  }
+
+  const landing = document.getElementById('programmeLanding');
+  const appShell = document.getElementById('appShell');
+  const reveal = () => {
+    if (landing) landing.hidden = false;
+    if (appShell) appShell.inert = true;
+  };
+  if (landing && landing.hidden && typeof document.startViewTransition === 'function' && !prefersReducedMotion()) {
+    document.startViewTransition(reveal);
+  } else {
+    reveal();
+  }
+  setTimeout(() => {
+    const heading = document.getElementById('landingHeading');
+    if (heading && typeof heading.focus === 'function') {
+      heading.focus();
+    }
+  }, 60);
+}
+
+function switchProgramme(progId, { closeLanding = true, updateUrl = true, targetRotationId = null } = {}) {
+  const ds = resolveDataset(progId);
+  const resolvedId = (ds && ds.id) || (progId === 'ct1' ? 'ct1' : 'st4');
+  const isSwitching = resolvedId !== activeProgramme;
+
+  flushPendingNotes();
+  cancelMapPick();
+  document.querySelectorAll('dialog[open]').forEach(d => {
+    try { d.close(); } catch (e) {}
+  });
+
+  if (isSwitching) {
+    currentSelectedId = null;
+    activeRegionFilter = 'ALL';
+    activeQuickFilter = 'ALL';
+    currentSearchTerm = '';
+    currentSortMode = 'ALPHA_ASC';
+    clearTimeout(searchDebounceTimer);
+
+    const regSelect = document.getElementById('regionFilter');
+    if (regSelect) regSelect.value = 'ALL';
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) searchInput.value = '';
+    const clearBtn = document.getElementById('btnSearchClear');
+    if (clearBtn) clearBtn.style.display = 'none';
+    const sortSelect = document.getElementById('sortSelect');
+    if (sortSelect) sortSelect.value = 'ALPHA_ASC';
+    updateQuickFilterPills();
+  }
+
+  applyDatasetBindings(resolvedId);
+  initRotationMetadata();
+  migrateLegacyStorage();
+  loadPersistedState();
+  initUserPrefsCache();
+  populateRegionDropdown();
+  syncCommuteModeUI(currentCommuteMode);
+  setShiftTiming(currentShiftTiming, false, false);
+  updateShortlistBadge();
+  updateCompareBadge();
+  updateCustomBaseUI();
+  updateLandingStatsAndBadges();
+  checkTipBannerStatus();
+  applyFiltersAndSearch({ redrawMap: false });
+
+  if (closeLanding) {
+    safeStorage.set(LAST_PROG_KEY, activeProgramme);
+  }
+
+  const hasTarget = Boolean(targetRotationId && activeRotations.some(r => r.id === targetRotationId));
+  if (hasTarget) {
+    const prefSel = document.getElementById('prefSelect');
+    if (prefSel) prefSel.value = targetRotationId;
+    selectRotation(targetRotationId, false);
+    setViewMode('details');
+  } else {
+    showListView({ fitView: true });
+  }
+
+  if (updateUrl && history.replaceState) {
+    const urlObj = new URL(window.location.href);
+    urlObj.searchParams.set('prog', activeProgramme);
+    urlObj.hash = hasTarget ? `#${targetRotationId}` : '';
+    history.replaceState(null, '', urlObj.pathname + urlObj.search + urlObj.hash);
+  }
+
+  if (closeLanding) {
+    const landing = document.getElementById('programmeLanding');
+    const appShell = document.getElementById('appShell');
+    const wasLandingVisible = Boolean(landing && !landing.hidden);
+    const hideLanding = () => {
+      if (landing) landing.hidden = true;
+      if (appShell) appShell.inert = false;
+    };
+    if (wasLandingVisible && typeof document.startViewTransition === 'function' && !prefersReducedMotion()) {
+      document.startViewTransition(hideLanding);
+    } else {
+      hideLanding();
+    }
+    setTimeout(() => {
+      map.invalidateSize();
+      if (wasLandingVisible) {
+        const heading = document.getElementById('appMainHeading');
+        if (heading && typeof heading.focus === 'function') {
+          heading.focus();
+        }
+      }
+    }, 80);
+  }
+}
+
+function findProgrammeForRotationId(rotId) {
+  if (!rotId) return null;
+  const datasets = getAvailableDatasets();
+  for (const [progKey, ds] of Object.entries(datasets)) {
+    if (ds && Array.isArray(ds.rotations) && ds.rotations.some(r => r.id === rotId)) {
+      return progKey;
+    }
+  }
+  return null;
+}
+
 window.addEventListener('hashchange', () => {
   if (window.location.hash.startsWith('#share=')) {
-    checkForSharedLink();
+    const parsed = parseSharedLinkPayload(window.location.hash);
+    const shareProg = detectProgrammeForSharePayload(parsed);
+    if (shareProg && shareProg !== activeProgramme) {
+      const shareHash = window.location.hash;
+      switchProgramme(shareProg, { closeLanding: true, updateUrl: false });
+      checkForSharedLink(shareHash);
+    } else {
+      checkForSharedLink();
+    }
     return;
   }
   const hashId = window.location.hash.replace('#', '');
-  if (hashId && ROTATIONS_DATA.some(r => r.id === hashId) && (hashId !== currentSelectedId || currentViewMode !== 'details')) {
-    const prefSel = document.getElementById('prefSelect');
-    if (prefSel) prefSel.value = hashId;
-    selectRotation(hashId, false);
-    setViewMode('details');
-  } else if (!hashId) {
+  if (hashId) {
+    if (activeRotations.some(r => r.id === hashId)) {
+      if (hashId !== currentSelectedId || currentViewMode !== 'details') {
+        const prefSel = document.getElementById('prefSelect');
+        if (prefSel) prefSel.value = hashId;
+        selectRotation(hashId, false);
+        setViewMode('details');
+      }
+    } else {
+      const targetProg = findProgrammeForRotationId(hashId);
+      if (targetProg) {
+        switchProgramme(targetProg, { closeLanding: true, updateUrl: true, targetRotationId: hashId });
+      }
+    }
+  } else {
     showListView();
   }
 });
@@ -4643,34 +5222,49 @@ map.on('click', () => {
 
 // 21. APPLICATION ENTRY POINT
 window.addEventListener('DOMContentLoaded', () => {
-  initRotationMetadata();
-  migrateLegacyStorage();
-  loadPersistedState();
-  initUserPrefsCache();
   applyTheme();
-  populateRegionDropdown();
-  syncCommuteModeUI(currentCommuteMode);
-  setShiftTiming(currentShiftTiming, false, false);
-  applyFiltersAndSearch();
-  updateShortlistBadge();
-  updateCompareBadge();
-  updateCustomBaseUI();
   setupModalBackdrops();
-  checkTipBannerStatus();
 
-  // Check for 1-Click partner share link in URL hash
-  if (window.location.hash.startsWith('#share=')) {
-    checkForSharedLink();
-    showListView({ fitView: true });
+  const rememberCb = document.getElementById('rememberProgrammeCheckbox');
+  const rememberEnabled = safeStorage.get(REMEMBER_PROG_KEY) === '1';
+  if (rememberCb) {
+    rememberCb.checked = rememberEnabled;
+  }
+
+  const datasets = getAvailableDatasets();
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlProg = (urlParams.get('prog') || '').toLowerCase();
+  const hash = window.location.hash || '';
+
+  if (hash.startsWith('#share=')) {
+    const parsed = parseSharedLinkPayload(hash);
+    const shareProg = detectProgrammeForSharePayload(parsed);
+    switchProgramme(shareProg, { closeLanding: true, updateUrl: false });
+    checkForSharedLink(hash);
   } else {
-    const hashId = window.location.hash.replace('#', '');
-    if (hashId && ROTATIONS_DATA.some(r => r.id === hashId)) {
-      const prefSel = document.getElementById('prefSelect');
-      if (prefSel) prefSel.value = hashId;
-      selectRotation(hashId, false);
-      setViewMode('details');
+    const hashId = hash.replace('#', '');
+    const hashProg = hashId ? findProgrammeForRotationId(hashId) : null;
+    if (hashProg) {
+      switchProgramme(hashProg, { closeLanding: true, updateUrl: true, targetRotationId: hashId });
+    } else if (urlProg && datasets[urlProg]) {
+      switchProgramme(urlProg, { closeLanding: true, updateUrl: true });
     } else {
-      showListView({ fitView: true });
+      const lastProg = safeStorage.get(LAST_PROG_KEY);
+      if (rememberEnabled && lastProg && datasets[lastProg]) {
+        switchProgramme(lastProg, { closeLanding: true, updateUrl: true });
+      } else {
+        switchProgramme('st4', { closeLanding: false, updateUrl: false });
+        document.title = 'UK Anaesthetics Rotation & Commute Explorer (CT1 & ST4)';
+        const appShell = document.getElementById('appShell');
+        const landing = document.getElementById('programmeLanding');
+        if (appShell) appShell.inert = true;
+        if (landing) landing.hidden = false;
+        updateLandingStatsAndBadges();
+        const landingHeading = document.getElementById('landingHeading');
+        if (landingHeading && typeof landingHeading.focus === 'function') {
+          landingHeading.focus();
+        }
+      }
     }
   }
 

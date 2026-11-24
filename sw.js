@@ -1,20 +1,24 @@
 /**
- * Service Worker - ST4 Anaesthetics National Rotation & Commute Explorer
+ * Service Worker - UK Anaesthetics CT1 & ST4 National Rotation & Commute Explorer
  * Provides offline resilience for hospital basements, theatres, and poor connectivity environments.
  */
 
 const CACHE_PREFIX = 'st4-';
-const CACHE_NAME = 'st4-explorer-v13';
+const CACHE_NAME = 'st4-explorer-v14';
 const TILE_CACHE = 'st4-map-tiles';
 const MAX_TILES = 1500;
 
-const STATIC_ASSETS = [
+const SAME_ORIGIN_ASSETS = [
   './',
   './index.html',
   './css/styles.css',
   './js/app.js',
   './data.js',
-  './manifest.json',
+  './data-ct1.js',
+  './manifest.json'
+];
+
+const EXTERNAL_ASSETS = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
 ];
@@ -39,8 +43,11 @@ async function trimCache(cacheName, maxItems) {
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      await cache.addAll(SAME_ORIGIN_ASSETS);
+      await Promise.allSettled(
+        EXTERNAL_ASSETS.map((assetUrl) => cache.add(assetUrl))
+      );
     }).then(() => self.skipWaiting())
   );
 });
@@ -58,6 +65,8 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
 
   // For OpenStreetMap and external tiles: Cache-first with bounded LRU trimming
@@ -89,6 +98,7 @@ self.addEventListener('fetch', (event) => {
   // Network-First (with 3.5s timeout and cache fallback) for core app shell assets (HTML, JS, CSS, data)
   const isCoreAsset = url.pathname.endsWith('index.html') ||
                       url.pathname.endsWith('data.js') ||
+                      url.pathname.endsWith('data-ct1.js') ||
                       url.pathname.endsWith('js/app.js') ||
                       url.pathname.endsWith('/app.js') ||
                       url.pathname.endsWith('css/styles.css') ||
@@ -100,25 +110,45 @@ self.addEventListener('fetch', (event) => {
   if (isCoreAsset) {
     event.respondWith(
       (async () => {
-        const fetchPromise = fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
-            const resClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, resClone);
-            });
-          }
-          return networkResponse;
-        });
+        let timeoutId;
+        const fetchPromise = fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
+              const resClone = networkResponse.clone();
+              caches.open(CACHE_NAME).then((cache) => {
+                return cache.put(event.request, resClone);
+              }).catch(() => {});
+            }
+            return networkResponse;
+          })
+          .finally(() => {
+            if (timeoutId !== undefined) {
+              clearTimeout(timeoutId);
+            }
+          });
+
+        const safeFetchPromise = fetchPromise.catch(() => null);
+
         try {
-          return await Promise.race([
-            fetchPromise,
-            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3500))
-          ]);
+          const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error('timeout')), 3500);
+          });
+          const networkResponse = await Promise.race([fetchPromise, timeoutPromise]);
+          if (networkResponse) return networkResponse;
         } catch (err) {
-          const cached = await caches.match(event.request, { ignoreSearch: true });
-          if (cached) return cached;
-          return fetchPromise;
+          // Timeout or network error: fall back to cache below
         }
+
+        const cached = await caches.match(event.request, { ignoreSearch: true });
+        if (cached) return cached;
+
+        const lateResponse = await safeFetchPromise;
+        if (lateResponse) return lateResponse;
+
+        return new Response('Offline - cached asset unavailable', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+        });
       })()
     );
     return;
@@ -131,8 +161,8 @@ self.addEventListener('fetch', (event) => {
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse.clone());
-            });
+              return cache.put(event.request, networkResponse.clone());
+            }).catch(() => {});
           }
           return networkResponse;
         })

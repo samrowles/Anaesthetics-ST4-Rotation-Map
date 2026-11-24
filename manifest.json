@@ -1,11 +1,11 @@
 {
-  "name": "ST4 Anaesthetics National Rotation & Commute Explorer",
-  "short_name": "ST4 Explorer",
-  "description": "Interactive map and commute living analysis for UK ST4 Anaesthetics rotations",
+  "name": "UK Anaesthetics CT1 & ST4 Rotation Explorer",
+  "short_name": "Anaesth Map",
+  "description": "Interactive map and commute living analysis for UK CT1 & ST4 Anaesthetics rotations",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0284c7",
+  "background_color": "#FAF9F5",
+  "theme_color": "#C96442",
   "orientation": "portrait-primary",
   "icons": [
     {

@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Automated Data Integrity & Schema Validation Suite for ST4 Anaesthetics Explorer
-Runs client-side checks on data.js to ensure zero missing hospitals, valid coordinates,
-proper schema keys, valid regions, hospital types, unique rotation identifiers, complete
-rotation metadata, and valid service worker caching configuration.
+Automated Data Integrity & Schema Validation Suite for CT1 & ST4 Anaesthetics Explorer
+Runs client-side checks on data.js and data-ct1.js to ensure zero missing hospitals, valid
+coordinates, proper schema keys, valid regions, hospital types, unique rotation identifiers,
+complete rotation metadata, dataset registration, and valid service worker caching configuration.
 """
 
 import sys
 import re
+
 
 def validate_sw_js(file_path="sw.js"):
     print(f"--> Validating {file_path}...")
@@ -31,11 +32,45 @@ def validate_sw_js(file_path="sw.js"):
         else:
             print(f"[PASS] Service Worker defines valid CACHE_NAME: '{cache_name}'.")
 
+    if "data-ct1.js" not in content:
+        errors.append("sw.js must include './data-ct1.js' in SAME_ORIGIN_ASSETS / isCoreAsset")
+
     if errors:
         for err in errors:
             print(f"  [X] {err}")
         return False
     return True
+
+
+def validate_programme_registration(content, file_path, post_rot_block):
+    errors = []
+    norm_path = file_path.replace("\\", "/")
+    basename = norm_path.rsplit("/", 1)[-1]
+
+    if basename == "data.js":
+        if not re.search(r'window\.PROGRAMME_DATASETS\.st4\s*=\s*\{', content):
+            errors.append("data.js must register window.PROGRAMME_DATASETS.st4")
+        elif not re.search(r'id:\s*["\']st4["\']', post_rot_block):
+            errors.append("data.js window.PROGRAMME_DATASETS.st4 registration must specify id: 'st4'")
+        else:
+            print("[PASS] data.js registers window.PROGRAMME_DATASETS.st4.")
+    elif basename == "data-ct1.js":
+        if not re.search(r'\(\s*function\s*\(\s*\)\s*\{', content) or not re.search(r'\}\s*\)\s*\(\s*\)\s*;', content):
+            errors.append("data-ct1.js must be wrapped in an IIFE (function() { ... })();")
+
+        for legacy_global in ("HOSPITALS", "ROTATIONS_DATA", "REGION_COLORS", "APP_CONFIG"):
+            if re.search(rf'\bwindow\.{legacy_global}\s*=', content):
+                errors.append(f"data-ct1.js must not assign window.{legacy_global}")
+
+        if not re.search(r'window\.PROGRAMME_DATASETS\.ct1\s*=\s*\{', content):
+            errors.append("data-ct1.js must register window.PROGRAMME_DATASETS.ct1")
+        elif not re.search(r'id:\s*["\']ct1["\']', post_rot_block):
+            errors.append("data-ct1.js window.PROGRAMME_DATASETS.ct1 registration must specify id: 'ct1'")
+        else:
+            print("[PASS] data-ct1.js registers window.PROGRAMME_DATASETS.ct1 inside IIFE without clobbering globals.")
+
+    return errors
+
 
 def validate_data_js(file_path="data.js", sw_path="sw.js"):
     print(f"--> Validating {file_path}...")
@@ -51,7 +86,7 @@ def validate_data_js(file_path="data.js", sw_path="sw.js"):
     # 1. Parse REGION_COLORS first
     color_match = re.search(r'const REGION_COLORS\s*=\s*\{([^}]+)\}', content)
     if not color_match:
-        errors.append("const REGION_COLORS declaration missing from data.js")
+        errors.append(f"const REGION_COLORS declaration missing from {file_path}")
         declared_colors = set()
     else:
         declared_colors = set(re.findall(r'"([^"]+)":\s*"#[0-9a-fA-F]{6}"', color_match.group(1)))
@@ -61,11 +96,18 @@ def validate_data_js(file_path="data.js", sw_path="sw.js"):
     hosp_start = content.find("const HOSPITALS = {")
     rot_start = content.find("const ROTATIONS_DATA = [")
     if hosp_start == -1 or rot_start == -1:
-        errors.append("Could not locate const HOSPITALS or const ROTATIONS_DATA boundaries in data.js")
+        errors.append(f"Could not locate const HOSPITALS or const ROTATIONS_DATA boundaries in {file_path}")
         return False
 
+    rot_end_match = re.search(r'^\s*\];', content[rot_start:], re.MULTILINE)
+    if not rot_end_match:
+        errors.append(f"Could not locate closing '];' for const ROTATIONS_DATA in {file_path}")
+        return False
+
+    rot_end = rot_start + rot_end_match.end()
     hosp_block = content[hosp_start:rot_start]
-    rot_block = content[rot_start:]
+    rot_block = content[rot_start:rot_end]
+    post_rot_block = content[rot_end:]
 
     # 3. Clean Hospital Parsing (No fragile string slices)
     # Match hospital declarations: "Hospital Name": { coords: [...], region: "...", type: "..." }
@@ -102,11 +144,11 @@ def validate_data_js(file_path="data.js", sw_path="sw.js"):
         lat, lon = hdata["coords"]
         if not (49.0 <= lat <= 61.5 and -9.5 <= lon <= 3.0):
             errors.append(f"Hospital '{hname}' coordinates out of UK bounds: [{lat}, {lon}]")
-        
+
         # Check region exists in REGION_COLORS
         if hdata["region"] not in declared_colors:
             errors.append(f"Hospital '{hname}' has region '{hdata['region']}' which is missing from REGION_COLORS")
-        
+
         # Check hospital type
         if hdata["type"] not in ("Tertiary", "DGH"):
             errors.append(f"Hospital '{hname}' has invalid type '{hdata['type']}' (must be 'Tertiary' or 'DGH')")
@@ -201,15 +243,20 @@ def validate_data_js(file_path="data.js", sw_path="sw.js"):
         if not validate_sw_js(sw_path):
             errors.append("sw.js validation checks failed.")
 
+    # 11. Programme Dataset Registration & Global Isolation Checks
+    errors.extend(validate_programme_registration(content, file_path, post_rot_block))
+
     if errors:
-        print("\n=== VALIDATION FAILED ===")
+        print(f"\n=== VALIDATION FAILED ({file_path}) ===")
         for err in errors:
             print(f"  [X] {err}")
         return False
 
-    print("\n[SUCCESS] ALL INTEGRITY CHECKS PASSED: 100% data consistency verified.")
+    print(f"\n[SUCCESS] ALL INTEGRITY CHECKS PASSED ({file_path}): 100% data consistency verified.")
     return True
 
+
 if __name__ == "__main__":
-    success = validate_data_js()
-    sys.exit(0 if success else 1)
+    st4_ok = validate_data_js("data.js", sw_path="sw.js")
+    ct1_ok = validate_data_js("data-ct1.js", sw_path=None)
+    sys.exit(0 if (st4_ok and ct1_ok) else 1)
